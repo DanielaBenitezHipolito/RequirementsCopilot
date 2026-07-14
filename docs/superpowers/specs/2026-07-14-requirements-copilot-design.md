@@ -53,7 +53,7 @@ Regla de dependencias hacia adentro: `Domain ← Application ← Infrastructure 
 ## Dominio
 
 - **`Analysis`** (agregado raíz): `Id`, `FileName`, `CreatedAt`, `Status` (`Processing | Completed | Failed`), `Requirements[]`, `Error?`.
-- **`Requirement`**: `Code` (REQ-001…), `Text`, `Evaluation`, `UserStories[]`.
+- **`Requirement`**: `Code` (REQ-001…), `Text`, `Area` (área funcional detectada del documento, ej. Pagos, Seguridad, Reportes), `Evaluation`, `UserStories[]`.
 - **`Evaluation`**: 5 `CriterionScore` (criterio, score 1–5, observación), `Average`, `Passed` (average ≥ umbral). Umbral llega como parámetro — el dominio no lee configuración.
 - **`UserStory`**: `Role`, `Goal` ("quiero"), `Benefit` ("para"), `AcceptanceCriteria[]`, `TestCase`.
 - **`TestCase`**: `Title`, `Preconditions[]`, `Steps[]`, `ExpectedResult`.
@@ -72,7 +72,7 @@ Entidades con factory methods; invariantes en el dominio (score 1–5, código n
 
 Cada agente es una clase con prompt propio (pequeño, especializado) que consume `IChatCompletion` y parsea JSON a la defensiva (utilidad `JsonText.FirstJsonObject`, patrón JYDE: robusto ante prosa, vallas ``` y JSON duplicado):
 
-1. **`RequirementExtractorAgent`** — texto del documento → `{ requerimientos: [{ codigo, texto }] }`.
+1. **`RequirementExtractorAgent`** — texto del documento → `{ requerimientos: [{ codigo, texto, area }] }`. El área es el eje de clasificación/filtrado (no el rol de la historia).
 2. **`RequirementEvaluatorAgent`** — un requerimiento → `{ criterios: [{ nombre, score, observacion }] }`.
 3. **`StoryWriterAgent`** — requerimiento aprobado → `{ historias: [{ rol, quiero, para, criteriosAceptacion[] }] }`.
 4. **`TestCaseWriterAgent`** — una historia → `{ titulo, precondiciones[], pasos[], resultadoEsperado }`.
@@ -121,7 +121,7 @@ Vistas:
 
 1. **Analizar** — drag & drop del archivo; al enviar consume el SSE (fetch streaming) y muestra progreso incremental: requerimientos apareciendo, rúbrica con veredicto pasa/no pasa, historias y casos desplegándose en vivo.
 2. **Historial** — lista de análisis previos (GET /api/analyses).
-3. **Detalle** — agregado completo: requerimientos con su rúbrica (scores + observaciones), historias con criterios de aceptación y caso de prueba expandible.
+3. **Detalle** — agregado completo: requerimientos con su rúbrica (scores + observaciones), historias con criterios de aceptación y caso de prueba expandible. **Filtro por área funcional** (chips con las áreas presentes en el análisis).
 
 Tests con Vitest (store + parseo de eventos SSE).
 
