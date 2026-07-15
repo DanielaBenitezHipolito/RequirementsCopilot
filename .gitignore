@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Credenciales locales (Task 13)
+src/RequirementsCopilot.Api/appsettings.Development.json
