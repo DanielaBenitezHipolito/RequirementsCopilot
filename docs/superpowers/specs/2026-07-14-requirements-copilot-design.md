@@ -154,14 +154,14 @@ Tests con Vitest (store + parseo de eventos SSE).
 4. Persistencia MongoDB.
 5. Frontend Vite + Zustand + Tailwind.
 
-## v2 — modo conversacional (futuro, no construido)
+## v2 — modo conversacional + agentes Foundry (aprobado 2026-07-16)
 
-Idea: además de subir un documento, armar el requerimiento **conversando** — un agente entrevistador (`requirement-builder`) recibe la idea, pregunta turno a turno, redacta borradores y, al aprobarlos el usuario, inyecta el requerimiento al pipeline existente (evaluación → clarificaciones → generación manual).
+Decisiones: **todos** los agentes migran al patrón JYDE (publicados en Foundry, Responses API); chat con **SSE por turno**; requerimiento aprobado → **análisis nuevo**.
 
-Qué sobrevive sin tocar: todo el dominio, los agentes evaluador/clarificador/historias/casos, los endpoints manuales, Mongo y el detalle del front. Qué se agrega: el agente entrevistador, una entidad de sesión de conversación (`POST /api/conversations/{id}/messages`) y una vista de chat.
+1. **Puerto forma JYDE:** `ChatPrompt(string Agent, string Input, string? PreviousResponseId = null)` y `ChatResult(string Text, string? ResponseId)`. Las instrucciones salen del código: viven en los agentes publicados en Foundry; `docs/prompts-agentes.md` es la fuente para publicarlos/versionarlos. `FoundryChatCompletion` se reescribe como el de JYDE (`POST {endpoint}/openai/v1/responses`, `agent_reference {name, version}`, `previous_response_id`, extrae `output[].content[].output_text`). `FoundryOptions` gana catálogo `Chat: { Model, Agents: { código-lógico → {Name, Version, Model} } }`. `FakeChatCompletion` sigue (responde por agente, permite dev/tests sin credenciales).
+2. **Agente entrevistador** `requirement-builder-agent`: conversacional con hilo. Contrato por turno: `{"respuesta":"…","borrador":{"texto":"…","area":"…"}|null,"listo":true|false}`. Fake: primer turno (sin `PreviousResponseId`) pregunta; siguientes devuelven borrador listo.
+3. **API sin estado de sesión** (cliente lleva el hilo): `POST /api/interview` `{mensaje, previousResponseId?}` → SSE `token` → `draft`? → `done {responseId}`. `POST /api/analyses/from-requirement` `{texto, area}` → crea Analysis nuevo, corre evaluador (+clarificador si ambiguo), persiste → `{analysisId}`; el flujo sigue en el Detalle existente.
+4. **Front:** pestaña Conversar — chat SSE, panel de borrador, "Aprobar y analizar" → Detalle del análisis creado.
+5. **Docs:** ADR-0002 actualizado (desviación revertida), prompts-agentes.md con entrevistador + pasos de publicación en portal, README con `Foundry:Chat:Agents`.
 
-Decisión clave diferida — memoria del hilo:
-- **Lazy:** reenviar el historial completo en cada llamada con el adaptador actual (chat completions). Cero cambios en Foundry; techo: costo de tokens crece con la conversación.
-- **Patrón JYDE (recomendado si se construye):** publicar SOLO el entrevistador como agente en Foundry e invocar la Responses API con `agent_reference` + `previous_response_id` (hilo en el servidor). `ChatPrompt` ganaría el id de respuesta previa; el cambio queda contenido en Infrastructure gracias al puerto `IChatCompletion`. Los otros 4 agentes no son conversacionales y se quedan como están.
-
-No se construye nada de esto ahora (YAGNI); esta sección existe para no re-derivar la decisión cuando llegue la v2.
+Trade-off aceptado: usar el proveedor real exige publicar los 6 agentes en el portal de Foundry (manual); con `Fake` todo corre sin credenciales.
