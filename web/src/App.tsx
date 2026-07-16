@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { AnalyzeView } from './features/analysis/AnalyzeView';
 import { HistoryView } from './features/history/HistoryView';
 import { DetailView } from './features/history/DetailView';
+import { InterviewView } from './features/interview/InterviewView';
 
-type View = 'analyze' | 'history' | 'detail';
+type View = 'analyze' | 'interview' | 'history' | 'detail';
 
 export default function App() {
   const [view, setView] = useState<View>('analyze');
@@ -27,6 +28,7 @@ export default function App() {
           <h1 className="text-lg font-bold text-slate-800">RequirementsCopilot</h1>
           <nav className="ml-auto flex gap-1">
             {tab('analyze', 'Analizar')}
+            {tab('interview', 'Conversar')}
             {tab('history', 'Historial')}
           </nav>
         </div>
@@ -35,6 +37,14 @@ export default function App() {
         {view === 'analyze' && (
           <AnalyzeView
             onOpenDetail={(id) => {
+              setSelectedId(id);
+              setView('detail');
+            }}
+          />
+        )}
+        {view === 'interview' && (
+          <InterviewView
+            onAnalyzed={(id) => {
               setSelectedId(id);
               setView('detail');
             }}

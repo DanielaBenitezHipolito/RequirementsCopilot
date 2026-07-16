@@ -44,3 +44,25 @@ export async function generateStories(id: string, codigo: string): Promise<any> 
   const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stories`, { method: 'POST' });
   return readOrThrow(response);
 }
+
+export async function sendConversationMessage(mensaje: string, previousResponseId?: string): Promise<Response> {
+  const response = await fetch(`${API_BASE}/api/conversations/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mensaje, previousResponseId: previousResponseId ?? null }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
+  return response;
+}
+
+export async function completeConversation(texto: string, area: string): Promise<{ analysisId: string }> {
+  const response = await fetch(`${API_BASE}/api/conversations/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto, area }),
+  });
+  return readOrThrow(response);
+}
