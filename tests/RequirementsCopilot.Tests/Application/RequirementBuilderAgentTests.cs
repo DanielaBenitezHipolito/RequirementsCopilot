@@ -59,4 +59,15 @@ public class RequirementBuilderAgentTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => new RequirementBuilderAgent(chat).ChatAsync("idea", null));
     }
+
+    [Fact]
+    public async Task ChatAsync_MensajeVacio_Lanza()
+    {
+        var chat = new StubChatCompletion
+        {
+            Reply = _ => "{\"listo\":false,\"mensaje\":\"   \",\"requerimiento\":null}",
+        };
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => new RequirementBuilderAgent(chat).ChatAsync("idea", null));
+    }
 }

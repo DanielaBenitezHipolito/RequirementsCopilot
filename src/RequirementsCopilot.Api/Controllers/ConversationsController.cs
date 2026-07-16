@@ -1,3 +1,6 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
 using Microsoft.AspNetCore.Mvc;
 using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
@@ -17,6 +20,11 @@ public sealed class ConversationsController : ControllerBase
 
     public sealed record CompleteRequest(string? Texto, string? Area);
 
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+    };
+
     private readonly RequirementBuilderAgent _builder;
     private readonly AnalysisOrchestrator _orchestrator;
 
@@ -31,21 +39,33 @@ public sealed class ConversationsController : ControllerBase
             return BadRequest(new { mensaje = "El mensaje no puede estar vacío." });
         }
 
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+
         try
         {
             BuilderTurn turn = await _builder.ChatAsync(request.Mensaje, request.PreviousResponseId, cancellationToken);
-            return Ok(new
+
+            await WriteEventAsync("token", new { texto = turn.Mensaje }, cancellationToken);
+            if (turn.Listo && turn.Texto is not null)
             {
-                mensaje = turn.Mensaje,
-                listo = turn.Listo,
-                requerimiento = turn.Listo ? new { texto = turn.Texto, area = turn.Area } : null,
-                previousResponseId = turn.ResponseId,
-            });
+                await WriteEventAsync("draft", new { requerimiento = new { texto = turn.Texto, area = turn.Area } }, cancellationToken);
+            }
+            await WriteEventAsync("done", new { responseId = turn.ResponseId }, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new { mensaje = ex.Message });
+            await WriteEventAsync("error", new { mensaje = ex.Message }, cancellationToken);
         }
+
+        return new EmptyResult();
+    }
+
+    private async Task WriteEventAsync(string name, object payload, CancellationToken cancellationToken)
+    {
+        string data = JsonSerializer.Serialize(payload, JsonOptions);
+        await Response.WriteAsync($"event: {name}\ndata: {data}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
     }
 
     [HttpPost("complete")]

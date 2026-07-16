@@ -30,9 +30,14 @@ public sealed class RequirementBuilderAgent
         BuilderReply reply = JsonSerializer.Deserialize<BuilderReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente entrevistador devolvió una respuesta vacía.");
 
+        if (string.IsNullOrWhiteSpace(reply.Mensaje))
+        {
+            throw new InvalidOperationException("El agente entrevistador devolvió un mensaje vacío.");
+        }
+
         bool ready = reply.Listo && !string.IsNullOrWhiteSpace(reply.Requerimiento?.Texto);
         return new BuilderTurn(
-            reply.Mensaje ?? string.Empty,
+            reply.Mensaje,
             ready,
             ready ? reply.Requerimiento!.Texto!.Trim() : null,
             ready ? reply.Requerimiento!.Area?.Trim() : null,
