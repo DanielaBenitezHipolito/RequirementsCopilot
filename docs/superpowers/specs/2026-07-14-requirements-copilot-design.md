@@ -22,7 +22,7 @@ Fuera de alcance: autenticación, base de conocimiento/embeddings, reportes Exce
 |---|---|
 | Arquitectura backend | Hexagonal (puertos y adaptadores) + DDD, .NET (espejo ADR-0001 JYDE) |
 | IA | Azure AI Foundry GPT-4.1-mini tras puerto `IChatCompletion`; adaptador `Fake` para dev sin credenciales, selección por `Providers:Chat` (ADR-0003/0004) |
-| Multiagente | Pipeline secuencial de 4 agentes especializados, **sin router** (el flujo es determinista, no conversacional) — adaptación de ADR-0015 |
+| Multiagente | Pipeline secuencial de 5 agentes especializados, **sin router** (el flujo es determinista, no conversacional) — adaptación de ADR-0015 |
 | Persistencia | MongoDB, colección `analyses` (ADR-0012) |
 | Criterios | Rúbrica fija (Claridad, Completitud, Verificabilidad, Consistencia, Factibilidad), score 1–5 + observación; umbral de aprobación configurable (`Analysis:PassThreshold`, default 3.5) |
 | Generación | **Manual** (`POST …/stories`): aprobado directo, o ambiguo con clarificaciones respondidas → historias → 1 caso de prueba por historia. Cambiado de automático a manual por decisión de producto (2026-07-16) |
@@ -87,14 +87,16 @@ Cada agente es una clase con prompt propio (pequeño, especializado) que consume
 
 ```
 ExtractText → ExtractorAgent → por cada requerimiento:
-    EvaluatorAgent → si Passed: StoryWriterAgent → por cada historia: TestCaseWriterAgent
+    EvaluatorAgent → si es ambiguo (no pasa umbral, o Claridad/Completitud < 4): ClarifierAgent
 → persistir Analysis → done
 ```
 
 Emite `IAsyncEnumerable<AnalysisEvent>`:
-`status` → `requirement` → `evaluation` → `story` → `testcase` → … → `done` | `error`.
+`status` → `requirement` → `evaluation` → `clarification`? → … → `done` | `error`.
 
-Guardrails: si un requerimiento no pasa, se declara el motivo (observaciones de la rúbrica) y **no** se generan historias. Si el LLM falla o el JSON no es parseable tras reintento defensivo, el análisis termina en `Failed` con evento `error`; nunca se inventa contenido.
+Las historias y casos **no** se generan en el upload: se disparan manualmente vía `POST …/stories` (StoryWriterAgent + TestCaseWriterAgent por historia), permitido solo si el requerimiento está listo (`ReadyForStories`: aprobado directo, o con todas las clarificaciones respondidas).
+
+Guardrails: un requerimiento ambiguo exige responder las preguntas antes de generar historias (409 si faltan). Si el LLM falla o el JSON no es parseable tras reintento defensivo, el análisis termina en `Failed` con evento `error`; nunca se inventa contenido.
 
 ## Infrastructure
 
