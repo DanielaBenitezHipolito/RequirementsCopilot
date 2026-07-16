@@ -12,10 +12,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 string corsOrigin = builder.Configuration["Cors:Origin"] ?? "http://localhost:5173";
-// ponytail: en dev Vite salta de puerto (5173 ocupado -> 5174/5175); se acepta cualquier loopback ademas del origen configurado.
+// En dev Vite salta de puerto (5173 ocupado -> 5174/5175): se acepta cualquier loopback además del origen configurado.
+bool allowLoopback = builder.Environment.IsDevelopment();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.SetIsOriginAllowed(origin =>
-            origin == corsOrigin || (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback))
+            origin == corsOrigin ||
+            (allowLoopback && Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback))
         .AllowAnyHeader().AllowAnyMethod()));
 
 // Puertos y adaptadores seleccionables por configuración (patrón Providers de JYDE).
