@@ -153,3 +153,15 @@ Tests con Vitest (store + parseo de eventos SSE).
 3. Pipeline secuencial de agentes especializados sin router (adaptación de ADR-0015; el router se descarta porque el flujo no es conversacional).
 4. Persistencia MongoDB.
 5. Frontend Vite + Zustand + Tailwind.
+
+## v2 — modo conversacional (futuro, no construido)
+
+Idea: además de subir un documento, armar el requerimiento **conversando** — un agente entrevistador (`requirement-builder`) recibe la idea, pregunta turno a turno, redacta borradores y, al aprobarlos el usuario, inyecta el requerimiento al pipeline existente (evaluación → clarificaciones → generación manual).
+
+Qué sobrevive sin tocar: todo el dominio, los agentes evaluador/clarificador/historias/casos, los endpoints manuales, Mongo y el detalle del front. Qué se agrega: el agente entrevistador, una entidad de sesión de conversación (`POST /api/conversations/{id}/messages`) y una vista de chat.
+
+Decisión clave diferida — memoria del hilo:
+- **Lazy:** reenviar el historial completo en cada llamada con el adaptador actual (chat completions). Cero cambios en Foundry; techo: costo de tokens crece con la conversación.
+- **Patrón JYDE (recomendado si se construye):** publicar SOLO el entrevistador como agente en Foundry e invocar la Responses API con `agent_reference` + `previous_response_id` (hilo en el servidor). `ChatPrompt` ganaría el id de respuesta previa; el cambio queda contenido en Infrastructure gracias al puerto `IChatCompletion`. Los otros 4 agentes no son conversacionales y se quedan como están.
+
+No se construye nada de esto ahora (YAGNI); esta sección existe para no re-derivar la decisión cuando llegue la v2.
