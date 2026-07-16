@@ -33,7 +33,12 @@ const initial = {
 export const useInterviewStore = create<InterviewState>((set) => ({
   ...initial,
   addUserMessage: (text) =>
-    set((state) => ({ messages: [...state.messages, { role: 'user', text }], status: 'sending', error: undefined })),
+    set((state) => ({
+      messages: [...state.messages, { role: 'user', text }],
+      draft: undefined,
+      status: 'sending',
+      error: undefined,
+    })),
   reset: () => set({ ...initial }),
   applyEvent: (evt) =>
     set((state) => {

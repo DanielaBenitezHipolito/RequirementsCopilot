@@ -25,6 +25,13 @@ describe('useInterviewStore', () => {
     expect(useInterviewStore.getState().draft).toEqual({ texto: 'debe X', area: 'Pagos' });
   });
 
+  it('addUserMessage limpia un draft existente al iniciar un nuevo turno', () => {
+    useInterviewStore.getState().applyEvent({ event: 'draft', data: { requerimiento: { texto: 'debe X', area: 'Pagos' } } });
+    expect(useInterviewStore.getState().draft).toEqual({ texto: 'debe X', area: 'Pagos' });
+    useInterviewStore.getState().addUserMessage('otra cosa');
+    expect(useInterviewStore.getState().draft).toBeUndefined();
+  });
+
   it('done guarda previousResponseId y vuelve a idle', () => {
     const { applyEvent } = useInterviewStore.getState();
     applyEvent({ event: 'done', data: { responseId: 'resp-1' } });

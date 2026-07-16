@@ -4,7 +4,7 @@ import { parseSse } from '../../shared/api/sse';
 import { useInterviewStore } from './store';
 
 export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string) => void }) {
-  const { messages, draft, previousResponseId, status, error, addUserMessage, applyEvent } = useInterviewStore();
+  const { messages, draft, previousResponseId, status, error, addUserMessage, applyEvent, reset } = useInterviewStore();
   const [text, setText] = useState('');
   const [approving, setApproving] = useState(false);
 
@@ -26,6 +26,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
     setApproving(true);
     try {
       const { analysisId } = await completeConversation(draft.texto, draft.area);
+      reset();
       onAnalyzed?.(analysisId);
     } catch (e) {
       applyEvent({ event: 'error', data: { mensaje: e instanceof Error ? e.message : 'Error inesperado' } });

@@ -14,6 +14,8 @@ También existe la pestaña **Conversar**: un chat donde el usuario describe su 
 natural, un agente entrevistador (`requirement-builder-agent`) le hace preguntas turno a turno hasta
 tener información suficiente, redacta un borrador de requerimiento (texto + área) y, al confirmarlo,
 lo envía al mismo pipeline de análisis (extracción ya resuelta → evaluación → historias → casos).
+Cada turno se transmite por **SSE**, pero no token a token: el evento `token` llega una sola vez con
+la respuesta completa del turno.
 
 Fuera de alcance de este MVP: autenticación, base de conocimiento/embeddings, reportes Excel/Word,
 edición de requerimientos, multi-tenancy.
@@ -79,7 +81,6 @@ variables de entorno.
 | `Foundry:ApiKey` | — | API key de Foundry. **Secret** — no commitear. |
 | `Foundry:Chat:Model` | `gpt-4.1-mini` | Modelo asignado a los agentes publicados en Foundry. |
 | `Foundry:Chat:Agents` | — | Mapeo código lógico → agente publicado en Foundry (`Name`/`Version`). Uno por cada uno de los 6 agentes (ver `docs/prompts-agentes.md`). |
-| `Foundry:ApiVersion` | — | Versión de la API de Foundry a usar. |
 | `Mongo:ConnectionString` | — | Cadena de conexión a MongoDB. **Secret** — no commitear. Solo necesario con `Providers:AnalysisRepository = Mongo`. |
 | `Mongo:Database` | `requirements_copilot` | Base de datos de Mongo donde vive la colección `analyses`. |
 | `Cors:Origin` | `http://localhost:5173` | Origen permitido por CORS (el frontend en dev). |
@@ -99,7 +100,7 @@ los agentes deben estar **publicados en Foundry** antes — pasos y contrato de 
 ```json
 {
   "Foundry": {
-    "Endpoint": "https://<recurso>.services.ai.azure.com",
+    "Endpoint": "https://<recurso>.services.ai.azure.com/api/projects/<proyecto>",
     "Chat": {
       "Model": "gpt-4.1-mini",
       "Agents": {
@@ -119,7 +120,7 @@ los agentes deben estar **publicados en Foundry** antes — pasos y contrato de 
 
 | Método y ruta | Descripción |
 |---|---|
-| `POST /api/conversations/messages` | Turno del chat "Conversar": envía el mensaje del usuario (+ `previousResponseId`), responde por **SSE** (`token`, `draft` si ya hay borrador de requerimiento, `done`, `error`). |
+| `POST /api/conversations/messages` | Turno del chat "Conversar": envía el mensaje del usuario (+ `previousResponseId`), responde por **SSE** (un evento `token` por turno, con la respuesta completa; `draft` si ya hay borrador de requerimiento; `done`; `error`). |
 | `POST /api/conversations/complete` | Envía el requerimiento (texto + área) confirmado en el chat al pipeline de análisis; devuelve el `analysisId` creado. |
 
 (resto de endpoints del pipeline de documentos — subida, consulta de análisis, clarificaciones,

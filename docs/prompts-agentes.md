@@ -194,7 +194,7 @@ El mapeo de código lógico → agente publicado vive en `Foundry:Chat:Agents`:
 ```json
 {
   "Foundry": {
-    "Endpoint": "https://<recurso>.services.ai.azure.com",
+    "Endpoint": "https://<recurso>.services.ai.azure.com/api/projects/<proyecto>",
     "ApiKey": "...",
     "Chat": {
       "Model": "gpt-4.1-mini",
