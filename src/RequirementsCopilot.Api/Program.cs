@@ -57,6 +57,7 @@ builder.Services.AddScoped<RequirementEvaluatorAgent>();
 builder.Services.AddScoped<ClarifierAgent>();
 builder.Services.AddScoped<StoryWriterAgent>();
 builder.Services.AddScoped<TestCaseWriterAgent>();
+builder.Services.AddScoped<RequirementBuilderAgent>();
 builder.Services.AddScoped<AnalysisOrchestrator>();
 builder.Services.AddScoped<AnalysisQueries>();
 

@@ -111,6 +111,50 @@ public sealed class AnalysisOrchestrator
         yield return AnalysisEvent.Done(analysis.Id);
     }
 
+    /// <summary>
+    /// Entrada conversacional (v2): crea un análisis con el requerimiento armado en el chat,
+    /// lo evalúa y genera preguntas de clarificación si aplica. Devuelve el id del análisis;
+    /// desde ahí el flujo continúa igual que el de documentos (responder → generar historias).
+    /// </summary>
+    public async Task<Guid> CreateFromRequirementAsync(string text, string? area,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidOperationException("El requerimiento no puede estar vacío.");
+        }
+
+        string title = text.Trim();
+        Analysis analysis = Analysis.Create(
+            $"Conversación: {(title.Length > 40 ? title[..40] + "…" : title)}");
+        Requirement requirement = Requirement.Create("REQ-001", text, area ?? "General");
+        analysis.AddRequirement(requirement);
+
+        try
+        {
+            Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold, cancellationToken);
+            requirement.Evaluate(evaluation);
+            if (NeedsClarification(evaluation))
+            {
+                foreach (string question in await _clarifier.AskAsync(requirement, cancellationToken))
+                {
+                    requirement.AddClarification(Clarification.Create(question));
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            analysis.Fail(ex.Message);
+            await _repository.SaveAsync(analysis, cancellationToken);
+            throw new InvalidOperationException(ex.Message);
+        }
+
+        analysis.Complete();
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return analysis.Id;
+    }
+
     /// <summary>Guarda las respuestas del cliente a las preguntas de clarificación (por índice).</summary>
     public async Task<RequirementDetailDto> AnswerClarificationsAsync(Guid analysisId, string requirementCode,
         IReadOnlyList<string?> answers, CancellationToken cancellationToken = default)

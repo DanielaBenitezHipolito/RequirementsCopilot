@@ -147,6 +147,50 @@ public class AnalysisOrchestratorTests
     }
 
     [Fact]
+    public async Task CreateFromRequirementAsync_RequerimientoClaro_CreaAnalisisEvaluado()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+
+        // el stub evalúa alto cuando el input contiene REQ-001 (código asignado por la entrada conversacional)
+        Guid id = await orchestrator.CreateFromRequirementAsync("El sistema debe registrar pagos con consecutivo", "Pagos");
+
+        Assert.Equal(id, repository.Saved!.Id);
+        Assert.Equal(AnalysisStatus.Completed, repository.Saved.Status);
+        Assert.StartsWith("Conversación:", repository.Saved.FileName);
+        var requirement = Assert.Single(repository.Saved.Requirements);
+        Assert.True(requirement.Evaluation!.Passed);
+        Assert.Empty(requirement.Stories); // las historias siguen siendo manuales
+    }
+
+    [Fact]
+    public async Task CreateFromRequirementAsync_Ambiguo_GuardaPreguntasDeClarificacion()
+    {
+        var chat = PipelineChat();
+        var baseReply = chat.Reply;
+        chat.Reply = prompt => prompt.Agent == RequirementEvaluatorAgent.AgentName ? LowRubric() : baseReply(prompt);
+        var repository = new StubRepository();
+
+        await Orchestrator(chat, repository).CreateFromRequirementAsync("El sistema debe ser rápido", null);
+
+        var requirement = Assert.Single(repository.Saved!.Requirements);
+        Assert.False(requirement.Evaluation!.Passed);
+        Assert.Equal(2, requirement.Clarifications.Count);
+        Assert.Equal("General", requirement.Area);
+    }
+
+    [Fact]
+    public async Task CreateFromRequirementAsync_EvaluadorFalla_PersisteFailedYLanza()
+    {
+        var chat = new StubChatCompletion { Reply = _ => "no json" };
+        var repository = new StubRepository();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Orchestrator(chat, repository).CreateFromRequirementAsync("texto válido", null));
+        Assert.Equal(AnalysisStatus.Failed, repository.Saved!.Status);
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_ExtractorFalla_EmiteErrorYPersisteFailed()
     {
         var chat = new StubChatCompletion { Reply = _ => "no json" };

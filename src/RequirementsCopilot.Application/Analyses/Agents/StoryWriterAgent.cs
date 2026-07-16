@@ -7,13 +7,6 @@ public sealed class StoryWriterAgent
 {
     public const string AgentName = "story-writer-agent";
 
-    private const string Instructions =
-        "Eres un product owner. A partir del requerimiento aprobado, escribe las historias de usuario necesarias " +
-        "(mínimo 1, máximo 4), cada una con rol, objetivo (quiero), beneficio (para) y de 1 a 4 criterios de aceptación " +
-        "verificables en formato dado/cuando/entonces. " +
-        "Responde ÚNICAMENTE este JSON: {\"historias\":[{\"rol\":\"...\",\"quiero\":\"...\",\"para\":\"...\",\"criteriosAceptacion\":[\"...\"]}]} " +
-        "No inventes funcionalidad que el requerimiento no mencione.";
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IChatCompletion _chat;
@@ -28,7 +21,7 @@ public sealed class StoryWriterAgent
             : "\n\nAclaraciones del cliente (úsalas para no malinterpretar):\n" +
               string.Join("\n", answered.Select(c => $"- P: {c.Question} R: {c.Answer}"));
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, Instructions,
+            new ChatPrompt(AgentName,
                 $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
             cancellationToken);
 

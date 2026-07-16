@@ -11,12 +11,29 @@ public class FakeChatCompletionTests
     [Theory]
     [InlineData(RequirementExtractorAgent.AgentName)]
     [InlineData(RequirementEvaluatorAgent.AgentName)]
+    [InlineData(ClarifierAgent.AgentName)]
     [InlineData(StoryWriterAgent.AgentName)]
     [InlineData(TestCaseWriterAgent.AgentName)]
+    [InlineData(RequirementBuilderAgent.AgentName)]
     public async Task CompleteAsync_CadaAgente_DevuelveJsonParseable(string agent)
     {
-        var result = await _fake.CompleteAsync(new ChatPrompt(agent, "instr", "REQ-001 input"));
+        var result = await _fake.CompleteAsync(new ChatPrompt(agent, "REQ-001 input"));
         Assert.NotNull(JsonText.FirstJsonObject(result.Text));
+        Assert.False(string.IsNullOrEmpty(result.ResponseId));
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Builder_PreguntaPrimeroYRedactaConHilo()
+    {
+        var builder = new RequirementBuilderAgent(_fake);
+
+        var first = await builder.ChatAsync("Quiero controlar pagos de reservas", null);
+        Assert.False(first.Listo);
+        Assert.False(string.IsNullOrWhiteSpace(first.Mensaje));
+
+        var second = await builder.ChatAsync("El recepcionista; monto, fecha y consecutivo", first.ResponseId);
+        Assert.True(second.Listo);
+        Assert.False(string.IsNullOrWhiteSpace(second.Texto));
     }
 
     [Fact]

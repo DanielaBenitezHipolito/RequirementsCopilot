@@ -7,12 +7,6 @@ public sealed class ClarifierAgent
 {
     public const string AgentName = "clarifier-agent";
 
-    private const string Instructions =
-        "Eres un analista de requerimientos. El requerimiento dado tiene debilidades según su rúbrica de calidad. " +
-        "Formula de 1 a 4 preguntas de clarificación dirigidas al cliente, concretas y cerradas a un dato verificable, " +
-        "que resuelvan las ambigüedades señaladas en las observaciones y eviten malas interpretaciones al escribir historias de usuario. " +
-        "Responde ÚNICAMENTE este JSON: {\"preguntas\":[\"...\"]}";
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IChatCompletion _chat;
@@ -26,7 +20,7 @@ public sealed class ClarifierAgent
             : "\nObservaciones de la rúbrica:\n" + string.Join("\n",
                 requirement.Evaluation.Scores.Select(s => $"- {s.Criterion} ({s.Score}/5): {s.Observation}"));
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, Instructions,
+            new ChatPrompt(AgentName,
                 $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}"),
             cancellationToken);
 

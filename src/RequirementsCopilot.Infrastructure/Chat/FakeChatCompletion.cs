@@ -42,6 +42,13 @@ public sealed class FakeChatCompletion : IChatCompletion
         "\"pasos\":[\"Abrir la reserva\",\"Ingresar monto y tarjeta\",\"Confirmar el pago\"]," +
         "\"resultadoEsperado\":\"El pago queda registrado con consecutivo y la reserva marcada como pagada\"}";
 
+    private const string BuilderQuestionReply =
+        "{\"listo\":false,\"mensaje\":\"¿Quién usará esta funcionalidad y qué dato debe quedar registrado al final?\",\"requerimiento\":null}";
+
+    private const string BuilderReadyReply =
+        "{\"listo\":true,\"mensaje\":\"Con eso es suficiente; este es el requerimiento propuesto.\"," +
+        "\"requerimiento\":{\"texto\":\"El sistema debe permitir al recepcionista registrar el pago de una reserva, guardando monto, fecha y consecutivo.\",\"area\":\"Pagos\"}}";
+
     public Task<ChatResult> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
@@ -53,9 +60,12 @@ public sealed class FakeChatCompletion : IChatCompletion
             ClarifierAgent.AgentName => ClarifierReply,
             StoryWriterAgent.AgentName => StoriesReply,
             TestCaseWriterAgent.AgentName => TestCaseReply,
+            // ponytail: guion fijo — 1a llamada pregunta, con hilo previo redacta. Suficiente para demo sin credenciales.
+            RequirementBuilderAgent.AgentName =>
+                string.IsNullOrEmpty(prompt.PreviousResponseId) ? BuilderQuestionReply : BuilderReadyReply,
             _ => "{}",
         };
-        return Task.FromResult(new ChatResult(text));
+        return Task.FromResult(new ChatResult(text, "fake-response-id"));
     }
 
     private static bool IsOddRequirement(string input)

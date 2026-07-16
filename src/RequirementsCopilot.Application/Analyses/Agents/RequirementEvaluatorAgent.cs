@@ -7,13 +7,6 @@ public sealed class RequirementEvaluatorAgent
 {
     public const string AgentName = "requirement-evaluator-agent";
 
-    private const string Instructions =
-        "Eres un evaluador de calidad de requerimientos de software. Evalúa el requerimiento dado contra CADA uno de estos " +
-        "criterios: Claridad, Completitud, Verificabilidad, Consistencia, Factibilidad. Asigna score entero de 1 (muy deficiente) " +
-        "a 5 (excelente) y una observación breve que justifique el score. " +
-        "Responde ÚNICAMENTE este JSON: {\"criterios\":[{\"nombre\":\"Claridad\",\"score\":4,\"observacion\":\"...\"}]} " +
-        "con exactamente los 5 criterios. Sé estricto: un requerimiento ambiguo o no medible no merece más de 2 en ese criterio.";
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IChatCompletion _chat;
@@ -23,7 +16,7 @@ public sealed class RequirementEvaluatorAgent
     public async Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold, CancellationToken cancellationToken = default)
     {
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, Instructions, $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}"),
+            new ChatPrompt(AgentName, $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}"),
             cancellationToken);
 
         string json = JsonText.FirstJsonObject(result.Text)
