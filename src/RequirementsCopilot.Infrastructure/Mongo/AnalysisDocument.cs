@@ -34,6 +34,7 @@ public sealed class RequirementDocument
     public string Text { get; set; } = string.Empty;
     public string Area { get; set; } = string.Empty;
     public EvaluationDocument? Evaluation { get; set; }
+    public List<ClarificationDocument> Clarifications { get; set; } = new();
     public List<StoryDocument> Stories { get; set; } = new();
 
     public static RequirementDocument FromDomain(Requirement requirement) => new()
@@ -42,6 +43,10 @@ public sealed class RequirementDocument
         Text = requirement.Text,
         Area = requirement.Area,
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
+        Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
+        {
+            Question = c.Question, Answer = c.Answer,
+        }).ToList(),
         Stories = requirement.Stories.Select(StoryDocument.FromDomain).ToList(),
     };
 
@@ -52,12 +57,22 @@ public sealed class RequirementDocument
         {
             requirement.Evaluate(Evaluation.ToDomain());
         }
+        foreach (ClarificationDocument clarification in Clarifications)
+        {
+            requirement.AddClarification(Domain.Analyses.Clarification.Rehydrate(clarification.Question, clarification.Answer));
+        }
         foreach (StoryDocument story in Stories)
         {
             requirement.AddStory(story.ToDomain());
         }
         return requirement;
     }
+}
+
+public sealed class ClarificationDocument
+{
+    public string Question { get; set; } = string.Empty;
+    public string? Answer { get; set; }
 }
 
 public sealed class EvaluationDocument

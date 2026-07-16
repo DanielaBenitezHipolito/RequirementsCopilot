@@ -64,6 +64,34 @@ public sealed class AnalysesController : ControllerBase
         return detail is null ? NotFound(new { mensaje = "Análisis no encontrado." }) : Ok(detail);
     }
 
+    public sealed record ClarificationAnswersRequest(List<string?>? Respuestas);
+
+    [HttpPut("{id:guid}/requirements/{code}/clarifications")]
+    public Task<IActionResult> AnswerClarifications(Guid id, string code,
+        [FromBody] ClarificationAnswersRequest? request, CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.AnswerClarificationsAsync(
+            id, code, request?.Respuestas ?? new List<string?>(), cancellationToken));
+
+    [HttpPost("{id:guid}/requirements/{code}/stories")]
+    public Task<IActionResult> GenerateStories(Guid id, string code, CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, cancellationToken));
+
+    private static async Task<IActionResult> ExecuteAsync(Func<Task<RequirementDetailDto>> action)
+    {
+        try
+        {
+            return new OkObjectResult(await action());
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return new NotFoundObjectResult(new { mensaje = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ConflictObjectResult(new { mensaje = ex.Message });
+        }
+    }
+
     private async Task WriteEventAsync(AnalysisEvent analysisEvent, CancellationToken cancellationToken)
     {
         string name = analysisEvent.Kind.ToString().ToLowerInvariant();
@@ -72,6 +100,7 @@ public sealed class AnalysesController : ControllerBase
             AnalysisEventKind.Status => new { mensaje = analysisEvent.Message },
             AnalysisEventKind.Requirement => new { requerimiento = analysisEvent.Requirement },
             AnalysisEventKind.Evaluation => new { evaluacion = analysisEvent.Evaluation },
+            AnalysisEventKind.Clarification => new { aclaracion = analysisEvent.Clarification },
             AnalysisEventKind.Story => new { historia = analysisEvent.Story },
             AnalysisEventKind.TestCase => new { caso = analysisEvent.TestCase },
             AnalysisEventKind.Done => new { analysisId = analysisEvent.AnalysisId },

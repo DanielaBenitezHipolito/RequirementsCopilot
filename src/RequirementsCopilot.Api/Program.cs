@@ -54,6 +54,7 @@ builder.Services.AddSingleton(new AnalysisOptions
 builder.Services.AddSingleton<IDocumentTextExtractor, CompositeTextExtractor>();
 builder.Services.AddScoped<RequirementExtractorAgent>();
 builder.Services.AddScoped<RequirementEvaluatorAgent>();
+builder.Services.AddScoped<ClarifierAgent>();
 builder.Services.AddScoped<StoryWriterAgent>();
 builder.Services.AddScoped<TestCaseWriterAgent>();
 builder.Services.AddScoped<AnalysisOrchestrator>();

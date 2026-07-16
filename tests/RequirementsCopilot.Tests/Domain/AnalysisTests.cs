@@ -23,6 +23,22 @@ public class AnalysisTests
     }
 
     [Fact]
+    public void ReadyForStories_ExigeAprobarOResponderClarificaciones()
+    {
+        var requirement = Requirement.Create("REQ-010", "El sistema debe ser rápido", "General");
+        Assert.False(requirement.ReadyForStories); // sin evaluación
+
+        requirement.Evaluate(Evaluation.Create(new[] { CriterionScore.Create("Claridad", 2, "ambiguo") }, 3.5));
+        Assert.False(requirement.ReadyForStories); // no pasa y sin preguntas respondidas
+
+        requirement.AddClarification(Clarification.Create("¿Qué significa rápido?"));
+        Assert.False(requirement.ReadyForStories); // pregunta sin responder
+
+        requirement.Clarifications[0].Respond("Menos de 2 segundos");
+        Assert.True(requirement.ReadyForStories); // clarificado
+    }
+
+    [Fact]
     public void FlujoCompleto_RequerimientoConHistoriaYCaso()
     {
         var analysis = Analysis.Create("spec.txt");

@@ -4,8 +4,8 @@ import { parseSse } from '../../shared/api/sse';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
-export function AnalyzeView() {
-  const { status, statusMessage, error, requirements, start, applyEvent } = useAnalysisStore();
+export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
+  const { status, statusMessage, error, requirements, analysisId, start, applyEvent } = useAnalysisStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -57,7 +57,19 @@ export function AnalyzeView() {
         <p className="animate-pulse text-sm text-indigo-600">{statusMessage || 'Analizando…'}</p>
       )}
       {status === 'error' && <p className="rounded bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-      {status === 'done' && <p className="text-sm text-emerald-700">Análisis completado.</p>}
+      {status === 'done' && (
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-emerald-700">Análisis completado.</p>
+          {analysisId && onOpenDetail && (
+            <button
+              className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+              onClick={() => onOpenDetail(analysisId)}
+            >
+              Responder preguntas y generar historias →
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         {requirements.map((r) => (

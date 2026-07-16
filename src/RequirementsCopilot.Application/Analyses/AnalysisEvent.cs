@@ -2,13 +2,15 @@ using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Application.Analyses;
 
-public enum AnalysisEventKind { Status, Requirement, Evaluation, Story, TestCase, Done, Error }
+public enum AnalysisEventKind { Status, Requirement, Evaluation, Clarification, Story, TestCase, Done, Error }
 
 public sealed record CriterionDto(string Nombre, int Score, string Observacion);
 
 public sealed record RequirementDto(string Codigo, string Texto, string Area);
 
 public sealed record EvaluationDto(string RequirementCode, IReadOnlyList<CriterionDto> Criterios, double Promedio, double Umbral, bool Pasa);
+
+public sealed record ClarificationEventDto(string RequirementCode, IReadOnlyList<string> Preguntas);
 
 public sealed record StoryDto(string RequirementCode, int StoryIndex, string Rol, string Quiero, string Para,
     IReadOnlyList<string> CriteriosAceptacion);
@@ -21,6 +23,7 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
     public string? Message { get; init; }
     public RequirementDto? Requirement { get; init; }
     public EvaluationDto? Evaluation { get; init; }
+    public ClarificationEventDto? Clarification { get; init; }
     public StoryDto? Story { get; init; }
     public TestCaseDto? TestCase { get; init; }
     public Guid? AnalysisId { get; init; }
@@ -40,6 +43,12 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
             Math.Round(requirement.Evaluation.Average, 2),
             requirement.Evaluation.Threshold,
             requirement.Evaluation.Passed),
+    };
+
+    public static AnalysisEvent FromClarifications(Requirement requirement) => new(AnalysisEventKind.Clarification)
+    {
+        Clarification = new ClarificationEventDto(requirement.Code,
+            requirement.Clarifications.Select(c => c.Question).ToArray()),
     };
 
     public static AnalysisEvent FromStory(string requirementCode, int storyIndex, UserStory story) => new(AnalysisEventKind.Story)

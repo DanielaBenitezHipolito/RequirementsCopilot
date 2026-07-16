@@ -10,8 +10,9 @@ Analizador de requerimientos con IA, sencillo. Flujo único:
 
 1. Usuario sube documento de especificación (PDF, DOCX, TXT, MD).
 2. Pipeline de agentes extrae requerimientos y evalúa cada uno contra una rúbrica fija de calidad.
-3. Si el requerimiento **pasa** (promedio ≥ umbral configurable), se generan automáticamente historias de usuario y, por cada historia, un caso de prueba.
-4. Resultado se transmite en vivo (SSE) y se persiste en MongoDB.
+3. Si el requerimiento es ambiguo (no pasa el umbral, o Claridad/Completitud < 4), un agente clarificador genera **preguntas al cliente** para evitar malas interpretaciones.
+4. El usuario responde las preguntas y dispara **manualmente** la generación de historias de usuario (+ 1 caso de prueba por historia). Un requerimiento aprobado se genera directo; uno ambiguo exige responder primero.
+5. La evaluación se transmite en vivo (SSE) y todo se persiste en MongoDB.
 
 Fuera de alcance: autenticación, base de conocimiento/embeddings, reportes Excel/Word, edición de requerimientos, multi-tenancy.
 
@@ -24,7 +25,7 @@ Fuera de alcance: autenticación, base de conocimiento/embeddings, reportes Exce
 | Multiagente | Pipeline secuencial de 4 agentes especializados, **sin router** (el flujo es determinista, no conversacional) — adaptación de ADR-0015 |
 | Persistencia | MongoDB, colección `analyses` (ADR-0012) |
 | Criterios | Rúbrica fija (Claridad, Completitud, Verificabilidad, Consistencia, Factibilidad), score 1–5 + observación; umbral de aprobación configurable (`Analysis:PassThreshold`, default 3.5) |
-| Generación | Automática en cadena: aprobado → historias → 1 caso de prueba por historia |
+| Generación | **Manual** (`POST …/stories`): aprobado directo, o ambiguo con clarificaciones respondidas → historias → 1 caso de prueba por historia. Cambiado de automático a manual por decisión de producto (2026-07-16) |
 | Formatos | PDF (PdfPig), DOCX (OpenXML), TXT/MD (lectura directa); límite 10 MB |
 | Frontend | Vite + React 19 + TypeScript + Zustand + Tailwind (ADR-0008/0009); Vitest (ADR-0016) |
 | Streaming | SSE de extremo a extremo, eventos incrementales |
@@ -74,8 +75,11 @@ Cada agente es una clase con prompt propio (pequeño, especializado) que consume
 
 1. **`RequirementExtractorAgent`** — texto del documento → `{ requerimientos: [{ codigo, texto, area }] }`. El área es el eje de clasificación/filtrado (no el rol de la historia).
 2. **`RequirementEvaluatorAgent`** — un requerimiento → `{ criterios: [{ nombre, score, observacion }] }`.
-3. **`StoryWriterAgent`** — requerimiento aprobado → `{ historias: [{ rol, quiero, para, criteriosAceptacion[] }] }`.
-4. **`TestCaseWriterAgent`** — una historia → `{ titulo, precondiciones[], pasos[], resultadoEsperado }`.
+3. **`ClarifierAgent`** — requerimiento ambiguo + observaciones de rúbrica → `{ preguntas: [] }` (preguntas al cliente).
+4. **`StoryWriterAgent`** — requerimiento listo (+ aclaraciones respondidas en el prompt) → `{ historias: [{ rol, quiero, para, criteriosAceptacion[] }] }`.
+5. **`TestCaseWriterAgent`** — una historia → `{ titulo, precondiciones[], pasos[], resultadoEsperado }`.
+
+> Prompts completos de cada agente: `docs/prompts-agentes.md`.
 
 ### Orquestador
 
@@ -110,6 +114,8 @@ Controladores (ADR-0010), referencia solo Application (ADR-0011). Composition ro
 | `POST /api/analyses` | multipart file → valida extensión y tamaño (≤ 10 MB) → responde `text/event-stream` con los eventos del pipeline en vivo; al finalizar el análisis queda persistido |
 | `GET /api/analyses` | historial (id, archivo, fecha, estado, conteos) |
 | `GET /api/analyses/{id}` | detalle completo del agregado |
+| `PUT /api/analyses/{id}/requirements/{code}/clarifications` | guarda respuestas a las preguntas de clarificación (`{ respuestas: [] }`, por índice) |
+| `POST /api/analyses/{id}/requirements/{code}/stories` | generación manual de historias + casos; 409 si faltan respuestas o ya existen historias |
 
 Errores de API: `{ "mensaje": "..." }`. CORS abierto solo al origen del frontend en dev.
 

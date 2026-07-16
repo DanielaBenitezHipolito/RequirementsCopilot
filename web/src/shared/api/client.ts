@@ -24,3 +24,23 @@ export async function getAnalysis(id: string): Promise<any> {
   if (!response.ok) throw new Error('No se pudo cargar el análisis.');
   return response.json();
 }
+
+async function readOrThrow(response: Response): Promise<any> {
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  return body;
+}
+
+export async function answerClarifications(id: string, codigo: string, respuestas: string[]): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/clarifications`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ respuestas }),
+  });
+  return readOrThrow(response);
+}
+
+export async function generateStories(id: string, codigo: string): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stories`, { method: 'POST' });
+  return readOrThrow(response);
+}

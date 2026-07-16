@@ -22,8 +22,14 @@ public sealed class StoryWriterAgent
 
     public async Task<IReadOnlyList<UserStory>> WriteAsync(Requirement requirement, CancellationToken cancellationToken = default)
     {
+        var answered = requirement.Clarifications.Where(c => c.IsAnswered).ToArray();
+        string clarifications = answered.Length == 0
+            ? string.Empty
+            : "\n\nAclaraciones del cliente (úsalas para no malinterpretar):\n" +
+              string.Join("\n", answered.Select(c => $"- P: {c.Question} R: {c.Answer}"));
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, Instructions, $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}"),
+            new ChatPrompt(AgentName, Instructions,
+                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
             cancellationToken);
 
         string json = JsonText.FirstJsonObject(result.Text)

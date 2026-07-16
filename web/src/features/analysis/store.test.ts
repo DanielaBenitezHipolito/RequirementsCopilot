@@ -9,31 +9,29 @@ const evalOk = {
   umbral: 3.5,
   pasa: true,
 };
-const historia = {
-  requirementCode: 'REQ-001', storyIndex: 0, rol: 'cajero', quiero: 'pagar', para: 'cerrar',
-  criteriosAceptacion: ['dado A entonces B'],
-};
-const caso = {
-  requirementCode: 'REQ-001', storyIndex: 0, titulo: 'Pago ok', precondiciones: [], pasos: ['ir'],
-  resultadoEsperado: 'pagado',
+const aclaracion = {
+  requirementCode: 'REQ-001',
+  preguntas: ['¿Qué significa rápido?', '¿Para qué operaciones?'],
 };
 
 describe('useAnalysisStore.applyEvent', () => {
   beforeEach(() => useAnalysisStore.getState().reset());
 
-  it('arma el árbol requerimiento → evaluación → historia → caso', () => {
+  it('arma requerimiento → evaluación → preguntas de clarificación', () => {
     const { applyEvent } = useAnalysisStore.getState();
     applyEvent({ event: 'requirement', data: { requerimiento: req } });
     applyEvent({ event: 'evaluation', data: { evaluacion: evalOk } });
-    applyEvent({ event: 'story', data: { historia } });
-    applyEvent({ event: 'testcase', data: { caso } });
+    applyEvent({ event: 'clarification', data: { aclaracion } });
     applyEvent({ event: 'done', data: { analysisId: 'abc' } });
 
     const state = useAnalysisStore.getState();
     expect(state.status).toBe('done');
+    expect(state.analysisId).toBe('abc');
     expect(state.requirements).toHaveLength(1);
     expect(state.requirements[0].evaluacion?.pasa).toBe(true);
-    expect(state.requirements[0].historias[0].caso?.titulo).toBe('Pago ok');
+    expect(state.requirements[0].aclaraciones).toHaveLength(2);
+    expect(state.requirements[0].aclaraciones[0].pregunta).toBe('¿Qué significa rápido?');
+    expect(state.requirements[0].historias).toHaveLength(0); // ya no llegan por SSE
   });
 
   it('error marca el estado y guarda el mensaje', () => {

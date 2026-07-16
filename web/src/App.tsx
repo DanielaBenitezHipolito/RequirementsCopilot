@@ -32,7 +32,14 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-6">
-        {view === 'analyze' && <AnalyzeView />}
+        {view === 'analyze' && (
+          <AnalyzeView
+            onOpenDetail={(id) => {
+              setSelectedId(id);
+              setView('detail');
+            }}
+          />
+        )}
         {view === 'history' && (
           <HistoryView
             onSelect={(id) => {

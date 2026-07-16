@@ -11,7 +11,8 @@ public class AnalysisOrchestratorTests
     {
         public Analysis? Saved { get; private set; }
         public Task SaveAsync(Analysis analysis, CancellationToken ct = default) { Saved = analysis; return Task.CompletedTask; }
-        public Task<Analysis?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<Analysis?>(null);
+        public Task<Analysis?> GetByIdAsync(Guid id, CancellationToken ct = default)
+            => Task.FromResult(Saved?.Id == id ? Saved : null);
         public Task<IReadOnlyList<Analysis>> GetAllAsync(CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
     }
@@ -40,6 +41,8 @@ public class AnalysisOrchestratorTests
                 "{\"requerimientos\":[{\"codigo\":\"REQ-001\",\"texto\":\"El sistema debe registrar pagos\",\"area\":\"Pagos\"}," +
                 "{\"codigo\":\"REQ-002\",\"texto\":\"El sistema debe ser rápido\",\"area\":\"General\"}]}",
             RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("REQ-001") ? HighRubric() : LowRubric(),
+            ClarifierAgent.AgentName =>
+                "{\"preguntas\":[\"¿Qué significa rápido en segundos?\",\"¿Para qué operaciones aplica?\"]}",
             StoryWriterAgent.AgentName =>
                 "{\"historias\":[{\"rol\":\"cajero\",\"quiero\":\"registrar un pago\",\"para\":\"cerrar la venta\",\"criteriosAceptacion\":[\"dado A entonces B\"]}]}",
             TestCaseWriterAgent.AgentName =>
@@ -52,6 +55,7 @@ public class AnalysisOrchestratorTests
         new StubExtractor(),
         new RequirementExtractorAgent(chat),
         new RequirementEvaluatorAgent(chat),
+        new ClarifierAgent(chat),
         new StoryWriterAgent(chat),
         new TestCaseWriterAgent(chat),
         repository,
@@ -69,7 +73,7 @@ public class AnalysisOrchestratorTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_PipelineCompleto_EmiteEventosEnOrdenYPersiste()
+    public async Task AnalyzeAsync_EvaluaYPregunta_SinHistoriasAutomaticas()
     {
         var repository = new StubRepository();
         var events = await Collect(Orchestrator(PipelineChat(), repository));
@@ -78,17 +82,68 @@ public class AnalysisOrchestratorTests
             new[]
             {
                 AnalysisEventKind.Status, AnalysisEventKind.Requirement, AnalysisEventKind.Evaluation,
-                AnalysisEventKind.Story, AnalysisEventKind.TestCase, AnalysisEventKind.Requirement,
-                AnalysisEventKind.Evaluation, AnalysisEventKind.Done,
+                AnalysisEventKind.Requirement, AnalysisEventKind.Evaluation, AnalysisEventKind.Clarification,
+                AnalysisEventKind.Done,
             },
             events.Select(e => e.Kind).ToArray());
 
         Assert.Equal(AnalysisStatus.Completed, repository.Saved!.Status);
         Assert.Equal(2, repository.Saved.Requirements.Count);
-        Assert.Single(repository.Saved.Requirements[0].Stories);
-        Assert.NotNull(repository.Saved.Requirements[0].Stories[0].TestCase);
-        Assert.Empty(repository.Saved.Requirements[1].Stories); // no pasó: guardrail, sin historias
-        Assert.False(events[6].Evaluation!.Pasa);
+        Assert.All(repository.Saved.Requirements, r => Assert.Empty(r.Stories)); // nunca automáticas
+        Assert.Empty(repository.Saved.Requirements[0].Clarifications); // aprobado y claro: sin preguntas
+        Assert.Equal(2, repository.Saved.Requirements[1].Clarifications.Count); // ambiguo: preguntas
+        Assert.False(events[4].Evaluation!.Pasa);
+        Assert.Equal("REQ-002", events[5].Clarification!.RequirementCode);
+    }
+
+    [Fact]
+    public async Task GenerateStoriesAsync_RequerimientoAprobado_GeneraHistoriasConCaso()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        await Collect(orchestrator);
+
+        var dto = await orchestrator.GenerateStoriesAsync(repository.Saved!.Id, "REQ-001");
+
+        Assert.Single(dto.Historias);
+        Assert.NotNull(dto.Historias[0].Caso);
+        Assert.Single(repository.Saved.Requirements[0].Stories); // persistido
+    }
+
+    [Fact]
+    public async Task GenerateStoriesAsync_SinResponderClarificaciones_Rechaza()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        await Collect(orchestrator);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => orchestrator.GenerateStoriesAsync(repository.Saved!.Id, "REQ-002"));
+    }
+
+    [Fact]
+    public async Task GenerateStoriesAsync_ClarificacionesRespondidas_Genera()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        await Collect(orchestrator);
+
+        var answered = await orchestrator.AnswerClarificationsAsync(repository.Saved!.Id, "REQ-002",
+            new[] { "Menos de 2 segundos", "Consultas y pagos" });
+        Assert.True(answered.ListoParaHistorias);
+
+        var dto = await orchestrator.GenerateStoriesAsync(repository.Saved.Id, "REQ-002");
+        Assert.Single(dto.Historias);
+    }
+
+    [Fact]
+    public async Task GenerateStoriesAsync_AnalisisInexistente_LanzaNotFound()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => orchestrator.GenerateStoriesAsync(Guid.NewGuid(), "REQ-001"));
     }
 
     [Fact]

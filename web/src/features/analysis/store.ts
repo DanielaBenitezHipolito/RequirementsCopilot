@@ -31,7 +31,7 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
           return { statusMessage: evt.data.mensaje ?? '' };
         case 'requirement':
           return {
-            requirements: [...state.requirements, { ...evt.data.requerimiento, historias: [] }],
+            requirements: [...state.requirements, { ...evt.data.requerimiento, aclaraciones: [], historias: [] }],
           };
         case 'evaluation':
           return {
@@ -39,27 +39,14 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
               r.codigo === evt.data.evaluacion.requirementCode ? { ...r, evaluacion: evt.data.evaluacion } : r,
             ),
           };
-        case 'story': {
-          const { requirementCode, storyIndex, ...historia } = evt.data.historia;
+        case 'clarification':
           return {
-            requirements: state.requirements.map((r) => {
-              if (r.codigo !== requirementCode) return r;
-              const historias = [...r.historias];
-              historias[storyIndex] = { ...historia };
-              return { ...r, historias };
-            }),
+            requirements: state.requirements.map((r) =>
+              r.codigo === evt.data.aclaracion.requirementCode
+                ? { ...r, aclaraciones: evt.data.aclaracion.preguntas.map((pregunta: string) => ({ pregunta })) }
+                : r,
+            ),
           };
-        }
-        case 'testcase': {
-          const { requirementCode, storyIndex, ...caso } = evt.data.caso;
-          return {
-            requirements: state.requirements.map((r) => {
-              if (r.codigo !== requirementCode) return r;
-              const historias = r.historias.map((h, i) => (i === storyIndex ? { ...h, caso } : h));
-              return { ...r, historias };
-            }),
-          };
-        }
         case 'done':
           return { status: 'done', analysisId: evt.data.analysisId, statusMessage: '' };
         case 'error':

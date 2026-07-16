@@ -9,24 +9,30 @@ public sealed class AnalysisOrchestrator
     private readonly IDocumentTextExtractor _textExtractor;
     private readonly RequirementExtractorAgent _extractor;
     private readonly RequirementEvaluatorAgent _evaluator;
+    private readonly ClarifierAgent _clarifier;
     private readonly StoryWriterAgent _storyWriter;
     private readonly TestCaseWriterAgent _testCaseWriter;
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
-        RequirementEvaluatorAgent evaluator, StoryWriterAgent storyWriter, TestCaseWriterAgent testCaseWriter,
-        IAnalysisRepository repository, AnalysisOptions options)
+        RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, StoryWriterAgent storyWriter,
+        TestCaseWriterAgent testCaseWriter, IAnalysisRepository repository, AnalysisOptions options)
     {
         _textExtractor = textExtractor;
         _extractor = extractor;
         _evaluator = evaluator;
+        _clarifier = clarifier;
         _storyWriter = storyWriter;
         _testCaseWriter = testCaseWriter;
         _repository = repository;
         _options = options;
     }
 
+    /// <summary>
+    /// Pipeline del upload: extraer → evaluar → preguntas de clarificación si hay ambigüedad.
+    /// Las historias NO se generan aquí: se disparan manualmente con <see cref="GenerateStoriesAsync"/>.
+    /// </summary>
     public async IAsyncEnumerable<AnalysisEvent> AnalyzeAsync(Stream content, string fileName,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -64,15 +70,15 @@ public sealed class AnalysisOrchestrator
 
                 requirement.Evaluate(evaluation!);
                 yield return AnalysisEvent.FromEvaluation(requirement);
-                if (!evaluation!.Passed)
+                if (!NeedsClarification(evaluation!))
                 {
-                    continue; // guardrail: sin historias para requerimientos que no pasan
+                    continue;
                 }
 
-                IReadOnlyList<UserStory> stories = Array.Empty<UserStory>();
+                IReadOnlyList<string> questions = Array.Empty<string>();
                 try
                 {
-                    stories = await _storyWriter.WriteAsync(requirement, cancellationToken);
+                    questions = await _clarifier.AskAsync(requirement, cancellationToken);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { error = ex.Message; }
@@ -81,31 +87,13 @@ public sealed class AnalysisOrchestrator
                     break;
                 }
 
-                for (int index = 0; index < stories.Count; index++)
+                foreach (string question in questions)
                 {
-                    UserStory story = stories[index];
-                    requirement.AddStory(story);
-                    yield return AnalysisEvent.FromStory(requirement.Code, index, story);
-
-                    TestCase? testCase = null;
-                    try
-                    {
-                        testCase = await _testCaseWriter.WriteAsync(story, cancellationToken);
-                    }
-                    catch (OperationCanceledException) { throw; }
-                    catch (Exception ex) { error = ex.Message; }
-                    if (error is not null)
-                    {
-                        break;
-                    }
-
-                    story.AttachTestCase(testCase!);
-                    yield return AnalysisEvent.FromTestCase(requirement.Code, index, testCase!);
+                    requirement.AddClarification(Clarification.Create(question));
                 }
-
-                if (error is not null)
+                if (requirement.Clarifications.Count > 0)
                 {
-                    break;
+                    yield return AnalysisEvent.FromClarifications(requirement);
                 }
             }
         }
@@ -122,4 +110,70 @@ public sealed class AnalysisOrchestrator
         await _repository.SaveAsync(analysis, cancellationToken);
         yield return AnalysisEvent.Done(analysis.Id);
     }
+
+    /// <summary>Guarda las respuestas del cliente a las preguntas de clarificación (por índice).</summary>
+    public async Task<RequirementDetailDto> AnswerClarificationsAsync(Guid analysisId, string requirementCode,
+        IReadOnlyList<string?> answers, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (requirement.Clarifications.Count == 0)
+        {
+            throw new InvalidOperationException("El requerimiento no tiene preguntas de clarificación.");
+        }
+
+        for (int index = 0; index < answers.Count && index < requirement.Clarifications.Count; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(answers[index]))
+            {
+                requirement.Clarifications[index].Respond(answers[index]!);
+            }
+        }
+
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Generación manual: historias + caso de prueba por historia para un requerimiento listo
+    /// (aprobado, o con todas sus clarificaciones respondidas).
+    /// </summary>
+    public async Task<RequirementDetailDto> GenerateStoriesAsync(Guid analysisId, string requirementCode,
+        CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (requirement.Stories.Count > 0)
+        {
+            throw new InvalidOperationException("El requerimiento ya tiene historias generadas.");
+        }
+        if (!requirement.ReadyForStories)
+        {
+            throw new InvalidOperationException(
+                "Responda las preguntas de clarificación antes de generar historias.");
+        }
+
+        IReadOnlyList<UserStory> stories = await _storyWriter.WriteAsync(requirement, cancellationToken);
+        foreach (UserStory story in stories)
+        {
+            story.AttachTestCase(await _testCaseWriter.WriteAsync(story, cancellationToken));
+            requirement.AddStory(story);
+        }
+
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    private async Task<(Analysis, Requirement)> FindAsync(Guid analysisId, string requirementCode,
+        CancellationToken cancellationToken)
+    {
+        Analysis analysis = await _repository.GetByIdAsync(analysisId, cancellationToken)
+            ?? throw new KeyNotFoundException("Análisis no encontrado.");
+        Requirement requirement = analysis.Requirements
+            .FirstOrDefault(r => string.Equals(r.Code, requirementCode, StringComparison.OrdinalIgnoreCase))
+            ?? throw new KeyNotFoundException("Requerimiento no encontrado en el análisis.");
+        return (analysis, requirement);
+    }
+
+    private static bool NeedsClarification(Evaluation evaluation) =>
+        !evaluation.Passed ||
+        evaluation.Scores.Any(s => s.Criterion is "Claridad" or "Completitud" && s.Score < 4);
 }

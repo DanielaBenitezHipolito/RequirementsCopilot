@@ -27,6 +27,11 @@ public sealed class FakeChatCompletion : IChatCompletion
         "{\"nombre\":\"Consistencia\",\"score\":3,\"observacion\":\"No contradice, pero tampoco aporta.\"}," +
         "{\"nombre\":\"Factibilidad\",\"score\":2,\"observacion\":\"Inverificable tal como está escrito.\"}]}";
 
+    private const string ClarifierReply =
+        "{\"preguntas\":[" +
+        "\"¿Qué tiempo de respuesta máximo, en segundos, se considera aceptable?\"," +
+        "\"¿Qué tareas concretas debe poder completar el usuario sin capacitación?\"]}";
+
     private const string StoriesReply =
         "{\"historias\":[{\"rol\":\"recepcionista\",\"quiero\":\"registrar el pago de una reserva\",\"para\":\"confirmar la ocupación\"," +
         "\"criteriosAceptacion\":[\"Dado un monto válido, cuando registro el pago, entonces se genera consecutivo\"," +
@@ -45,6 +50,7 @@ public sealed class FakeChatCompletion : IChatCompletion
         {
             RequirementExtractorAgent.AgentName => ExtractorReply,
             RequirementEvaluatorAgent.AgentName => IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
+            ClarifierAgent.AgentName => ClarifierReply,
             StoryWriterAgent.AgentName => StoriesReply,
             TestCaseWriterAgent.AgentName => TestCaseReply,
             _ => "{}",
