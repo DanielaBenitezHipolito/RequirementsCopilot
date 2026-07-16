@@ -10,6 +10,11 @@ pipeline de agentes:
    usuario** y, por cada historia, un **caso de prueba**.
 4. Todo el proceso se transmite **en vivo por SSE** y queda persistido para consultarlo después.
 
+También existe la pestaña **Conversar**: un chat donde el usuario describe su idea en lenguaje
+natural, un agente entrevistador (`requirement-builder-agent`) le hace preguntas turno a turno hasta
+tener información suficiente, redacta un borrador de requerimiento (texto + área) y, al confirmarlo,
+lo envía al mismo pipeline de análisis (extracción ya resuelta → evaluación → historias → casos).
+
 Fuera de alcance de este MVP: autenticación, base de conocimiento/embeddings, reportes Excel/Word,
 edición de requerimientos, multi-tenancy.
 
@@ -72,7 +77,8 @@ variables de entorno.
 | `Analysis:PassThreshold` | `3.5` (default) | Umbral de aprobación: promedio de los 5 criterios de la rúbrica a partir del cual un requerimiento genera historias. |
 | `Foundry:Endpoint` | — | Endpoint de Azure AI Foundry. Solo necesario con `Providers:Chat = Foundry`. |
 | `Foundry:ApiKey` | — | API key de Foundry. **Secret** — no commitear. |
-| `Foundry:Deployment` | `gpt-4.1-mini` | Nombre del deployment del modelo en Foundry. |
+| `Foundry:Chat:Model` | `gpt-4.1-mini` | Modelo asignado a los agentes publicados en Foundry. |
+| `Foundry:Chat:Agents` | — | Mapeo código lógico → agente publicado en Foundry (`Name`/`Version`). Uno por cada uno de los 6 agentes (ver `docs/prompts-agentes.md`). |
 | `Foundry:ApiVersion` | — | Versión de la API de Foundry a usar. |
 | `Mongo:ConnectionString` | — | Cadena de conexión a MongoDB. **Secret** — no commitear. Solo necesario con `Providers:AnalysisRepository = Mongo`. |
 | `Mongo:Database` | `requirements_copilot` | Base de datos de Mongo donde vive la colección `analyses`. |
@@ -85,6 +91,39 @@ variables de entorno.
 Foundry__ApiKey=...
 Mongo__ConnectionString=...
 ```
+
+Ejemplo de `Foundry:Chat` con el catálogo de agentes (necesario solo con `Providers:Chat = Foundry`;
+los agentes deben estar **publicados en Foundry** antes — pasos y contrato de cada uno en
+[`docs/prompts-agentes.md`](docs/prompts-agentes.md)):
+
+```json
+{
+  "Foundry": {
+    "Endpoint": "https://<recurso>.services.ai.azure.com",
+    "Chat": {
+      "Model": "gpt-4.1-mini",
+      "Agents": {
+        "requirement-extractor-agent": { "Name": "requirement-extractor-agent", "Version": "1" },
+        "requirement-evaluator-agent": { "Name": "requirement-evaluator-agent", "Version": "1" },
+        "clarifier-agent": { "Name": "clarifier-agent", "Version": "1" },
+        "story-writer-agent": { "Name": "story-writer-agent", "Version": "1" },
+        "test-case-writer-agent": { "Name": "test-case-writer-agent", "Version": "1" },
+        "requirement-builder-agent": { "Name": "requirement-builder-agent", "Version": "1" }
+      }
+    }
+  }
+}
+```
+
+## Endpoints principales
+
+| Método y ruta | Descripción |
+|---|---|
+| `POST /api/conversations/messages` | Turno del chat "Conversar": envía el mensaje del usuario (+ `previousResponseId`), responde por **SSE** (`token`, `draft` si ya hay borrador de requerimiento, `done`, `error`). |
+| `POST /api/conversations/complete` | Envía el requerimiento (texto + área) confirmado en el chat al pipeline de análisis; devuelve el `analysisId` creado. |
+
+(resto de endpoints del pipeline de documentos — subida, consulta de análisis, clarificaciones,
+generación de historias — sin cambios en esta versión.)
 
 ## Estructura del repositorio
 
