@@ -98,17 +98,28 @@ public sealed class AnalysisOrchestrator
             }
         }
 
-        if (error is not null)
+        if (error is null)
+        {
+            analysis.Complete();
+        }
+        else
         {
             analysis.Fail(error);
-            await _repository.SaveAsync(analysis, cancellationToken);
-            yield return AnalysisEvent.Error(error);
-            yield break;
         }
 
-        analysis.Complete();
-        await _repository.SaveAsync(analysis, cancellationToken);
-        yield return AnalysisEvent.Done(analysis.Id);
+        // La persistencia también puede fallar (p. ej. Mongo sin permisos de escritura):
+        // el stream debe terminar con un evento error, nunca cortarse sin avisar.
+        try
+        {
+            await _repository.SaveAsync(analysis, cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            error = $"No se pudo guardar el análisis: {ex.Message}";
+        }
+
+        yield return error is null ? AnalysisEvent.Done(analysis.Id) : AnalysisEvent.Error(error);
     }
 
     /// <summary>
