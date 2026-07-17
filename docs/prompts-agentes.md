@@ -184,7 +184,7 @@ Desde la actualización 2026-07-16 (ver `docs/adr/0002-foundry-adaptadores-inter
 1. **Agents → New agent.**
 2. Pegar las instrucciones del agente **tal cual están en este documento** (la sección "Prompt
    (system)" de cada uno).
-3. Asignar un modelo — por ejemplo `gpt-4.1-mini` (el mismo usado hasta ahora en `FoundryChatCompletion`).
+3. Asignar un modelo — por ejemplo `gpt-5-mini` (gpt-4.1-mini ya no está disponible en el catálogo).
 4. **Publish.**
 5. Anotar el **nombre** y la **versión** que asigna Foundry al publicar — se necesitan para el
    mapeo en configuración.
@@ -197,7 +197,7 @@ El mapeo de código lógico → agente publicado vive en `Foundry:Chat:Agents`:
     "Endpoint": "https://<recurso>.services.ai.azure.com/api/projects/<proyecto>",
     "ApiKey": "...",
     "Chat": {
-      "Model": "gpt-4.1-mini",
+      "Model": "gpt-5-mini",
       "Agents": {
         "requirement-extractor-agent": { "Name": "requirement-extractor-agent", "Version": "1" },
         "requirement-evaluator-agent": { "Name": "requirement-evaluator-agent", "Version": "1" },

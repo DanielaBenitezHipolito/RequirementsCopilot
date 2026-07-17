@@ -79,7 +79,7 @@ variables de entorno.
 | `Analysis:PassThreshold` | `3.5` (default) | Umbral de aprobación: promedio de los 5 criterios de la rúbrica a partir del cual un requerimiento genera historias. |
 | `Foundry:Endpoint` | — | Endpoint de Azure AI Foundry. Solo necesario con `Providers:Chat = Foundry`. |
 | `Foundry:ApiKey` | — | API key de Foundry. **Secret** — no commitear. |
-| `Foundry:Chat:Model` | `gpt-4.1-mini` | Modelo asignado a los agentes publicados en Foundry. |
+| `Foundry:Chat:Model` | `gpt-5-mini` | Modelo asignado a los agentes publicados en Foundry. |
 | `Foundry:Chat:Agents` | — | Mapeo código lógico → agente publicado en Foundry (`Name`/`Version`). Uno por cada uno de los 6 agentes (ver `docs/prompts-agentes.md`). |
 | `Mongo:ConnectionString` | — | Cadena de conexión a MongoDB. **Secret** — no commitear. Solo necesario con `Providers:AnalysisRepository = Mongo`. |
 | `Mongo:Database` | `requirements_copilot` | Base de datos de Mongo donde vive la colección `analyses`. |
@@ -102,7 +102,7 @@ los agentes deben estar **publicados en Foundry** antes — pasos y contrato de 
   "Foundry": {
     "Endpoint": "https://<recurso>.services.ai.azure.com/api/projects/<proyecto>",
     "Chat": {
-      "Model": "gpt-4.1-mini",
+      "Model": "gpt-5-mini",
       "Agents": {
         "requirement-extractor-agent": { "Name": "requirement-extractor-agent", "Version": "1" },
         "requirement-evaluator-agent": { "Name": "requirement-evaluator-agent", "Version": "1" },

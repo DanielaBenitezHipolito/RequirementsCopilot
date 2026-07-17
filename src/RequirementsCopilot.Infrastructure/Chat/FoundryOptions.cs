@@ -14,7 +14,7 @@ public sealed class FoundryOptions
 
 public sealed class FoundryChatSettings
 {
-    public string Model { get; set; } = "gpt-4.1-mini";
+    public string Model { get; set; } = "gpt-5-mini";
 
     /// <summary>Código lógico del agente (AgentName en código) → agente publicado en Foundry.</summary>
     public Dictionary<string, FoundryAgentSettings> Agents { get; set; } = new();
