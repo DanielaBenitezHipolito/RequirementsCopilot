@@ -69,6 +69,32 @@ public sealed class FoundryChatCompletion : IChatCompletion
         }
 
         Uri url = new($"{_options.Endpoint.TrimEnd('/')}/openai/v1/responses");
+
+        // Un blip de red no debe tumbar el turno/análisis completo: un reintento con pausa corta
+        // absorbe fallos transitorios; el segundo fallo se propaga con la causa interna visible.
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await SendAsync(url, payload, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                if (attempt >= 2)
+                {
+                    throw new InvalidOperationException($"Error llamando a Foundry: {Describe(ex)}", ex);
+                }
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
+        }
+    }
+
+    private async Task<ChatResult> SendAsync(Uri url, Dictionary<string, object> payload, CancellationToken cancellationToken)
+    {
         HttpResponseMessage response = await _httpClient.PostAsJsonAsync(url, payload, JsonOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
 
@@ -80,6 +106,10 @@ public sealed class FoundryChatCompletion : IChatCompletion
         string? responseId = root.TryGetProperty("id", out JsonElement idElement) ? idElement.GetString() : null;
         return new ChatResult(text, responseId);
     }
+
+    /// <summary>Mensaje del error incluyendo las causas internas (DNS, timeout, TLS…).</summary>
+    private static string Describe(Exception ex)
+        => ex.InnerException is null ? ex.Message : $"{ex.Message} ({Describe(ex.InnerException)})";
 
     /// <summary>Extrae el texto de la respuesta de la Responses API (output[].content[].output_text).</summary>
     private static string ExtractText(JsonElement root)

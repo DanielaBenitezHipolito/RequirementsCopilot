@@ -93,4 +93,52 @@ public class FoundryChatCompletionTests
         Assert.Equal(string.Empty, result.Text);
         Assert.Null(result.ResponseId);
     }
+
+    private sealed class FlakyHandler : HttpMessageHandler
+    {
+        private readonly int _failures;
+
+        public FlakyHandler(int failures) => _failures = failures;
+
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (++Calls <= _failures)
+            {
+                throw new HttpRequestException("An error occurred while sending the request.",
+                    new IOException("conexión reiniciada por el host remoto"));
+            }
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(ResponsesReply, Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAsync_FalloTransitorio_ReintentaYCompleta()
+    {
+        var handler = new FlakyHandler(failures: 1);
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+
+        var result = await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+
+        Assert.Equal("{\"ok\":true}", result.Text);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_FalloPersistente_LanzaConCausaInterna()
+    {
+        var handler = new FlakyHandler(failures: 5);
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => chat.CompleteAsync(new ChatPrompt("agente-x", "entrada")));
+
+        Assert.Contains("Foundry", ex.Message);
+        Assert.Contains("conexión reiniciada por el host remoto", ex.Message);
+        Assert.Equal(2, handler.Calls); // solo un reintento, sin loop infinito
+    }
 }
