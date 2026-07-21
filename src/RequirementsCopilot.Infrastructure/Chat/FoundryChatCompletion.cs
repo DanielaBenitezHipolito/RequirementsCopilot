@@ -67,6 +67,10 @@ public sealed class FoundryChatCompletion : IChatCompletion
         {
             payload["previous_response_id"] = prompt.PreviousResponseId;
         }
+        if (_options.Chat.MaxOutputTokens is int maxTokens)
+        {
+            payload["max_output_tokens"] = maxTokens;
+        }
 
         Uri url = new($"{_options.Endpoint.TrimEnd('/')}/openai/v1/responses");
 

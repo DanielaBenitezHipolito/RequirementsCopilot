@@ -82,6 +82,21 @@ public class FoundryChatCompletionTests
         Assert.Equal("agente-desconocido", root.GetProperty("agent_reference").GetProperty("name").GetString());
         Assert.False(root.GetProperty("agent_reference").TryGetProperty("version", out _));
         Assert.False(root.TryGetProperty("previous_response_id", out _));
+        Assert.False(root.TryGetProperty("max_output_tokens", out _)); // sin tope configurado no se envía
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ConMaxOutputTokens_LoEnviaEnElPayload()
+    {
+        var options = Options();
+        options.Chat.MaxOutputTokens = 1234;
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), options);
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        Assert.Equal(1234, body.RootElement.GetProperty("max_output_tokens").GetInt32());
     }
 
     [Fact]

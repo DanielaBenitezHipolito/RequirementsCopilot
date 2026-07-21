@@ -16,6 +16,9 @@ public sealed class FoundryChatSettings
 {
     public string Model { get; set; } = "gpt-5-mini";
 
+    /// <summary>Tope de tokens de salida por llamada (control de costos); null = sin tope.</summary>
+    public int? MaxOutputTokens { get; set; }
+
     /// <summary>Código lógico del agente (AgentName en código) → agente publicado en Foundry.</summary>
     public Dictionary<string, FoundryAgentSettings> Agents { get; set; } = new();
 }

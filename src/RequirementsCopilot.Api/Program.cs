@@ -47,10 +47,8 @@ else
     builder.Services.AddSingleton<IAnalysisRepository, InMemoryAnalysisRepository>();
 }
 
-builder.Services.AddSingleton(new AnalysisOptions
-{
-    PassThreshold = builder.Configuration.GetValue("Analysis:PassThreshold", 3.5),
-});
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection("Analysis").Get<AnalysisOptions>() ?? new AnalysisOptions());
 builder.Services.AddSingleton<IDocumentTextExtractor, CompositeTextExtractor>();
 builder.Services.AddScoped<RequirementExtractorAgent>();
 builder.Services.AddScoped<RequirementEvaluatorAgent>();

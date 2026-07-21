@@ -44,6 +44,11 @@ public sealed class AnalysisOrchestrator
         try
         {
             string text = await _textExtractor.ExtractAsync(content, fileName, cancellationToken);
+            if (text.Length > _options.MaxInputChars)
+            {
+                // Control de costos: documentos enormes se truncan antes de ir al LLM.
+                text = text[.._options.MaxInputChars];
+            }
             requirements = await _extractor.ExtractAsync(text, cancellationToken);
         }
         catch (OperationCanceledException) { throw; }

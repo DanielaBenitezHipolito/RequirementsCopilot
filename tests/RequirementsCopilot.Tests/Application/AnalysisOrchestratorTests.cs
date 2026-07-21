@@ -202,4 +202,31 @@ public class AnalysisOrchestratorTests
         Assert.Equal(AnalysisStatus.Failed, repository.Saved!.Status);
         Assert.NotNull(repository.Saved.Error);
     }
+
+    private sealed class LongTextExtractor : IDocumentTextExtractor
+    {
+        public Task<string> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
+            => Task.FromResult(new string('x', 500));
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DocumentoLargo_TruncaAntesDelExtractor()
+    {
+        var chat = PipelineChat();
+        var orchestrator = new AnalysisOrchestrator(
+            new LongTextExtractor(),
+            new RequirementExtractorAgent(chat),
+            new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat),
+            new StoryWriterAgent(chat),
+            new TestCaseWriterAgent(chat),
+            new StubRepository(),
+            new AnalysisOptions { MaxInputChars = 100 });
+
+        await Collect(orchestrator);
+
+        string extractorInput = chat.Prompts[0].Input;
+        Assert.Contains(new string('x', 100), extractorInput);
+        Assert.DoesNotContain(new string('x', 101), extractorInput);
+    }
 }
