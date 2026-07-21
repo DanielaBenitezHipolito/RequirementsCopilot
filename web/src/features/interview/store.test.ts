@@ -57,4 +57,36 @@ describe('useInterviewStore', () => {
     expect(state.draft).toBeUndefined();
     expect(state.status).toBe('idle');
   });
+
+  it('conversation guarda el conversationId', () => {
+    const { applyEvent } = useInterviewStore.getState();
+    applyEvent({ event: 'conversation', data: { conversationId: 'conv-1' } });
+    expect(useInterviewStore.getState().conversationId).toBe('conv-1');
+  });
+
+  it('hydrate monta mensajes, lastResponseId y conversationId de una conversación existente', () => {
+    useInterviewStore.getState().hydrate({
+      id: 'conv-1',
+      lastResponseId: 'resp-1',
+      messages: [
+        { role: 'user', text: 'quiero X' },
+        { role: 'agent', text: '¿en qué área?' },
+      ],
+    });
+    const state = useInterviewStore.getState();
+    expect(state.messages).toEqual([
+      { role: 'user', text: 'quiero X' },
+      { role: 'agent', text: '¿en qué área?' },
+    ]);
+    expect(state.previousResponseId).toBe('resp-1');
+    expect(state.conversationId).toBe('conv-1');
+    expect(state.draft).toBeUndefined();
+    expect(state.status).toBe('idle');
+  });
+
+  it('reset limpia también el conversationId', () => {
+    useInterviewStore.getState().applyEvent({ event: 'conversation', data: { conversationId: 'conv-1' } });
+    useInterviewStore.getState().reset();
+    expect(useInterviewStore.getState().conversationId).toBeUndefined();
+  });
 });

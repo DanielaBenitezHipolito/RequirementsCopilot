@@ -1,4 +1,4 @@
-import type { AnalysisSummary } from '../types';
+import type { AnalysisSummary, ConversationDetailDto, ConversationSummary } from '../types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5100';
 
@@ -45,11 +45,19 @@ export async function generateStories(id: string, codigo: string): Promise<any> 
   return readOrThrow(response);
 }
 
-export async function sendConversationMessage(mensaje: string, previousResponseId?: string): Promise<Response> {
+export async function sendConversationMessage(
+  mensaje: string,
+  previousResponseId?: string,
+  conversationId?: string,
+): Promise<Response> {
   const response = await fetch(`${API_BASE}/api/conversations/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mensaje, previousResponseId: previousResponseId ?? null }),
+    body: JSON.stringify({
+      mensaje,
+      previousResponseId: previousResponseId ?? null,
+      conversationId: conversationId ?? null,
+    }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -58,11 +66,26 @@ export async function sendConversationMessage(mensaje: string, previousResponseI
   return response;
 }
 
-export async function completeConversation(texto: string, area: string): Promise<{ analysisId: string }> {
+export async function completeConversation(
+  texto: string,
+  area: string,
+  conversationId?: string,
+): Promise<{ analysisId: string }> {
   const response = await fetch(`${API_BASE}/api/conversations/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texto, area }),
+    body: JSON.stringify({ texto, area, conversationId: conversationId ?? null }),
   });
+  return readOrThrow(response);
+}
+
+export async function getConversations(): Promise<ConversationSummary[]> {
+  const response = await fetch(`${API_BASE}/api/conversations`);
+  if (!response.ok) throw new Error('No se pudo cargar el historial de conversaciones.');
+  return response.json();
+}
+
+export async function getConversation(id: string): Promise<ConversationDetailDto> {
+  const response = await fetch(`${API_BASE}/api/conversations/${id}`);
   return readOrThrow(response);
 }

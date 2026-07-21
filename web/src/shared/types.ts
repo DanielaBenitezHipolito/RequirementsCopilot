@@ -16,3 +16,11 @@ export interface AnalysisSummary {
   totalRequerimientos: number; aprobados: number;
 }
 export interface SseEvent { event: string; data: any }
+export interface ConversationSummary {
+  id: string; createdAt: string; updatedAt: string; status: 'Abierta' | 'Completada';
+  analysisId?: string; preview: string;
+}
+export interface ConversationDetailDto {
+  id: string; status: 'Abierta' | 'Completada'; analysisId?: string; lastResponseId?: string;
+  messages: { role: 'user' | 'agent'; text: string }[];
+}
