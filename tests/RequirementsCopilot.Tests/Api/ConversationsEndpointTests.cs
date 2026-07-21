@@ -77,4 +77,68 @@ public class ConversationsEndpointTests : IClassFixture<WebApplicationFactory<Pr
         var response = await client.PostAsJsonAsync("/api/conversations/complete", new { texto = "" });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    private static Guid ConversationIdFrom(string sseBody)
+    {
+        Match match = Regex.Match(sseBody, "\"conversationId\":\"([^\"]+)\"");
+        Assert.True(match.Success, "El SSE no incluyó el evento conversation con el conversationId.");
+        return Guid.Parse(match.Groups[1].Value);
+    }
+
+    [Fact]
+    public async Task Conversacion_SePersisteDesdePrimerMensaje_YPermiteReabrirYCompletar()
+    {
+        var client = _factory.CreateClient();
+
+        // 1er mensaje sin conversationId → el SSE incluye el evento conversation con un id nuevo.
+        var first = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "Quiero controlar los pagos de las reservas" });
+        string body1 = await first.Content.ReadAsStringAsync();
+        Assert.Contains("event: conversation", body1);
+        Guid conversationId = ConversationIdFrom(body1);
+        string threadId = ResponseIdFrom(body1);
+
+        // 2º mensaje CON ese conversationId.
+        var second = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "El recepcionista; monto, fecha y consecutivo", previousResponseId = threadId, conversationId });
+        string body2 = await second.Content.ReadAsStringAsync();
+        Assert.Equal(conversationId, ConversationIdFrom(body2));
+
+        // GET /{id} devuelve 4 mensajes (2 user + 2 agent) y lastResponseId.
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/conversations/{conversationId}");
+        Assert.Equal("Abierta", detail.GetProperty("status").GetString());
+        var messages = detail.GetProperty("messages");
+        Assert.Equal(4, messages.GetArrayLength());
+        Assert.Equal("user", messages[0].GetProperty("role").GetString());
+        Assert.Equal("agent", messages[1].GetProperty("role").GetString());
+        Assert.False(string.IsNullOrEmpty(detail.GetProperty("lastResponseId").GetString()));
+
+        // GET lista la incluye con preview.
+        var list = await client.GetFromJsonAsync<JsonElement>("/api/conversations");
+        JsonElement listed = list.EnumerateArray().First(c => c.GetProperty("id").GetString() == conversationId.ToString());
+        Assert.StartsWith("Quiero controlar los pagos", listed.GetProperty("preview").GetString());
+
+        // Completar con conversationId: sacar texto/area del draft del 2º turno.
+        Match draftMatch = Regex.Match(body2, "\"requerimiento\":\\{\"texto\":\"([^\"]+)\",\"area\":\"([^\"]+)\"\\}");
+        Assert.True(draftMatch.Success);
+        string texto = draftMatch.Groups[1].Value;
+        string area = draftMatch.Groups[2].Value;
+
+        var complete = await client.PostAsJsonAsync("/api/conversations/complete", new { texto, area, conversationId });
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        var completed = await complete.Content.ReadFromJsonAsync<JsonElement>();
+        string analysisId = completed.GetProperty("analysisId").GetString()!;
+
+        var afterComplete = await client.GetFromJsonAsync<JsonElement>($"/api/conversations/{conversationId}");
+        Assert.Equal("Completada", afterComplete.GetProperty("status").GetString());
+        Assert.Equal(analysisId, afterComplete.GetProperty("analysisId").GetString());
+    }
+
+    [Fact]
+    public async Task GetById_Inexistente_Devuelve404()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/conversations/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

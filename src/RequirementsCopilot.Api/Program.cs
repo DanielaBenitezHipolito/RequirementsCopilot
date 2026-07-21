@@ -1,5 +1,6 @@
 using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
+using RequirementsCopilot.Application.Conversations;
 using RequirementsCopilot.Infrastructure.Chat;
 using RequirementsCopilot.Infrastructure.Documents;
 using RequirementsCopilot.Infrastructure.Mongo;
@@ -34,6 +35,7 @@ else
     builder.Services.AddSingleton<IChatCompletion, FakeChatCompletion>();
 }
 
+// Este switch gobierna ambas persistencias (análisis y conversaciones): mismo backing store.
 string repositoryProvider = builder.Configuration["Providers:AnalysisRepository"] ?? "InMemory";
 if (repositoryProvider == "Mongo")
 {
@@ -41,10 +43,12 @@ if (repositoryProvider == "Mongo")
     builder.Services.AddSingleton(sp =>
         new MongoDB.Driver.MongoClient(mongoOptions.ConnectionString).GetDatabase(mongoOptions.Database));
     builder.Services.AddSingleton<IAnalysisRepository, MongoAnalysisRepository>();
+    builder.Services.AddSingleton<IConversationRepository, MongoConversationRepository>();
 }
 else
 {
     builder.Services.AddSingleton<IAnalysisRepository, InMemoryAnalysisRepository>();
+    builder.Services.AddSingleton<IConversationRepository, InMemoryConversationRepository>();
 }
 
 builder.Services.AddSingleton(
