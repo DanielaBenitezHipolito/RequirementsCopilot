@@ -485,3 +485,7 @@ $RECYCLE.BIN/
 
 # Credenciales locales (Task 13)
 src/RequirementsCopilot.Api/appsettings.Development.json
+
+# Archivos de prueba sueltos en la raíz
+*.docx
+*.pdf
