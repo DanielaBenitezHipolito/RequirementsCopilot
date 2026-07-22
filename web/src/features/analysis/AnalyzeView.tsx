@@ -43,9 +43,17 @@ function StepDot({ state }: { state: 'done' | 'active' | 'pending' }) {
 }
 
 export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
-  const { status, requirements, analysisId, error, start, applyEvent } = useAnalysisStore();
+  const { status, requirements, analysisId, error, start, applyEvent, reset } = useAnalysisStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [staged, setStaged] = useState<File | null>(null);
+
+  function startAudit() {
+    if (!staged) return;
+    const file = staged;
+    setStaged(null);
+    void analyze(file);
+  }
 
   async function analyze(file: File) {
     start();
@@ -104,6 +112,7 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
           <p className="mt-1 text-sm text-slate-500">
             Cargue un documento de requerimientos para auditarlo técnicamente.
           </p>
+          {!staged && (
           <div
             className={`mt-4 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
               dragging ? 'border-slate-400 bg-slate-50' : 'border-slate-300'
@@ -118,7 +127,7 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
               e.preventDefault();
               setDragging(false);
               const file = e.dataTransfer.files[0];
-              if (file) void analyze(file);
+              if (file) setStaged(file);
             }}
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
@@ -144,11 +153,46 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void analyze(file);
+                if (file) setStaged(file);
                 e.target.value = '';
               }}
             />
           </div>
+          )}
+
+          {staged && (
+            <>
+              <div className="mt-4 flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-slate-500">
+                  <UploadIcon />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold tracking-wide text-slate-800 uppercase">{staged.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Contenido cargado con éxito · {(staged.size / 1024).toFixed(1)} KB · Listo para auditar
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStaged(null)}
+                  className="rounded-md p-2 text-slate-400 hover:bg-slate-200 hover:text-rose-500"
+                  aria-label="Quitar archivo"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={startAudit}
+                  className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  ✦ Iniciar Auditoría de Calidad
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -197,6 +241,16 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
 
       {status === 'done' && (
         <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={reset}
+              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
+              style={{ backgroundColor: '#1e2a5a' }}
+            >
+              Analizar otro documento
+            </button>
+          </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
