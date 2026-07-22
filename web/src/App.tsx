@@ -6,34 +6,97 @@ import { InterviewView } from './features/interview/InterviewView';
 
 type View = 'analyze' | 'interview' | 'history' | 'detail';
 
+const BRAND = '#1e2a5a';
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 12l1.8 1.8L14.5 10" />
+    </svg>
+  );
+}
+
+function AuditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 11l3 3L22 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"
+      />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v5h5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.05 13a9 9 0 106.24-9.53" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 3" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<View>('analyze');
   const [selectedId, setSelectedId] = useState<string>();
 
-  const tab = (target: View, label: string) => (
+  const tab = (target: View, label: string, icon: React.ReactNode) => (
     <button
       onClick={() => setView(target)}
-      className={`rounded-lg px-4 py-2 text-sm font-medium ${
-        view === target ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold tracking-wide uppercase transition-colors ${
+        view === target ? 'text-white' : 'text-slate-600 hover:bg-slate-50'
       }`}
+      style={view === target ? { backgroundColor: BRAND } : undefined}
     >
+      {icon}
       {label}
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-3">
-          <h1 className="text-lg font-bold text-slate-800">RequirementsCopilot</h1>
-          <nav className="ml-auto flex gap-1">
-            {tab('analyze', 'Analizar')}
-            {tab('interview', 'Conversar')}
-            {tab('history', 'Historial')}
-          </nav>
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl font-black tracking-tight" style={{ color: BRAND }}>
+              HOWDEN
+            </span>
+            <span className="h-8 w-px bg-slate-200" />
+            <div className="leading-tight">
+              <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase">AI Requirements</p>
+              <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Copilot</p>
+            </div>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
+            <ShieldIcon />
+            Ambiente Interno Seguro · Howden
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-4 py-6">
+
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+        <div className="mb-6 grid grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3">
+          {tab('analyze', 'Auditar Requerimientos', <AuditIcon />)}
+          {tab('interview', 'Copilot Chat de IA', <ChatIcon />)}
+          {tab('history', 'Historial de Auditorías', <HistoryIcon />)}
+        </div>
+
         {view === 'analyze' && (
           <AnalyzeView
             onOpenDetail={(id) => {
@@ -60,6 +123,17 @@ export default function App() {
         )}
         {view === 'detail' && selectedId && <DetailView id={selectedId} onBack={() => setView('history')} />}
       </main>
+
+      <footer className="border-t border-slate-200">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-1 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:justify-between">
+          <p>© 2026 Howden Corredores de Seguros SA. Todos los derechos reservados.</p>
+          <p className="flex items-center gap-1.5">
+            <span className="text-emerald-500">✓</span> Confidencialidad Asegurada
+            <span className="text-slate-300">|</span>
+            Estándares IEEE-830
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

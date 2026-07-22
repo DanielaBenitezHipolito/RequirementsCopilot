@@ -3,6 +3,8 @@ import { answerClarifications, generateStories, getAnalysis } from '../../shared
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
+const BRAND = '#1e2a5a';
+
 function mapRequirement(r: any): RequirementView {
   return {
     codigo: r.codigo,
@@ -38,22 +40,27 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const areas = useMemo(() => ['Todas', ...new Set(requirements.map((r) => r.area))], [requirements]);
   const visible = area === 'Todas' ? requirements : requirements.filter((r) => r.area === area);
 
-  if (error) return <p className="rounded bg-rose-50 p-3 text-sm text-rose-700">{error}</p>;
+  if (error) return <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>;
 
   return (
     <div className="space-y-4">
-      <button className="text-sm text-indigo-600 hover:underline" onClick={onBack}>
+      <button
+        className="text-sm font-semibold hover:underline"
+        style={{ color: BRAND }}
+        onClick={onBack}
+      >
         ← Volver al historial
       </button>
-      <h2 className="text-lg font-semibold text-slate-800">{fileName}</h2>
+      <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
       <div className="flex flex-wrap gap-2">
         {areas.map((a) => (
           <button
             key={a}
             onClick={() => setArea(a)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              area === a ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${
+              area === a ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
+            style={area === a ? { backgroundColor: BRAND } : undefined}
           >
             {a}
           </button>
