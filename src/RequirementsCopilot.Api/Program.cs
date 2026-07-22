@@ -39,6 +39,18 @@ else
 string repositoryProvider = builder.Configuration["Providers:AnalysisRepository"] ?? "InMemory";
 if (repositoryProvider == "Mongo")
 {
+    // MongoDB.Driver 3.x no serializa Guid sin representación explícita. El atributo
+    // [BsonGuidRepresentation] no aplica a Guid? (AnalysisId), así que se registra global.
+    try
+    {
+        MongoDB.Bson.Serialization.BsonSerializer.RegisterSerializer(
+            new MongoDB.Bson.Serialization.Serializers.GuidSerializer(MongoDB.Bson.GuidRepresentation.Standard));
+    }
+    catch (MongoDB.Bson.BsonSerializationException)
+    {
+        // Ya registrado (reinicios in-process, p. ej. tests): ignorar.
+    }
+
     var mongoOptions = builder.Configuration.GetSection("Mongo").Get<MongoOptions>() ?? new MongoOptions();
     builder.Services.AddSingleton(sp =>
         new MongoDB.Driver.MongoClient(mongoOptions.ConnectionString).GetDatabase(mongoOptions.Database));

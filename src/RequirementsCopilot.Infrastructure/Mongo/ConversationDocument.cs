@@ -1,4 +1,3 @@
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using RequirementsCopilot.Application.Conversations;
 
@@ -6,14 +5,11 @@ namespace RequirementsCopilot.Infrastructure.Mongo;
 
 public sealed class ConversationDocument
 {
-    // MongoDB.Driver 3.x no serializa Guid sin representación explícita (mismo fix que AnalysisDocument).
     [BsonId]
-    [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid Id { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string Status { get; set; } = string.Empty;
-    [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid? AnalysisId { get; set; }
     public string? LastResponseId { get; set; }
     public List<ConversationMessageDocument> Messages { get; set; } = new();

@@ -1,4 +1,3 @@
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using RequirementsCopilot.Domain.Analyses;
 
@@ -6,9 +5,7 @@ namespace RequirementsCopilot.Infrastructure.Mongo;
 
 public sealed class AnalysisDocument
 {
-    // MongoDB.Driver 3.x no serializa Guid sin representación explícita.
     [BsonId]
-    [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
