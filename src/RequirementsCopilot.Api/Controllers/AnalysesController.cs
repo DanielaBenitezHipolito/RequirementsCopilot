@@ -76,6 +76,12 @@ public sealed class AnalysesController : ControllerBase
     public Task<IActionResult> GenerateStories(Guid id, string code, CancellationToken cancellationToken)
         => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, cancellationToken));
 
+    [HttpPost("{id:guid}/requirements/{code}/reevaluate")]
+    public Task<IActionResult> Reevaluate(Guid id, string code,
+        [FromBody] ClarificationAnswersRequest? request, CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.ReevaluateAsync(
+            id, code, request?.Respuestas ?? new List<string?>(), cancellationToken));
+
     private static async Task<IActionResult> ExecuteAsync(Func<Task<RequirementDetailDto>> action)
     {
         try
@@ -85,6 +91,14 @@ public sealed class AnalysesController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return new NotFoundObjectResult(new { mensaje = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return new BadRequestObjectResult(new { mensaje = ex.Message });
+        }
+        catch (LlmException ex)
+        {
+            return new ObjectResult(new { mensaje = ex.Message }) { StatusCode = StatusCodes.Status502BadGateway };
         }
         catch (InvalidOperationException ex)
         {
@@ -103,6 +117,7 @@ public sealed class AnalysesController : ControllerBase
             AnalysisEventKind.Clarification => new { aclaracion = analysisEvent.Clarification },
             AnalysisEventKind.Story => new { historia = analysisEvent.Story },
             AnalysisEventKind.TestCase => new { caso = analysisEvent.TestCase },
+            AnalysisEventKind.Summary => new { resumen = analysisEvent.Summary },
             AnalysisEventKind.Done => new { analysisId = analysisEvent.AnalysisId },
             AnalysisEventKind.Error => new { mensaje = analysisEvent.Message },
             _ => new { },

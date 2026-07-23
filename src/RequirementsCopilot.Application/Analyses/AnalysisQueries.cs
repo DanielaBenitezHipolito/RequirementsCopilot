@@ -17,7 +17,7 @@ public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime Creat
     int TotalRequerimientos, int Aprobados);
 
 public sealed record AnalysisDetailDto(Guid Id, string FileName, DateTime CreatedAt, string Status, string? Error,
-    IReadOnlyList<RequirementDetailDto> Requerimientos);
+    string? Resumen, IReadOnlyList<RequirementDetailDto> Requerimientos);
 
 public sealed class AnalysisQueries
 {
@@ -43,7 +43,7 @@ public sealed class AnalysisQueries
         }
 
         return new AnalysisDetailDto(analysis.Id, analysis.FileName, analysis.CreatedAt, analysis.Status.ToString(),
-            analysis.Error,
+            analysis.Error, analysis.Summary,
             analysis.Requirements.Select(MapRequirement).ToArray());
     }
 

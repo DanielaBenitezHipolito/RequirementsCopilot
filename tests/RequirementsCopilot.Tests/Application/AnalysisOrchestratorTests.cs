@@ -47,6 +47,7 @@ public class AnalysisOrchestratorTests
                 "{\"historias\":[{\"rol\":\"cajero\",\"quiero\":\"registrar un pago\",\"para\":\"cerrar la venta\",\"criteriosAceptacion\":[\"dado A entonces B\"]}]}",
             TestCaseWriterAgent.AgentName =>
                 "{\"titulo\":\"Pago exitoso\",\"precondiciones\":[\"caja abierta\"],\"pasos\":[\"registrar\"],\"resultadoEsperado\":\"registrado\"}",
+            ExecutiveSummaryAgent.AgentName => "{\"resumen\":\"Resumen ejecutivo de prueba.\"}",
             _ => "{}",
         },
     };
@@ -58,6 +59,7 @@ public class AnalysisOrchestratorTests
         new ClarifierAgent(chat),
         new StoryWriterAgent(chat),
         new TestCaseWriterAgent(chat),
+        new ExecutiveSummaryAgent(chat),
         repository,
         new AnalysisOptions());
 
@@ -83,7 +85,7 @@ public class AnalysisOrchestratorTests
             {
                 AnalysisEventKind.Status, AnalysisEventKind.Requirement, AnalysisEventKind.Evaluation,
                 AnalysisEventKind.Requirement, AnalysisEventKind.Evaluation, AnalysisEventKind.Clarification,
-                AnalysisEventKind.Done,
+                AnalysisEventKind.Summary, AnalysisEventKind.Done,
             },
             events.Select(e => e.Kind).ToArray());
 
@@ -94,6 +96,7 @@ public class AnalysisOrchestratorTests
         Assert.Equal(2, repository.Saved.Requirements[1].Clarifications.Count); // ambiguo: preguntas
         Assert.False(events[4].Evaluation!.Pasa);
         Assert.Equal("REQ-002", events[5].Clarification!.RequirementCode);
+        Assert.Equal("Resumen ejecutivo de prueba.", repository.Saved.Summary);
     }
 
     [Fact]
@@ -144,6 +147,104 @@ public class AnalysisOrchestratorTests
 
         await Assert.ThrowsAsync<KeyNotFoundException>(
             () => orchestrator.GenerateStoriesAsync(Guid.NewGuid(), "REQ-001"));
+    }
+
+    /// <summary>Chat cuyo evaluador aprueba cuando el input trae aclaraciones respondidas (mismo contrato del Fake real).</summary>
+    private static StubChatCompletion ReevaluateChat()
+    {
+        var chat = PipelineChat();
+        var baseReply = chat.Reply;
+        chat.Reply = prompt => prompt.Agent == RequirementEvaluatorAgent.AgentName && prompt.Input.Contains("Aclaraciones respondidas")
+            ? HighRubric()
+            : baseReply(prompt);
+        return chat;
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_ResponderAclaraciones_Aprueba()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(ReevaluateChat(), repository);
+        await Collect(orchestrator);
+
+        var dto = await orchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002",
+            new[] { "Menos de 2 segundos", "Consultas y pagos" });
+
+        Assert.True(dto.Evaluacion!.Pasa);
+        Assert.Equal("Menos de 2 segundos", dto.Aclaraciones[0].Respuesta);
+        Assert.True(repository.Saved.Requirements[1].Evaluation!.Passed); // persistido
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_SiguenAmbiguo_AgregaPreguntasNuevasConservandoRespondidas()
+    {
+        var repository = new StubRepository();
+        // El evaluador nunca aprueba, incluso con aclaraciones: sigue ambiguo tras responder.
+        var chat = PipelineChat();
+        var baseReply = chat.Reply;
+        chat.Reply = prompt => prompt.Agent == RequirementEvaluatorAgent.AgentName ? LowRubric() : baseReply(prompt);
+        var orchestrator = Orchestrator(chat, repository);
+        await Collect(orchestrator);
+
+        var dto = await orchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002",
+            new[] { "Menos de 2 segundos", "Consultas y pagos" });
+
+        Assert.False(dto.Evaluacion!.Pasa);
+        var requirement = repository.Saved.Requirements[1];
+        Assert.Equal(4, requirement.Clarifications.Count); // 2 viejas respondidas + 2 nuevas
+        Assert.True(requirement.Clarifications[0].IsAnswered);
+        Assert.True(requirement.Clarifications[1].IsAnswered);
+        Assert.False(requirement.Clarifications[2].IsAnswered);
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_SinPreguntasPendientes_Lanza()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(ReevaluateChat(), repository);
+        await Collect(orchestrator);
+
+        // REQ-001 está aprobado, sin preguntas de clarificación.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => orchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-001", new[] { "algo" }));
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_SinRespuestas_LanzaArgumentException()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(ReevaluateChat(), repository);
+        await Collect(orchestrator);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => orchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002", Array.Empty<string?>()));
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_AnalisisInexistente_LanzaNotFound()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(ReevaluateChat(), repository);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => orchestrator.ReevaluateAsync(Guid.NewGuid(), "REQ-001", new[] { "algo" }));
+    }
+
+    [Fact]
+    public async Task ReevaluateAsync_EvaluadorFalla_LanzaLlmException()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        await Collect(orchestrator);
+
+        var chat = new StubChatCompletion { Reply = _ => "no json" };
+        var brokenOrchestrator = new AnalysisOrchestrator(
+            new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat), new StoryWriterAgent(chat), new TestCaseWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions());
+
+        await Assert.ThrowsAsync<LlmException>(
+            () => brokenOrchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002", new[] { "algo", "algo" }));
     }
 
     [Fact]
@@ -220,6 +321,7 @@ public class AnalysisOrchestratorTests
             new ClarifierAgent(chat),
             new StoryWriterAgent(chat),
             new TestCaseWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat),
             new StubRepository(),
             new AnalysisOptions { MaxInputChars = 100 });
 

@@ -49,6 +49,11 @@ public sealed class FakeChatCompletion : IChatCompletion
         "{\"listo\":true,\"mensaje\":\"Con eso es suficiente; este es el requerimiento propuesto.\"," +
         "\"requerimiento\":{\"texto\":\"El sistema debe permitir al recepcionista registrar el pago de una reserva, guardando monto, fecha y consecutivo.\",\"area\":\"Pagos\"}}";
 
+    private const string ExecutiveSummaryReply =
+        "{\"resumen\":\"La auditoría evidencia un documento con requerimientos mayormente claros y verificables, " +
+        "aunque persisten vacíos en criterios medibles y alcance en algunas áreas. Se recomienda cerrar las " +
+        "aclaraciones pendientes antes de avanzar a diseño para reducir el riesgo de retrabajo.\"}";
+
     public Task<ChatResult> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
@@ -56,13 +61,16 @@ public sealed class FakeChatCompletion : IChatCompletion
         string text = prompt.Agent switch
         {
             RequirementExtractorAgent.AgentName => ExtractorReply,
-            RequirementEvaluatorAgent.AgentName => IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
+            RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("Aclaraciones respondidas")
+                ? HighRubric
+                : IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
             ClarifierAgent.AgentName => ClarifierReply,
             StoryWriterAgent.AgentName => StoriesReply,
             TestCaseWriterAgent.AgentName => TestCaseReply,
             // ponytail: guion fijo — 1a llamada pregunta, con hilo previo redacta. Suficiente para demo sin credenciales.
             RequirementBuilderAgent.AgentName =>
                 string.IsNullOrEmpty(prompt.PreviousResponseId) ? BuilderQuestionReply : BuilderReadyReply,
+            ExecutiveSummaryAgent.AgentName => ExecutiveSummaryReply,
             _ => "{}",
         };
         return Task.FromResult(new ChatResult(text, "fake-response-id"));

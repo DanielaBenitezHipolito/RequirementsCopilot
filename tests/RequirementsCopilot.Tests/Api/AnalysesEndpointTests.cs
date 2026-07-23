@@ -41,11 +41,70 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Contains("event: clarification", body); // REQ-002 ambiguo pregunta
         Assert.DoesNotContain("event: story", body); // historias ya no son automáticas
         Assert.DoesNotContain("event: testcase", body);
+        Assert.Contains("event: summary", body); // resumen ejecutivo antes de done
         Assert.Contains("event: done", body);
+        Assert.True(Regex.IsMatch(body, "event: summary.*?event: done", RegexOptions.Singleline));
 
         var list = await client.GetFromJsonAsync<List<JsonElement>>("/api/analyses");
         Assert.NotEmpty(list!);
         Assert.Equal("Completed", list![0].GetProperty("status").GetString());
+
+        string analysisId = AnalysisIdFrom(body);
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        Assert.False(string.IsNullOrWhiteSpace(detail.GetProperty("resumen").GetString()));
+    }
+
+    [Fact]
+    public async Task Reevaluate_RequerimientoAmbiguo_ResponderApruebaYPersiste()
+    {
+        var client = _factory.CreateClient();
+        var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await post.Content.ReadAsStringAsync());
+
+        // REQ-002 es ambiguo en el Fake y trae 2 preguntas de clarificación.
+        var reevaluate = await client.PostAsJsonAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-002/reevaluate",
+            new { respuestas = new[] { "Menos de 2 segundos", "Consultas y pagos" } });
+
+        Assert.Equal(HttpStatusCode.OK, reevaluate.StatusCode);
+        var dto = await reevaluate.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(dto.GetProperty("evaluacion").GetProperty("pasa").GetBoolean());
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var req002 = detail.GetProperty("requerimientos").EnumerateArray()
+            .First(r => r.GetProperty("codigo").GetString() == "REQ-002");
+        Assert.True(req002.GetProperty("evaluacion").GetProperty("pasa").GetBoolean());
+        Assert.Equal("Menos de 2 segundos", req002.GetProperty("aclaraciones")[0].GetProperty("respuesta").GetString());
+    }
+
+    [Fact]
+    public async Task Reevaluate_SinPreguntasPendientes_Devuelve409()
+    {
+        var client = _factory.CreateClient();
+        var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await post.Content.ReadAsStringAsync());
+
+        // REQ-001 está aprobado y sin preguntas de clarificación: no hay nada que re-evaluar.
+        var response = await client.PostAsJsonAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/reevaluate",
+            new { respuestas = new[] { "no aplica" } });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Reevaluate_PreguntasPendientesSinRespuestas_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await post.Content.ReadAsStringAsync());
+
+        // REQ-002 es ambiguo y tiene preguntas pendientes, pero no se envían respuestas.
+        var response = await client.PostAsJsonAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-002/reevaluate",
+            new { respuestas = Array.Empty<string>() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

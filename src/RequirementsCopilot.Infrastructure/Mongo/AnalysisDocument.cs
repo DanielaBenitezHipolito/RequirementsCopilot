@@ -11,6 +11,7 @@ public sealed class AnalysisDocument
     public DateTime CreatedAt { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Error { get; set; }
+    public string? Summary { get; set; }
     public List<RequirementDocument> Requirements { get; set; } = new();
 
     public static AnalysisDocument FromDomain(Analysis analysis) => new()
@@ -20,11 +21,12 @@ public sealed class AnalysisDocument
         CreatedAt = analysis.CreatedAt,
         Status = analysis.Status.ToString(),
         Error = analysis.Error,
+        Summary = analysis.Summary,
         Requirements = analysis.Requirements.Select(RequirementDocument.FromDomain).ToList(),
     };
 
     public Analysis ToDomain() => Analysis.Rehydrate(
-        Id, FileName, CreatedAt, Enum.Parse<AnalysisStatus>(Status), Error,
+        Id, FileName, CreatedAt, Enum.Parse<AnalysisStatus>(Status), Error, Summary,
         Requirements.Select(r => r.ToDomain()).ToArray());
 }
 

@@ -9,10 +9,11 @@ public sealed class Analysis
     public DateTime CreatedAt { get; }
     public AnalysisStatus Status { get; private set; }
     public string? Error { get; private set; }
+    public string? Summary { get; private set; }
     public IReadOnlyList<Requirement> Requirements => _requirements;
 
-    private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error)
-        => (Id, FileName, CreatedAt, Status, Error) = (id, fileName, createdAt, status, error);
+    private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error, string? summary)
+        => (Id, FileName, CreatedAt, Status, Error, Summary) = (id, fileName, createdAt, status, error, summary);
 
     public static Analysis Create(string fileName)
     {
@@ -20,13 +21,13 @@ public sealed class Analysis
         {
             throw new ArgumentException("El análisis requiere nombre de archivo.", nameof(fileName));
         }
-        return new Analysis(Guid.NewGuid(), fileName.Trim(), DateTime.UtcNow, AnalysisStatus.Processing, null);
+        return new Analysis(Guid.NewGuid(), fileName.Trim(), DateTime.UtcNow, AnalysisStatus.Processing, null, null);
     }
 
     public static Analysis Rehydrate(Guid id, string fileName, DateTime createdAt, AnalysisStatus status,
-        string? error, IReadOnlyList<Requirement> requirements)
+        string? error, string? summary, IReadOnlyList<Requirement> requirements)
     {
-        var analysis = new Analysis(id, fileName, createdAt, status, error);
+        var analysis = new Analysis(id, fileName, createdAt, status, error, summary);
         analysis._requirements.AddRange(requirements);
         return analysis;
     }
@@ -39,5 +40,14 @@ public sealed class Analysis
     {
         Status = AnalysisStatus.Failed;
         Error = error;
+    }
+
+    public void SetSummary(string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            throw new ArgumentException("El resumen no puede estar vacío.", nameof(summary));
+        }
+        Summary = summary.Trim();
     }
 }

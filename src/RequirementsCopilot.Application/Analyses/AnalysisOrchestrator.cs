@@ -12,12 +12,14 @@ public sealed class AnalysisOrchestrator
     private readonly ClarifierAgent _clarifier;
     private readonly StoryWriterAgent _storyWriter;
     private readonly TestCaseWriterAgent _testCaseWriter;
+    private readonly ExecutiveSummaryAgent _summaryAgent;
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
         RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, StoryWriterAgent storyWriter,
-        TestCaseWriterAgent testCaseWriter, IAnalysisRepository repository, AnalysisOptions options)
+        TestCaseWriterAgent testCaseWriter, ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
+        AnalysisOptions options)
     {
         _textExtractor = textExtractor;
         _extractor = extractor;
@@ -25,6 +27,7 @@ public sealed class AnalysisOrchestrator
         _clarifier = clarifier;
         _storyWriter = storyWriter;
         _testCaseWriter = testCaseWriter;
+        _summaryAgent = summaryAgent;
         _repository = repository;
         _options = options;
     }
@@ -103,6 +106,22 @@ public sealed class AnalysisOrchestrator
             }
         }
 
+        AnalysisEvent? summaryEvent = null;
+        if (error is null && analysis.Requirements.Count > 0)
+        {
+            try
+            {
+                string summary = await _summaryAgent.SummarizeAsync(analysis, cancellationToken);
+                analysis.SetSummary(summary);
+                summaryEvent = AnalysisEvent.FromSummary(summary);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception)
+            {
+                // El resumen es un plus editorial: si falla, el análisis sigue siendo válido sin él.
+            }
+        }
+
         if (error is null)
         {
             analysis.Complete();
@@ -124,6 +143,10 @@ public sealed class AnalysisOrchestrator
             error = $"No se pudo guardar el análisis: {ex.Message}";
         }
 
+        if (error is null && summaryEvent is not null)
+        {
+            yield return summaryEvent;
+        }
         yield return error is null ? AnalysisEvent.Done(analysis.Id) : AnalysisEvent.Error(error);
     }
 
@@ -216,6 +239,65 @@ public sealed class AnalysisOrchestrator
         {
             story.AttachTestCase(await _testCaseWriter.WriteAsync(story, cancellationToken));
             requirement.AddStory(story);
+        }
+
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Ciclo responder → re-evaluar → más preguntas: guarda las respuestas a las preguntas pendientes,
+    /// re-evalúa el requerimiento con esas aclaraciones incorporadas y, si sigue ambiguo, agrega
+    /// preguntas nuevas (las anteriores conservan sus respuestas). Se itera hasta aprobar.
+    /// </summary>
+    public async Task<RequirementDetailDto> ReevaluateAsync(Guid analysisId, string requirementCode,
+        IReadOnlyList<string?> answers, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+
+        var pending = requirement.Clarifications.Where(c => !c.IsAnswered).ToArray();
+        if (pending.Length == 0)
+        {
+            throw new InvalidOperationException("El requerimiento no tiene preguntas de clarificación pendientes.");
+        }
+        if (answers.Count == 0 || answers.All(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException("Debe responder al menos una pregunta pendiente.", nameof(answers));
+        }
+
+        for (int index = 0; index < answers.Count && index < pending.Length; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(answers[index]))
+            {
+                pending[index].Respond(answers[index]!);
+            }
+        }
+
+        Evaluation evaluation;
+        try
+        {
+            evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
+                requirement.Clarifications, cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { throw new LlmException(ex.Message); }
+
+        requirement.Evaluate(evaluation);
+
+        if (NeedsClarification(evaluation))
+        {
+            IReadOnlyList<string> questions;
+            try
+            {
+                questions = await _clarifier.AskAsync(requirement, cancellationToken);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { throw new LlmException(ex.Message); }
+
+            foreach (string question in questions)
+            {
+                requirement.AddClarification(Clarification.Create(question));
+            }
         }
 
         await _repository.SaveAsync(analysis, cancellationToken);

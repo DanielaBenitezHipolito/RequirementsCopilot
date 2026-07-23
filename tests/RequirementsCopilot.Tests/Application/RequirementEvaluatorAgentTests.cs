@@ -49,4 +49,26 @@ public class RequirementEvaluatorAgentTests
         var agent = new RequirementEvaluatorAgent(chat);
         await Assert.ThrowsAsync<InvalidOperationException>(() => agent.EvaluateAsync(Req(), 3.5));
     }
+
+    [Fact]
+    public async Task EvaluateAsync_ConAclaracionesRespondidas_IncluyeQAEnElInput()
+    {
+        var chat = new StubChatCompletion
+        {
+            Reply = _ => "{\"criterios\":[{\"nombre\":\"Claridad\",\"score\":5,\"observacion\":\"clara\"}]}",
+        };
+        var agent = new RequirementEvaluatorAgent(chat);
+        var requirement = Req();
+        requirement.AddClarification(Clarification.Create("¿Qué significa rápido?"));
+        requirement.Clarifications[0].Respond("Menos de 2 segundos");
+        requirement.AddClarification(Clarification.Create("¿Sin responder?")); // no debe aparecer
+
+        await agent.EvaluateAsync(requirement, 3.5, requirement.Clarifications);
+
+        string input = chat.Prompts[0].Input;
+        Assert.Contains("Aclaraciones respondidas", input);
+        Assert.Contains("¿Qué significa rápido?", input);
+        Assert.Contains("Menos de 2 segundos", input);
+        Assert.DoesNotContain("¿Sin responder?", input);
+    }
 }

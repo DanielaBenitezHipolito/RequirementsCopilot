@@ -13,10 +13,22 @@ public sealed class RequirementEvaluatorAgent
 
     public RequirementEvaluatorAgent(IChatCompletion chat) => _chat = chat;
 
-    public async Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold, CancellationToken cancellationToken = default)
+    public Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold, CancellationToken cancellationToken = default)
+        => EvaluateAsync(requirement, threshold, answeredClarifications: null, cancellationToken);
+
+    /// <summary>Re-evaluación tras responder aclaraciones: el input incluye las preguntas ya respondidas.</summary>
+    public async Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold,
+        IReadOnlyList<Clarification>? answeredClarifications, CancellationToken cancellationToken = default)
     {
+        var answered = (answeredClarifications ?? Array.Empty<Clarification>()).Where(c => c.IsAnswered).ToArray();
+        string clarifications = answered.Length == 0
+            ? string.Empty
+            : "\n\nAclaraciones respondidas:\n" +
+              string.Join("\n", answered.Select(c => $"- P: {c.Question}\n  R: {c.Answer}"));
+
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}"),
+            new ChatPrompt(AgentName,
+                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
             cancellationToken);
 
         string json = JsonText.FirstJsonObject(result.Text)

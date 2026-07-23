@@ -183,6 +183,44 @@ enviarlo con `POST /api/conversations/complete`, que crea el análisis y arranca
 
 ---
 
+## 7. ExecutiveSummaryAgent (`executive-summary-agent`) — NUEVO
+
+**Cuándo corre:** al final del pipeline de análisis (`AnalyzeAsync`), tras evaluar todos los requerimientos y
+solo si hubo al menos uno — antes de marcar el análisis como `Completed`. Su fallo NO tumba el análisis:
+si el LLM no responde JSON válido, el análisis se completa igual, sin resumen ni evento `summary`.
+
+**Entrada:** JSON compacto construido en código, con las observaciones de score ≤3 (máx. 2 por requerimiento):
+
+```json
+{
+  "archivo": "spec.pdf",
+  "umbral": 3.5,
+  "requerimientos": [
+    { "codigo": "REQ-001", "area": "Pagos", "promedio": 4.2, "pasa": true, "observacionesClave": [] },
+    { "codigo": "REQ-002", "area": "General", "promedio": 2.1, "pasa": false,
+      "observacionesClave": ["\"Rápido\" y \"fácil\" son subjetivos.", "No define métricas ni alcance."] }
+  ]
+}
+```
+
+**Prompt (system):**
+
+> Eres un analista senior de auditoría de requerimientos. A partir del JSON con los requerimientos evaluados
+> de un documento (código, área, promedio, si pasa el umbral, y sus observaciones clave de mayor debilidad),
+> redacta un resumen ejecutivo de la auditoría dirigido a un responsable de proyecto no técnico: estructura
+> general del documento, calidad global de los requerimientos, vacíos o ambigüedades principales, y una
+> recomendación concreta de siguiente paso. Entre 120 y 180 palabras, tono ejecutivo asegurador (claro,
+> profesional, sin jerga técnica innecesaria). No inventes datos que el JSON no contenga.
+> Responde ÚNICAMENTE este JSON: `{"resumen":"..."}`
+
+**Salida esperada:**
+
+```json
+{ "resumen": "El documento presenta once requerimientos, de los cuales ocho cumplen el umbral de calidad..." }
+```
+
+---
+
 ## Publicación en Foundry
 
 Desde la actualización 2026-07-16 (ver `docs/adr/0002-foundry-adaptadores-intercambiables.md`),
@@ -213,7 +251,8 @@ El mapeo de código lógico → agente publicado vive en `Foundry:Chat:Agents`:
         "clarifier-agent": { "Name": "clarifier-agent", "Version": "1" },
         "story-writer-agent": { "Name": "story-writer-agent", "Version": "1" },
         "test-case-writer-agent": { "Name": "test-case-writer-agent", "Version": "1" },
-        "requirement-builder-agent": { "Name": "requirement-builder-agent", "Version": "1" }
+        "requirement-builder-agent": { "Name": "requirement-builder-agent", "Version": "1" },
+        "executive-summary-agent": { "Name": "executive-summary-agent", "Version": "1" }
       }
     }
   }
@@ -233,8 +272,13 @@ Subir documento
    └─► 1. Extractor  ──► requerimientos REQ-001..N
           └─► 2. Evaluador (por c/u) ──► rúbrica + Pasa/No pasa
                  └─► 3. Clarificador (solo ambiguos) ──► preguntas al cliente
-Cliente responde preguntas (PUT clarifications)
-Cliente pulsa "Generar historias" (POST stories)
+   └─► 7. ExecutiveSummaryAgent (si hubo ≥1 requerimiento) ──► resumen ejecutivo (evento `summary`)
+Ciclo responder → re-evaluar (POST reevaluate):
+   Cliente responde preguntas pendientes
+      └─► 2. Evaluador CON aclaraciones respondidas ──► nueva rúbrica, reemplaza la evaluación
+             └─► si sigue ambiguo: 3. Clarificador CON aclaraciones ──► preguntas NUEVAS (append)
+   Se itera hasta aprobar.
+Cliente pulsa "Generar historias" (POST stories) — solo si aprobado o todo respondido
    └─► 4. StoryWriter (requerimiento + aclaraciones) ──► historias
           └─► 5. TestCaseWriter (por historia) ──► 1 caso de prueba
 ```

@@ -2,7 +2,7 @@ using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Application.Analyses;
 
-public enum AnalysisEventKind { Status, Requirement, Evaluation, Clarification, Story, TestCase, Done, Error }
+public enum AnalysisEventKind { Status, Requirement, Evaluation, Clarification, Story, TestCase, Summary, Done, Error }
 
 public sealed record CriterionDto(string Nombre, int Score, string Observacion);
 
@@ -26,6 +26,7 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
     public ClarificationEventDto? Clarification { get; init; }
     public StoryDto? Story { get; init; }
     public TestCaseDto? TestCase { get; init; }
+    public string? Summary { get; init; }
     public Guid? AnalysisId { get; init; }
 
     public static AnalysisEvent Status(string message) => new(AnalysisEventKind.Status) { Message = message };
@@ -61,6 +62,8 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
         TestCase = new TestCaseDto(requirementCode, storyIndex, testCase.Title, testCase.Preconditions,
             testCase.Steps, testCase.ExpectedResult),
     };
+
+    public static AnalysisEvent FromSummary(string summary) => new(AnalysisEventKind.Summary) { Summary = summary };
 
     public static AnalysisEvent Done(Guid analysisId) => new(AnalysisEventKind.Done) { AnalysisId = analysisId };
 
