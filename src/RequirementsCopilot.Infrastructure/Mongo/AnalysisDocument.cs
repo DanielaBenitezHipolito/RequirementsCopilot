@@ -3,6 +3,7 @@ using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Infrastructure.Mongo;
 
+[BsonIgnoreExtraElements]
 public sealed class AnalysisDocument
 {
     [BsonId]
@@ -30,6 +31,7 @@ public sealed class AnalysisDocument
         Requirements.Select(r => r.ToDomain()).ToArray());
 }
 
+[BsonIgnoreExtraElements]
 public sealed class RequirementDocument
 {
     public string Code { get; set; } = string.Empty;
@@ -71,12 +73,14 @@ public sealed class RequirementDocument
     }
 }
 
+[BsonIgnoreExtraElements]
 public sealed class ClarificationDocument
 {
     public string Question { get; set; } = string.Empty;
     public string? Answer { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public sealed class EvaluationDocument
 {
     public List<CriterionDocument> Scores { get; set; } = new();
@@ -95,6 +99,7 @@ public sealed class EvaluationDocument
         Scores.Select(s => CriterionScore.Create(s.Criterion, s.Score, s.Observation)).ToArray(), Threshold);
 }
 
+[BsonIgnoreExtraElements]
 public sealed class CriterionDocument
 {
     public string Criterion { get; set; } = string.Empty;
@@ -102,6 +107,7 @@ public sealed class CriterionDocument
     public string Observation { get; set; } = string.Empty;
 }
 
+[BsonIgnoreExtraElements]
 public sealed class ActorDocument
 {
     public string Nombre { get; set; } = string.Empty;
@@ -112,6 +118,7 @@ public sealed class ActorDocument
     public Actor ToDomain() => new(Nombre, Descripcion);
 }
 
+[BsonIgnoreExtraElements]
 public sealed class PasoDocument
 {
     public int Numero { get; set; }
@@ -126,6 +133,7 @@ public sealed class PasoDocument
     public PasoFlujo ToDomain() => new(Numero, Accion, ResultadoEsperado);
 }
 
+[BsonIgnoreExtraElements]
 public sealed class FlujoDocument
 {
     public string Titulo { get; set; } = string.Empty;
@@ -140,6 +148,7 @@ public sealed class FlujoDocument
     public FlujoProceso ToDomain() => new(Titulo, Pasos.Select(p => p.ToDomain()).ToArray());
 }
 
+[BsonIgnoreExtraElements]
 public sealed class UseCaseDocument
 {
     public string Nombre { get; set; } = string.Empty;

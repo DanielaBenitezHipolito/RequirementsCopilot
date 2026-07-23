@@ -3,6 +3,7 @@ using RequirementsCopilot.Application.Conversations;
 
 namespace RequirementsCopilot.Infrastructure.Mongo;
 
+[BsonIgnoreExtraElements]
 public sealed class ConversationDocument
 {
     [BsonId]
@@ -30,6 +31,7 @@ public sealed class ConversationDocument
         Messages.Select(m => new ConversationMessage(m.Role, m.Text)));
 }
 
+[BsonIgnoreExtraElements]
 public sealed class ConversationMessageDocument
 {
     public string Role { get; set; } = string.Empty;
