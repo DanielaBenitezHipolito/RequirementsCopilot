@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { completeConversation, getConversation, getConversations, sendConversationMessage } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
+import { BrandButton } from '../../shared/components/BrandButton';
 import type { ConversationSummary } from '../../shared/types';
 import { useInterviewStore } from './store';
 
@@ -89,13 +90,9 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Conversaciones</h2>
           </div>
-          <button
-            className="mt-3 w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
-            onClick={() => reset()}
-          >
+          <BrandButton className="mt-3 w-full" onClick={() => reset()}>
             Nueva conversación
-          </button>
+          </BrandButton>
 
           <div className="mt-3 space-y-2">
             {historyError && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{historyError}</p>}
@@ -179,14 +176,9 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             </p>
             <p className="text-sm text-slate-800">{draft.texto}</p>
             <p className="text-xs text-slate-500">Área: {draft.area}</p>
-            <button
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: BRAND }}
-              disabled={approving}
-              onClick={() => void approve()}
-            >
-              {approving ? 'Aprobando…' : 'Aprobar y analizar'}
-            </button>
+            <BrandButton loading={approving} loadingText="Aprobando…con IA…" onClick={() => void approve()}>
+              Aprobar y analizar
+            </BrandButton>
           </div>
         )}
 
@@ -200,14 +192,15 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
               if (e.key === 'Enter') void send();
             }}
           />
-          <button
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: BRAND }}
-            disabled={status === 'sending' || !text.trim()}
+          <BrandButton
+            className="!h-10 !w-10 !rounded-full !p-0"
+            disabled={!text.trim()}
+            loading={status === 'sending'}
+            loadingText=""
             onClick={() => void send()}
           >
             <SendIcon />
-          </button>
+          </BrandButton>
         </div>
       </div>
     </div>

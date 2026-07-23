@@ -45,6 +45,15 @@ export async function generateStories(id: string, codigo: string): Promise<any> 
   return readOrThrow(response);
 }
 
+export async function reevaluateRequirement(id: string, codigo: string, respuestas: string[]): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/reevaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ respuestas }),
+  });
+  return readOrThrow(response);
+}
+
 export async function sendConversationMessage(
   mensaje: string,
   previousResponseId?: string,

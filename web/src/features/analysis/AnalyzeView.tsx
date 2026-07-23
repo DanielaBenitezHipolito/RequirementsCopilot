@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { analyzeFile } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
+import { BrandButton } from '../../shared/components/BrandButton';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
@@ -43,7 +44,7 @@ function StepDot({ state }: { state: 'done' | 'active' | 'pending' }) {
 }
 
 export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
-  const { status, requirements, analysisId, error, start, applyEvent, reset } = useAnalysisStore();
+  const { status, requirements, analysisId, resumen, error, start, applyEvent, reset } = useAnalysisStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
@@ -182,14 +183,9 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                 </button>
               </div>
               <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={startAudit}
-                  className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                  style={{ backgroundColor: BRAND }}
-                >
-                  ✦ Iniciar Auditoría de Calidad
-                </button>
+                <BrandButton icon="✦" onClick={startAudit}>
+                  Iniciar Auditoría de Calidad
+                </BrandButton>
               </div>
             </>
           )}
@@ -242,14 +238,7 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
       {status === 'done' && (
         <>
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
-              style={{ backgroundColor: '#1e2a5a' }}
-            >
-              Analizar otro documento
-            </button>
+            <BrandButton onClick={reset}>Analizar otro documento</BrandButton>
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
@@ -277,6 +266,7 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                   de 5.00 puntos
                 </text>
               </svg>
+              <p className="mt-1 text-xs text-slate-400">Umbral de aprobación: {umbral.toFixed(2)}</p>
               <span
                 className={`mt-3 rounded-full px-4 py-1 text-sm font-bold tracking-wide uppercase ${
                   aprobadoGeneral ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
@@ -287,6 +277,14 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
             </div>
 
             <div className="flex flex-col justify-center gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+              {resumen && (
+                <div>
+                  <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                    ✦ Resumen Ejecutivo de Auditoría
+                  </p>
+                  <p className="mt-1.5 text-sm text-slate-700">{resumen}</p>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="text-center">
                   <p className="text-3xl font-black" style={{ color: BRAND }}>

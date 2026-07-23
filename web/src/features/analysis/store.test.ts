@@ -41,4 +41,11 @@ describe('useAnalysisStore.applyEvent', () => {
     expect(state.status).toBe('error');
     expect(state.error).toBe('falló el LLM');
   });
+
+  it('summary guarda el resumen ejecutivo', () => {
+    const { applyEvent } = useAnalysisStore.getState();
+    applyEvent({ event: 'summary', data: { resumen: 'El documento está en buen estado general.' } });
+    const state = useAnalysisStore.getState();
+    expect(state.resumen).toBe('El documento está en buen estado general.');
+  });
 });

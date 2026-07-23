@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { RequirementView } from '../../shared/types';
+import { BrandButton } from '../../shared/components/BrandButton';
 
 interface Props {
   requirement: RequirementView;
-  onAnswer?: (respuestas: string[]) => Promise<void>;
+  onReevaluate?: (respuestas: string[]) => Promise<void>;
   onGenerate?: () => Promise<void>;
 }
 
@@ -29,7 +30,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onAnswer, onGenerate }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props) {
   const evaluacion = requirement.evaluacion;
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,7 @@ export function RequirementCard({ requirement, onAnswer, onGenerate }: Props) {
   const [open, setOpen] = useState(true);
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
+  const answered = requirement.aclaraciones.filter((a) => a.respuesta);
   const canGenerate =
     !!onGenerate &&
     requirement.historias.length === 0 &&
@@ -81,7 +83,9 @@ export function RequirementCard({ requirement, onAnswer, onGenerate }: Props) {
           </span>
         )}
         {evaluacion && (
-          <span className="ml-auto text-sm font-bold text-slate-700">Puntaje {evaluacion.promedio.toFixed(2)}/5</span>
+          <span className="ml-auto text-sm font-bold text-slate-700">
+            {evaluacion.promedio.toFixed(2)} / 5 <span className="font-normal text-slate-400">· umbral {evaluacion.umbral.toFixed(2)}</span>
+          </span>
         )}
         <ChevronIcon open={open} />
       </button>
@@ -125,15 +129,25 @@ export function RequirementCard({ requirement, onAnswer, onGenerate }: Props) {
               <p className="text-[11px] font-bold tracking-wide text-slate-500 uppercase">
                 Preguntas de Clarificación Corporativas
               </p>
+
+              {answered.length > 0 && (
+                <div className="mt-2 space-y-2 border-b border-slate-100 pb-3">
+                  {answered.map((a, i) => (
+                    <div key={i} className="text-xs text-slate-500">
+                      <p className="font-semibold text-slate-600">P: {a.pregunta}</p>
+                      <p className="mt-0.5">R: {a.respuesta}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-2 space-y-3">
-                {requirement.aclaraciones.map((a, i) => (
+                {pending.map((a, i) => (
                   <div key={i}>
                     <p className="text-xs font-bold text-slate-700">
                       Q{i + 1}: {a.pregunta}
                     </p>
-                    {a.respuesta ? (
-                      <p className="mt-1 text-xs text-emerald-700">R: {a.respuesta}</p>
-                    ) : onAnswer ? (
+                    {onReevaluate ? (
                       <input
                         className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs focus:border-slate-400 focus:outline-none"
                         placeholder="Tu respuesta…"
@@ -147,30 +161,30 @@ export function RequirementCard({ requirement, onAnswer, onGenerate }: Props) {
                   </div>
                 ))}
               </div>
-              {onAnswer && pending.length > 0 && (
-                <button
-                  className="mt-3 rounded-lg px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: BRAND }}
-                  disabled={busy || requirement.aclaraciones.every((a, i) => a.respuesta || !(drafts[i] ?? '').trim())}
-                  onClick={() =>
-                    run(() => onAnswer(requirement.aclaraciones.map((a, i) => a.respuesta ?? (drafts[i] ?? '').trim())))
-                  }
+              {onReevaluate && pending.length > 0 && (
+                <BrandButton
+                  icon="↻"
+                  className="mt-3 !px-4 !py-2 !text-xs"
+                  loading={busy}
+                  loadingText="Re-evaluando con IA…"
+                  disabled={pending.some((_, i) => !(drafts[i] ?? '').trim())}
+                  onClick={() => run(() => onReevaluate(pending.map((_, i) => (drafts[i] ?? '').trim())))}
                 >
-                  Guardar respuestas
-                </button>
+                  Responder y Re-evaluar Requerimiento
+                </BrandButton>
               )}
             </div>
           )}
 
           {canGenerate && (
-            <button
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: BRAND }}
-              disabled={busy}
+            <BrandButton
+              className="!px-4 !py-2 !text-xs"
+              loading={busy}
+              loadingText="Generando…con IA…"
               onClick={() => run(onGenerate!)}
             >
-              {busy ? 'Generando…' : 'Generar historias de usuario'}
-            </button>
+              Generar historias de usuario
+            </BrandButton>
           )}
           {error && <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
 

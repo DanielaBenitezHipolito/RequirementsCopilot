@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { answerClarifications, generateStories, getAnalysis } from '../../shared/api/client';
+import { generateStories, getAnalysis, reevaluateRequirement } from '../../shared/api/client';
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
@@ -19,6 +19,7 @@ function mapRequirement(r: any): RequirementView {
 
 export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const [fileName, setFileName] = useState('');
+  const [resumen, setResumen] = useState<string>();
   const [requirements, setRequirements] = useState<RequirementView[]>([]);
   const [area, setArea] = useState<string>('Todas');
   const [error, setError] = useState<string>();
@@ -27,6 +28,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
     getAnalysis(id)
       .then((detail) => {
         setFileName(detail.fileName);
+        setResumen(detail.resumen ?? undefined);
         setRequirements(detail.requerimientos.map(mapRequirement));
       })
       .catch((e) => setError(e.message));
@@ -52,6 +54,14 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
         ← Volver al historial
       </button>
       <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
+      {resumen && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+            ✦ Resumen Ejecutivo de Auditoría
+          </p>
+          <p className="mt-1.5 text-sm text-slate-700">{resumen}</p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {areas.map((a) => (
           <button
@@ -71,7 +81,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
           <RequirementCard
             key={r.codigo}
             requirement={r}
-            onAnswer={async (respuestas) => replace(await answerClarifications(id, r.codigo, respuestas))}
+            onReevaluate={async (respuestas) => replace(await reevaluateRequirement(id, r.codigo, respuestas))}
             onGenerate={async () => replace(await generateStories(id, r.codigo))}
           />
         ))}

@@ -6,6 +6,7 @@ interface AnalysisState {
   statusMessage: string;
   error?: string;
   analysisId?: string;
+  resumen?: string;
   requirements: RequirementView[];
   start: () => void;
   applyEvent: (evt: SseEvent) => void;
@@ -17,6 +18,7 @@ const initial = {
   statusMessage: '',
   error: undefined,
   analysisId: undefined,
+  resumen: undefined,
   requirements: [] as RequirementView[],
 };
 
@@ -47,6 +49,8 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
                 : r,
             ),
           };
+        case 'summary':
+          return { resumen: evt.data.resumen ?? undefined };
         case 'done':
           return { status: 'done', analysisId: evt.data.analysisId, statusMessage: '' };
         case 'error':
