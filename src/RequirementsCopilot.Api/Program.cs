@@ -12,12 +12,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-string corsOrigin = builder.Configuration["Cors:Origin"] ?? "http://localhost:5173";
-// En dev Vite salta de puerto (5173 ocupado -> 5174/5175): se acepta cualquier loopback además del origen configurado.
+// Cors:Origin admite lista separada por ';' (Vite salta de puerto: 5173 ocupado -> 5174/5175).
+string[] corsOrigins = (builder.Configuration["Cors:Origin"] ?? "http://localhost:5173")
+    .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 bool allowLoopback = builder.Environment.IsDevelopment();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.SetIsOriginAllowed(origin =>
-            origin == corsOrigin ||
+            corsOrigins.Contains(origin) ||
             (allowLoopback && Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback))
         .AllowAnyHeader().AllowAnyMethod()));
 
