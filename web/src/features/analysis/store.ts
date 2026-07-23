@@ -10,6 +10,7 @@ interface AnalysisState {
   requirements: RequirementView[];
   start: () => void;
   applyEvent: (evt: SseEvent) => void;
+  updateRequirement: (updated: RequirementView) => void;
   reset: () => void;
 }
 
@@ -26,6 +27,10 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
   ...initial,
   start: () => set({ ...initial, status: 'running' }),
   reset: () => set({ ...initial }),
+  updateRequirement: (updated) =>
+    set((state) => ({
+      requirements: state.requirements.map((r) => (r.codigo === updated.codigo ? updated : r)),
+    })),
   applyEvent: (evt) =>
     set((state) => {
       switch (evt.event) {

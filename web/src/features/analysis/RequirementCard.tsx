@@ -5,7 +5,6 @@ import { BrandButton } from '../../shared/components/BrandButton';
 interface Props {
   requirement: RequirementView;
   onReevaluate?: (respuestas: string[]) => Promise<void>;
-  onGenerate?: () => Promise<void>;
 }
 
 const BRAND = '#1e2a5a';
@@ -30,7 +29,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props) {
+export function RequirementCard({ requirement, onReevaluate }: Props) {
   const evaluacion = requirement.evaluacion;
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
@@ -39,11 +38,6 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
-  const canGenerate =
-    !!onGenerate &&
-    requirement.historias.length === 0 &&
-    !!evaluacion &&
-    (requirement.listoParaHistorias ?? (evaluacion.pasa || (requirement.aclaraciones.length > 0 && pending.length === 0)));
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -143,16 +137,16 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
                 </div>
               )}
 
-              <div className="mt-2 space-y-3">
+              <div className="mt-3 space-y-3">
                 {pending.map((a, i) => (
-                  <div key={i}>
-                    <p className="text-xs font-bold text-slate-700">
-                      Q{i + 1}: {a.pregunta}
+                  <div key={i} className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm font-bold text-slate-800">
+                      <span style={{ color: BRAND }}>Q{i + 1}:</span> {a.pregunta}
                     </p>
                     {onReevaluate ? (
                       <input
-                        className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs focus:border-slate-400 focus:outline-none"
-                        placeholder="Tu respuesta…"
+                        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+                        placeholder="Escriba su respuesta aclarando este requerimiento…"
                         value={drafts[i] ?? ''}
                         onChange={(e) => setDrafts({ ...drafts, [i]: e.target.value })}
                         disabled={busy}
@@ -164,30 +158,22 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
                 ))}
               </div>
               {onReevaluate && pending.length > 0 && (
-                <BrandButton
-                  sparkle
-                  className="mt-3 !px-4 !py-2 !text-xs"
-                  loading={busy}
-                  loadingText="Re-evaluando con IA…"
-                  disabled={pending.some((_, i) => !(drafts[i] ?? '').trim())}
-                  onClick={() => run(() => onReevaluate(pending.map((_, i) => (drafts[i] ?? '').trim())))}
-                >
-                  Responder y Re-evaluar Requerimiento
-                </BrandButton>
+                <div className="mt-3 flex justify-end">
+                  <BrandButton
+                    sparkle
+                    className="!px-4 !py-2 !text-xs"
+                    loading={busy}
+                    loadingText="Re-evaluando con IA…"
+                    disabled={pending.some((_, i) => !(drafts[i] ?? '').trim())}
+                    onClick={() => run(() => onReevaluate(pending.map((_, i) => (drafts[i] ?? '').trim())))}
+                  >
+                    ↻ Responder y Re-evaluar Requerimiento
+                  </BrandButton>
+                </div>
               )}
             </div>
           )}
 
-          {canGenerate && (
-            <BrandButton
-              className="!px-4 !py-2 !text-xs"
-              loading={busy}
-              loadingText="Generando historias…"
-              onClick={() => run(onGenerate!)}
-            >
-              Generar historias de usuario
-            </BrandButton>
-          )}
           {error && <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
 
           {requirement.historias.map((h, i) => (

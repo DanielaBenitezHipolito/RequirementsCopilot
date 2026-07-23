@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { completeConversation, getConversation, getConversations, sendConversationMessage } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
@@ -32,6 +32,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   const [approving, setApproving] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyError, setHistoryError] = useState<string>();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   function loadConversations() {
     getConversations().then(setConversations).catch((e) => setHistoryError(e.message));
@@ -40,6 +41,10 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   useEffect(() => {
     loadConversations();
   }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages.length, status]);
 
   async function send() {
     const mensaje = text.trim();
@@ -84,8 +89,8 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-1">
+    <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-1">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Conversaciones</h2>
@@ -130,15 +135,15 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
         )}
       </div>
 
-      <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
-        <div className="border-b border-slate-100 px-4 py-3">
+      <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+        <div className="shrink-0 border-b border-slate-100 px-4 py-3">
           <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Copilot de Requerimientos</h2>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> En línea · Howden AI
           </p>
         </div>
 
-        <div className="flex-1 space-y-3 px-4 py-4">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {messages.length === 0 && (
             <p className="text-sm text-slate-400">Cuéntale al agente qué necesitas y lo convertirá en un requerimiento.</p>
           )}
@@ -165,12 +170,13 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             </div>
           ))}
           {status === 'sending' && <p className="text-sm text-slate-400">El agente está escribiendo…</p>}
+          <div ref={messagesEndRef} />
         </div>
 
-        {status === 'error' && <p className="mx-4 mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {status === 'error' && <p className="mx-4 mb-3 shrink-0 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
         {draft && (
-          <div className="mx-4 mb-3 space-y-2 rounded-xl border-2 p-4" style={{ borderColor: BRAND }}>
+          <div className="mx-4 mb-3 shrink-0 space-y-2 rounded-xl border-2 p-4" style={{ borderColor: BRAND }}>
             <p className="text-[11px] font-bold tracking-wide uppercase" style={{ color: BRAND }}>
               Borrador de requerimiento
             </p>
@@ -182,7 +188,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
           </div>
         )}
 
-        <div className="flex gap-2 border-t border-slate-100 p-4">
+        <div className="flex shrink-0 gap-2 border-t border-slate-100 p-4">
           <input
             className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
             placeholder="Consúltale cualquier duda al Copilot…"

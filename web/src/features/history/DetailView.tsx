@@ -1,21 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { generateStories, getAnalysis, reevaluateRequirement } from '../../shared/api/client';
+import { getAnalysis, reevaluateRequirement } from '../../shared/api/client';
+import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
 const BRAND = '#1e2a5a';
-
-function mapRequirement(r: any): RequirementView {
-  return {
-    codigo: r.codigo,
-    texto: r.texto,
-    area: r.area,
-    evaluacion: r.evaluacion ?? undefined,
-    aclaraciones: r.aclaraciones ?? [],
-    listoParaHistorias: r.listoParaHistorias,
-    historias: (r.historias ?? []).map((h: any) => ({ ...h, caso: h.caso ?? undefined })),
-  };
-}
 
 export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const [fileName, setFileName] = useState('');
@@ -76,13 +65,13 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
           </button>
         ))}
       </div>
+      <StoriesBanner analysisId={id} requirements={requirements} onUpdate={replace} />
       <div className="space-y-3">
         {visible.map((r) => (
           <RequirementCard
             key={r.codigo}
             requirement={r}
             onReevaluate={async (respuestas) => replace(await reevaluateRequirement(id, r.codigo, respuestas))}
-            onGenerate={async () => replace(await generateStories(id, r.codigo))}
           />
         ))}
       </div>

@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties } from 'react';
 import { analyzeFile } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { StoriesBanner } from '../../shared/components/StoriesBanner';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
@@ -68,7 +69,8 @@ function isPreviewable(file: File) {
 }
 
 export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
-  const { status, requirements, analysisId, resumen, error, start, applyEvent, reset } = useAnalysisStore();
+  const { status, requirements, analysisId, resumen, error, start, applyEvent, updateRequirement, reset } =
+    useAnalysisStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
@@ -397,6 +399,10 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
               )}
             </div>
           </div>
+
+          {analysisId && (
+            <StoriesBanner analysisId={analysisId} requirements={requirements} onUpdate={updateRequirement} />
+          )}
 
           <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Requerimientos Auditados</h2>
           <div className="space-y-3">

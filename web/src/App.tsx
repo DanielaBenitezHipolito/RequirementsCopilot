@@ -72,7 +72,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
+        <div className="flex w-full items-center gap-4 px-6 py-3 lg:px-10">
           <div className="flex items-center gap-3">
             <span className="text-2xl font-black tracking-tight" style={{ color: BRAND }}>
               HOWDEN
@@ -90,42 +90,44 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
-        <div className="mb-6 grid grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3">
+      <main className="flex w-full flex-1 flex-col px-6 py-6 lg:px-10">
+        <div className="mb-6 grid shrink-0 grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3">
           {tab('analyze', 'Auditar Requerimientos', <AuditIcon />)}
           {tab('interview', 'Copilot Chat de IA', <ChatIcon />)}
           {tab('history', 'Historial de Auditorías', <HistoryIcon />)}
         </div>
 
-        {view === 'analyze' && (
-          <AnalyzeView
-            onOpenDetail={(id) => {
-              setSelectedId(id);
-              setView('detail');
-            }}
-          />
-        )}
-        {view === 'interview' && (
-          <InterviewView
-            onAnalyzed={(id) => {
-              setSelectedId(id);
-              setView('detail');
-            }}
-          />
-        )}
-        {view === 'history' && (
-          <HistoryView
-            onSelect={(id) => {
-              setSelectedId(id);
-              setView('detail');
-            }}
-          />
-        )}
-        {view === 'detail' && selectedId && <DetailView id={selectedId} onBack={() => setView('history')} />}
+        <div className="min-h-0 flex-1">
+          {view === 'analyze' && (
+            <AnalyzeView
+              onOpenDetail={(id) => {
+                setSelectedId(id);
+                setView('detail');
+              }}
+            />
+          )}
+          {view === 'interview' && (
+            <InterviewView
+              onAnalyzed={(id) => {
+                setSelectedId(id);
+                setView('detail');
+              }}
+            />
+          )}
+          {view === 'history' && (
+            <HistoryView
+              onSelect={(id) => {
+                setSelectedId(id);
+                setView('detail');
+              }}
+            />
+          )}
+          {view === 'detail' && selectedId && <DetailView id={selectedId} onBack={() => setView('history')} />}
+        </div>
       </main>
 
       <footer className="border-t border-slate-200">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-1 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:justify-between">
+        <div className="flex w-full flex-col items-center gap-1 px-6 py-3 text-xs text-slate-500 sm:flex-row sm:justify-between lg:px-10">
           <p>© 2026 Howden Corredores de Seguros SA. Todos los derechos reservados.</p>
           <p className="flex items-center gap-1.5">
             <span className="text-emerald-500">✓</span> Confidencialidad Asegurada
