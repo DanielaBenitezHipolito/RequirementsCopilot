@@ -50,6 +50,8 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
     setError(undefined);
     try {
       await action();
+      // Tras re-evaluar, las preguntas pendientes son otras: los inputs arrancan vacíos.
+      setDrafts({});
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado');
     } finally {
