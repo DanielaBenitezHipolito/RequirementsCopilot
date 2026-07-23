@@ -176,7 +176,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             </p>
             <p className="text-sm text-slate-800">{draft.texto}</p>
             <p className="text-xs text-slate-500">Área: {draft.area}</p>
-            <BrandButton loading={approving} loadingText="Aprobando…con IA…" onClick={() => void approve()}>
+            <BrandButton loading={approving} loadingText="Aprobando…" onClick={() => void approve()}>
               Aprobar y analizar
             </BrandButton>
           </div>

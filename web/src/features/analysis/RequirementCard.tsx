@@ -180,7 +180,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
             <BrandButton
               className="!px-4 !py-2 !text-xs"
               loading={busy}
-              loadingText="Generando…con IA…"
+              loadingText="Generando historias…"
               onClick={() => run(onGenerate!)}
             >
               Generar historias de usuario
