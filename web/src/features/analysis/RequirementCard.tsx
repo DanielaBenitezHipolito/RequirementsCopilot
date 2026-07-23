@@ -165,7 +165,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerate }: Props
               </div>
               {onReevaluate && pending.length > 0 && (
                 <BrandButton
-                  icon="↻"
+                  sparkle
                   className="mt-3 !px-4 !py-2 !text-xs"
                   loading={busy}
                   loadingText="Re-evaluando con IA…"

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { analyzeFile } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
@@ -24,6 +24,14 @@ function CheckIcon() {
   );
 }
 
+function SparkleIcon({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style}>
+      <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+    </svg>
+  );
+}
+
 function StepDot({ state }: { state: 'done' | 'active' | 'pending' }) {
   if (state === 'done') {
     return (
@@ -40,7 +48,23 @@ function StepDot({ state }: { state: 'done' | 'active' | 'pending' }) {
       </span>
     );
   }
-  return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300" />;
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+    </span>
+  );
+}
+
+function StepLabel({ text, state }: { text: string; state: 'done' | 'active' | 'pending' }) {
+  if (state === 'done') return <span className="text-sm text-slate-400 line-through">{text}</span>;
+  if (state === 'active') return <span className="text-sm font-semibold" style={{ color: BRAND }}>{text}</span>;
+  return <span className="text-sm text-slate-400">{text}</span>;
+}
+
+const PREVIEWABLE = /\.(txt|md)$/i;
+
+function isPreviewable(file: File) {
+  return PREVIEWABLE.test(file.name);
 }
 
 export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
@@ -48,11 +72,35 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [editedText, setEditedText] = useState<string | null>(null);
+
+  function clearStaged() {
+    setStaged(null);
+    setPreviewOpen(false);
+    setEditedText(null);
+  }
+
+  async function togglePreview() {
+    if (!staged) return;
+    if (previewOpen) {
+      setPreviewOpen(false);
+      return;
+    }
+    if (editedText === null) {
+      const text = await staged.text();
+      setEditedText(text);
+    }
+    setPreviewOpen(true);
+  }
 
   function startAudit() {
     if (!staged) return;
-    const file = staged;
+    const file =
+      editedText !== null ? new File([editedText], staged.name, { type: 'text/plain' }) : staged;
     setStaged(null);
+    setPreviewOpen(false);
+    setEditedText(null);
     void analyze(file);
   }
 
@@ -70,9 +118,14 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
   const hasRequirement = requirements.length > 0;
   const hasEvaluation = requirements.some((r) => r.evaluacion);
   const hasClarification = requirements.some((r) => r.aclaraciones.length > 0);
+  const hasSummary = !!resumen;
   const isDone = status === 'done';
 
   const steps: { label: string; state: 'done' | 'active' | 'pending' }[] = [
+    {
+      label: 'Estableciendo conexión con el servidor Howden…',
+      state: hasRequirement || isDone ? 'done' : 'active',
+    },
     {
       label: 'Extrayendo y mapeando requerimientos individuales…',
       state: hasRequirement || isDone ? 'done' : 'active',
@@ -82,12 +135,16 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
       state: hasEvaluation || isDone ? 'done' : hasRequirement ? 'active' : 'pending',
     },
     {
-      label: 'Redactando preguntas de clarificación…',
+      label: 'Calculando puntajes en base al framework de 5 dimensiones…',
+      state: hasEvaluation || isDone ? 'done' : hasRequirement ? 'active' : 'pending',
+    },
+    {
+      label: 'Redactando preguntas de clarificación corporativas…',
       state: hasClarification || isDone ? 'done' : hasEvaluation ? 'active' : 'pending',
     },
     {
-      label: 'Compilando resultados…',
-      state: isDone ? 'done' : hasClarification ? 'active' : 'pending',
+      label: 'Compilando reporte de calidad ejecutivo…',
+      state: hasSummary || isDone ? 'done' : hasClarification ? 'active' : 'pending',
     },
   ];
 
@@ -173,17 +230,49 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                     Contenido cargado con éxito · {(staged.size / 1024).toFixed(1)} KB · Listo para auditar
                   </p>
                 </div>
+                <BrandButton
+                  variant="secondary"
+                  sparkle
+                  className="!px-4 !py-2 !text-xs"
+                  disabled={!isPreviewable(staged)}
+                  title={
+                    isPreviewable(staged)
+                      ? undefined
+                      : 'Vista previa disponible solo para archivos de texto'
+                  }
+                  onClick={() => void togglePreview()}
+                >
+                  {previewOpen ? 'Ocultar Vista Previa' : 'Ver / Editar Contenido'}
+                </BrandButton>
                 <button
                   type="button"
-                  onClick={() => setStaged(null)}
+                  onClick={clearStaged}
                   className="rounded-md p-2 text-slate-400 hover:bg-slate-200 hover:text-rose-500"
                   aria-label="Quitar archivo"
                 >
                   ✕
                 </button>
               </div>
+
+              {previewOpen && editedText !== null && (
+                <div className="mt-3 rounded-xl border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold tracking-wide text-slate-500 uppercase">
+                      Edición Opcional del Documento:
+                    </p>
+                    <p className="text-xs text-slate-400">{editedText.length} caracteres</p>
+                  </div>
+                  <textarea
+                    className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-mono text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+                    rows={12}
+                    value={editedText}
+                    onChange={(e) => setEditedText(e.target.value)}
+                  />
+                </div>
+              )}
+
               <div className="mt-4 flex justify-end">
-                <BrandButton icon="✦" onClick={startAudit}>
+                <BrandButton sparkle onClick={startAudit}>
                   Iniciar Auditoría de Calidad
                 </BrandButton>
               </div>
@@ -197,10 +286,10 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
       {status === 'running' && (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-col items-center text-center">
-            <span
-              className="h-14 w-14 animate-spin rounded-full border-4 border-slate-200"
-              style={{ borderTopColor: BRAND }}
-            />
+            <span className="relative flex h-14 w-14 items-center justify-center">
+              <span className="absolute h-14 w-14 animate-spin rounded-full border-4 border-dashed border-slate-300" />
+              <SparkleIcon className="h-6 w-6" style={{ color: BRAND }} />
+            </span>
             <h2 className="mt-4 text-lg font-bold text-slate-800">Análisis de Requerimientos en Progreso</h2>
             <p className="mt-1 text-sm text-slate-500">
               Nuestros agentes de auditoría están procesando la información.
@@ -208,18 +297,14 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
           </div>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4">
-            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
-              Registro de Tareas Activas
+            <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+              <span aria-hidden>ⓘ</span> Registro de Tareas Activas
             </p>
             <div className="mt-3 space-y-3">
               {steps.map((s) => (
                 <div key={s.label} className="flex items-center gap-3">
                   <StepDot state={s.state} />
-                  <span
-                    className={`text-sm ${s.state === 'pending' ? 'text-slate-400' : 'text-slate-700'}`}
-                  >
-                    {s.label}
-                  </span>
+                  <StepLabel text={s.label} state={s.state} />
                 </div>
               ))}
             </div>
