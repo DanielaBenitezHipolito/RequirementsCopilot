@@ -20,12 +20,10 @@ public sealed class StoryWriterAgent
             ? string.Empty
             : "\n\nAclaraciones del cliente (úsalas para no malinterpretar):\n" +
               string.Join("\n", answered.Select(c => $"- P: {c.Question} R: {c.Answer}"));
-        ChatResult result = await _chat.CompleteAsync(
+        string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
                 $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
-            cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+            cancellationToken)
             ?? throw new InvalidOperationException("El agente de historias no devolvió JSON válido.");
         StoriesReply reply = JsonSerializer.Deserialize<StoriesReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente de historias devolvió una respuesta vacía.");

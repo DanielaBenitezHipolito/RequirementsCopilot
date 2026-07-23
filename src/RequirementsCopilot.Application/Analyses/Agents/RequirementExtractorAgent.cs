@@ -15,10 +15,8 @@ public sealed class RequirementExtractorAgent
 
     public async Task<IReadOnlyList<Requirement>> ExtractAsync(string documentText, CancellationToken cancellationToken = default)
     {
-        ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, $"Documento:\n{documentText}"), cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+        string json = await _chat.CompleteJsonAsync(
+            new ChatPrompt(AgentName, $"Documento:\n{documentText}"), cancellationToken)
             ?? throw new InvalidOperationException("El agente extractor no devolvió JSON válido.");
         ExtractorReply reply = JsonSerializer.Deserialize<ExtractorReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente extractor devolvió una respuesta vacía.");

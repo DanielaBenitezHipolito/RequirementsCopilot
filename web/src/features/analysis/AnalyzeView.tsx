@@ -1,8 +1,8 @@
-import { useRef, useState, type CSSProperties } from 'react';
-import { analyzeFile } from '../../shared/api/client';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { analyzeFile, extractDocumentText, reevaluateRequirement } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
-import { StoriesBanner } from '../../shared/components/StoriesBanner';
+import { StoriesBanner, mapRequirement } from '../../shared/components/StoriesBanner';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
@@ -68,7 +68,7 @@ function isPreviewable(file: File) {
   return PREVIEWABLE.test(file.name);
 }
 
-export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
+export function AnalyzeView() {
   const { status, requirements, analysisId, resumen, error, start, applyEvent, updateRequirement, reset } =
     useAnalysisStore();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +83,9 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
     setEditedText(null);
   }
 
+  const [extracting, setExtracting] = useState(false);
+  const [previewError, setPreviewError] = useState<string>();
+
   async function togglePreview() {
     if (!staged) return;
     if (previewOpen) {
@@ -90,16 +93,30 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
       return;
     }
     if (editedText === null) {
-      const text = await staged.text();
-      setEditedText(text);
+      setExtracting(true);
+      setPreviewError(undefined);
+      try {
+        // .txt/.md se leen en el navegador; el resto lo extrae el backend (PDF/DOCX).
+        const text = isPreviewable(staged)
+          ? await staged.text()
+          : (await extractDocumentText(staged)).texto;
+        setEditedText(text);
+      } catch (e) {
+        setPreviewError(e instanceof Error ? e.message : 'No se pudo leer el documento');
+        setExtracting(false);
+        return;
+      }
+      setExtracting(false);
     }
     setPreviewOpen(true);
   }
 
   function startAudit() {
     if (!staged) return;
+    // Texto editado viaja como .txt (el contenido ya no es el binario original).
+    const baseName = staged.name.replace(/\.[^.]+$/, '');
     const file =
-      editedText !== null ? new File([editedText], staged.name, { type: 'text/plain' }) : staged;
+      editedText !== null ? new File([editedText], `${baseName}.txt`, { type: 'text/plain' }) : staged;
     setStaged(null);
     setPreviewOpen(false);
     setEditedText(null);
@@ -116,39 +133,55 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
     }
   }
 
-  // Pasos de progreso derivados del contenido del store (sin tocar el store).
+  // Pasos de progreso: el avance real (eventos SSE) marca el techo, pero la UI progresa
+  // paso a paso con un ritmo mínimo para que el usuario vea la secuencia completa.
   const hasRequirement = requirements.length > 0;
   const hasEvaluation = requirements.some((r) => r.evaluacion);
   const hasClarification = requirements.some((r) => r.aclaraciones.length > 0);
   const hasSummary = !!resumen;
   const isDone = status === 'done';
 
-  const steps: { label: string; state: 'done' | 'active' | 'pending' }[] = [
-    {
-      label: 'Estableciendo conexión con el servidor Howden…',
-      state: hasRequirement || isDone ? 'done' : 'active',
-    },
-    {
-      label: 'Extrayendo y mapeando requerimientos individuales…',
-      state: hasRequirement || isDone ? 'done' : 'active',
-    },
-    {
-      label: 'Evaluando claridad, completitud y consistencia técnica…',
-      state: hasEvaluation || isDone ? 'done' : hasRequirement ? 'active' : 'pending',
-    },
-    {
-      label: 'Calculando puntajes en base al framework de 5 dimensiones…',
-      state: hasEvaluation || isDone ? 'done' : hasRequirement ? 'active' : 'pending',
-    },
-    {
-      label: 'Redactando preguntas de clarificación corporativas…',
-      state: hasClarification || isDone ? 'done' : hasEvaluation ? 'active' : 'pending',
-    },
-    {
-      label: 'Compilando reporte de calidad ejecutivo…',
-      state: hasSummary || isDone ? 'done' : hasClarification ? 'active' : 'pending',
-    },
+  const STEP_LABELS = [
+    'Estableciendo conexión con el servidor Howden…',
+    'Transfiriendo especificaciones al módulo de inteligencia…',
+    'Invocando al analizador avanzado de lenguaje…',
+    'Extrayendo y mapeando requerimientos individuales…',
+    'Evaluando claridad, completitud y consistencia técnica…',
+    'Calculando puntajes en base al framework de 5 dimensiones…',
+    'Redactando preguntas de clarificación corporativas…',
+    'Compilando reporte de calidad ejecutivo…',
   ];
+  const realCompleted = isDone
+    ? STEP_LABELS.length
+    : hasSummary
+      ? 7
+      : hasClarification || hasEvaluation
+        ? 6
+        : hasRequirement
+          ? 4
+          : 3;
+
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (status === 'running') setTick(0);
+  }, [status]);
+  useEffect(() => {
+    const theaterPending = status === 'running' || (isDone && tick < STEP_LABELS.length);
+    if (!theaterPending) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 850);
+    return () => clearInterval(timer);
+  }, [status, isDone, tick < STEP_LABELS.length]);
+
+  const effectiveStep = Math.min(tick, realCompleted);
+  const showProgress = status === 'running' || (isDone && effectiveStep < STEP_LABELS.length);
+  const showResults = isDone && effectiveStep >= STEP_LABELS.length;
+
+  const steps: { label: string; state: 'done' | 'active' | 'pending' }[] = STEP_LABELS.map(
+    (label, i) => ({
+      label,
+      state: i < effectiveStep ? 'done' : i === effectiveStep ? 'active' : 'pending',
+    }),
+  );
 
   const evaluados = requirements.filter((r) => r.evaluacion);
   const promedioGeneral =
@@ -236,12 +269,8 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                   variant="secondary"
                   sparkle
                   className="!px-4 !py-2 !text-xs"
-                  disabled={!isPreviewable(staged)}
-                  title={
-                    isPreviewable(staged)
-                      ? undefined
-                      : 'Vista previa disponible solo para archivos de texto'
-                  }
+                  loading={extracting}
+                  loadingText="Extrayendo texto…"
                   onClick={() => void togglePreview()}
                 >
                   {previewOpen ? 'Ocultar Vista Previa' : 'Ver / Editar Contenido'}
@@ -273,6 +302,10 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                 </div>
               )}
 
+              {previewError && (
+                <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{previewError}</p>
+              )}
+
               <div className="mt-4 flex justify-end">
                 <BrandButton sparkle onClick={startAudit}>
                   Iniciar Auditoría de Calidad
@@ -285,7 +318,7 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
 
       {status === 'error' && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
-      {status === 'running' && (
+      {showProgress && (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-col items-center text-center">
             <span className="relative flex h-14 w-14 items-center justify-center">
@@ -312,17 +345,10 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
             </div>
           </div>
 
-          {requirements.length > 0 && (
-            <div className="mt-6 space-y-3">
-              {requirements.map((r) => (
-                <RequirementCard key={r.codigo} requirement={r} />
-              ))}
-            </div>
-          )}
         </div>
       )}
 
-      {status === 'done' && (
+      {showResults && (
         <>
           <div className="flex justify-end">
             <BrandButton onClick={reset}>Analizar otro documento</BrandButton>
@@ -388,15 +414,6 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
                   <p className="mt-1 text-xs text-slate-500">Requieren aclaración</p>
                 </div>
               </div>
-              {analysisId && onOpenDetail && (
-                <button
-                  className="self-center rounded-lg px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                  style={{ backgroundColor: BRAND }}
-                  onClick={() => onOpenDetail(analysisId)}
-                >
-                  Responder preguntas y generar historias →
-                </button>
-              )}
             </div>
           </div>
 
@@ -407,7 +424,16 @@ export function AnalyzeView({ onOpenDetail }: { onOpenDetail?: (id: string) => v
           <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Requerimientos Auditados</h2>
           <div className="space-y-3">
             {requirements.map((r) => (
-              <RequirementCard key={r.codigo} requirement={r} />
+              <RequirementCard
+                key={r.codigo}
+                requirement={r}
+                onReevaluate={
+                  analysisId
+                    ? async (respuestas) =>
+                        updateRequirement(mapRequirement(await reevaluateRequirement(analysisId, r.codigo, respuestas)))
+                    : undefined
+                }
+              />
             ))}
           </div>
         </>

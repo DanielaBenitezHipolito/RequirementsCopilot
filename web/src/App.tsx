@@ -99,12 +99,7 @@ export default function App() {
 
         <div className="min-h-0 flex-1">
           {view === 'analyze' && (
-            <AnalyzeView
-              onOpenDetail={(id) => {
-                setSelectedId(id);
-                setView('detail');
-              }}
-            />
+            <AnalyzeView />
           )}
           {view === 'interview' && (
             <InterviewView

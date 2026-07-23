@@ -19,12 +19,10 @@ public sealed class ClarifierAgent
             ? string.Empty
             : "\nObservaciones de la rúbrica:\n" + string.Join("\n",
                 requirement.Evaluation.Scores.Select(s => $"- {s.Criterion} ({s.Score}/5): {s.Observation}"));
-        ChatResult result = await _chat.CompleteAsync(
+        string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
                 $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}"),
-            cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+            cancellationToken)
             ?? throw new InvalidOperationException("El agente clarificador no devolvió JSON válido.");
         ClarifierReply reply = JsonSerializer.Deserialize<ClarifierReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente clarificador devolvió una respuesta vacía.");

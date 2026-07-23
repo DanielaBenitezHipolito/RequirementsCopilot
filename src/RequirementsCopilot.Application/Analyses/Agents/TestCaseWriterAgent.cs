@@ -17,9 +17,7 @@ public sealed class TestCaseWriterAgent
     {
         string input = $"Historia: como {story.Role}, quiero {story.Goal}, para {story.Benefit}.\n" +
             $"Criterios de aceptación:\n- {string.Join("\n- ", story.AcceptanceCriteria)}";
-        ChatResult result = await _chat.CompleteAsync(new ChatPrompt(AgentName, input), cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+        string json = await _chat.CompleteJsonAsync(new ChatPrompt(AgentName, input), cancellationToken)
             ?? throw new InvalidOperationException("El agente de casos de prueba no devolvió JSON válido.");
         TestCaseReply reply = JsonSerializer.Deserialize<TestCaseReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente de casos de prueba devolvió una respuesta vacía.");

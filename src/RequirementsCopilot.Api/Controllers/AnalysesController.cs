@@ -20,9 +20,11 @@ public sealed class AnalysesController : ControllerBase
 
     private readonly AnalysisOrchestrator _orchestrator;
     private readonly AnalysisQueries _queries;
+    private readonly IDocumentTextExtractor _textExtractor;
 
-    public AnalysesController(AnalysisOrchestrator orchestrator, AnalysisQueries queries)
-        => (_orchestrator, _queries) = (orchestrator, queries);
+    public AnalysesController(AnalysisOrchestrator orchestrator, AnalysisQueries queries,
+        IDocumentTextExtractor textExtractor)
+        => (_orchestrator, _queries, _textExtractor) = (orchestrator, queries, textExtractor);
 
     [HttpPost]
     [RequestSizeLimit(MaxFileBytes + 1024)]
@@ -51,6 +53,37 @@ public sealed class AnalysesController : ControllerBase
             await WriteEventAsync(analysisEvent, cancellationToken);
         }
         return new EmptyResult();
+    }
+
+    /// <summary>Extrae el texto plano de un documento para previsualizarlo/editarlo antes de auditar.</summary>
+    [HttpPost("/api/documents/extract")]
+    [RequestSizeLimit(MaxFileBytes + 1024)]
+    public async Task<IActionResult> ExtractText(IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Debe adjuntar un archivo." });
+        }
+        if (file.Length > MaxFileBytes)
+        {
+            return BadRequest(new { mensaje = "El archivo supera el máximo de 10 MB." });
+        }
+        string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedExtensions.Contains(extension))
+        {
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT o MD." });
+        }
+
+        await using Stream content = file.OpenReadStream();
+        try
+        {
+            string texto = await _textExtractor.ExtractAsync(content, file.FileName, cancellationToken);
+            return Ok(new { texto });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return BadRequest(new { mensaje = $"No se pudo leer el documento: {ex.Message}" });
+        }
     }
 
     [HttpGet]

@@ -26,12 +26,10 @@ public sealed class RequirementEvaluatorAgent
             : "\n\nAclaraciones respondidas:\n" +
               string.Join("\n", answered.Select(c => $"- P: {c.Question}\n  R: {c.Answer}"));
 
-        ChatResult result = await _chat.CompleteAsync(
+        string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
                 $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
-            cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+            cancellationToken)
             ?? throw new InvalidOperationException("El agente evaluador no devolvió JSON válido.");
         EvaluatorReply reply = JsonSerializer.Deserialize<EvaluatorReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente evaluador devolvió una respuesta vacía.");

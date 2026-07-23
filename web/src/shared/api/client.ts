@@ -98,3 +98,14 @@ export async function getConversation(id: string): Promise<ConversationDetailDto
   const response = await fetch(`${API_BASE}/api/conversations/${id}`);
   return readOrThrow(response);
 }
+
+export async function extractDocumentText(file: File): Promise<{ texto: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch(`${API_BASE}/api/documents/extract`, { method: 'POST', body: form });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
+  return response.json();
+}

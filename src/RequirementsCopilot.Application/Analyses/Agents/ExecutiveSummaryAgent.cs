@@ -34,9 +34,7 @@ public sealed class ExecutiveSummaryAgent
         };
         string input = JsonSerializer.Serialize(payload, JsonOptions);
 
-        ChatResult result = await _chat.CompleteAsync(new ChatPrompt(AgentName, input), cancellationToken);
-
-        string json = JsonText.FirstJsonObject(result.Text)
+        string json = await _chat.CompleteJsonAsync(new ChatPrompt(AgentName, input), cancellationToken)
             ?? throw new InvalidOperationException("El agente de resumen ejecutivo no devolvió JSON válido.");
         SummaryReply reply = JsonSerializer.Deserialize<SummaryReply>(json, JsonOptions)
             ?? throw new InvalidOperationException("El agente de resumen ejecutivo devolvió una respuesta vacía.");
