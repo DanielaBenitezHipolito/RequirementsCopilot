@@ -128,6 +128,13 @@ export function AnalyzeView() {
     try {
       const response = await analyzeFile(file);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
+      // Stream cortado sin done/error (servidor caído a mitad): no dejar la UI girando eterna.
+      if (useAnalysisStore.getState().status === 'running') {
+        applyEvent({
+          event: 'error',
+          data: { mensaje: 'La conexión con el servidor se interrumpió antes de terminar el análisis. Intente de nuevo.' },
+        });
+      }
     } catch (e) {
       applyEvent({ event: 'error', data: { mensaje: e instanceof Error ? e.message : 'Error inesperado' } });
     }
