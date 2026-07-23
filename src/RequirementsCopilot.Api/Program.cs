@@ -91,8 +91,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Sirve el SPA compilado (wwwroot) si está presente (despliegue monolito: front + API juntos).
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors();
 app.MapControllers();
+// Rutas que no son /api/* caen al index del SPA (navegación cliente); nunca colisionan con la API.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

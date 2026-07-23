@@ -1,19 +1,16 @@
-# Blueprint de Render para el backend .NET (Docker). Frontend va en Vercel.
-# Al conectar el repo en Render, esto crea el servicio automáticamente.
+# Blueprint de Render: UN solo servicio (monolito) sirve API .NET + frontend compilado.
+# Mismo origen => sin CORS, una sola URL.
 services:
   - type: web
-    name: requirements-copilot-api
+    name: requirements-copilot
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /api/analyses
     envVars:
       # Demo sin credenciales: agentes con datos de ejemplo, historial en memoria.
-      # Para IA real: cambiar Providers__Chat=Foundry + Foundry__* y Providers__AnalysisRepository=Mongo + Mongo__*.
+      # Para IA real: Providers__Chat=Foundry + Foundry__* ; Providers__AnalysisRepository=Mongo + Mongo__*.
       - key: Providers__Chat
         value: Fake
       - key: Providers__AnalysisRepository
         value: InMemory
-      # Origen del frontend en Vercel (rellenar tras el primer deploy de Vercel).
-      - key: Cors__Origin
-        value: https://TU-APP.vercel.app

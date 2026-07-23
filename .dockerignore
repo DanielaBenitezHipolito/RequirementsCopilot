@@ -1,6 +1,7 @@
 **/bin/
 **/obj/
-web/
+web/node_modules/
+web/dist/
 tests/
 .git/
 .superpowers/

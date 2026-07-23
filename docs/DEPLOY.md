@@ -1,43 +1,34 @@
-# Despliegue — demo pública (Vercel + Render)
+# Despliegue — demo pública (Render, un solo servicio)
 
-Arquitectura: **frontend en Vercel**, **backend .NET en Render** (Docker), **Mongo en Atlas** (opcional).
-Vercel NO puede hospedar el backend .NET (no corre servidores de larga vida ni SSE de minutos).
+Monolito: **un contenedor** sirve la API .NET **y** el frontend compilado (Vite → `wwwroot`).
+Mismo origen ⇒ sin CORS, una sola URL, el SSE funciona directo. Mongo en Atlas es opcional.
 
-## 0. Subir el repo a GitHub
+## 1. Subir el repo a GitHub
 
 ```bash
 cd "D:\Repositories\Daniela Benitez\RequirementsCopilot"
-git remote add origin https://github.com/<org-o-usuario>/requirements-copilot.git
+git remote add origin https://github.com/DanielaBenitezHipolito/RequirementsCopilot.git
 git push -u origin feature/requirements-copilot-mvp
 ```
-`appsettings.Development.json` (con secretos) ya está en `.gitignore`; verifica que NO aparezca en el push.
+`appsettings.Development.json` (con secretos) está en `.gitignore`; confirma que NO aparezca en el push.
 
-## 1. Backend en Render
+## 2. Servicio en Render
 
 1. [render.com](https://render.com) → New → **Web Service** → conecta el repo de GitHub.
-2. Render detecta `render.yaml` (Blueprint) o configúralo a mano:
+2. Render detecta `render.yaml` (Blueprint). Si lo configuras a mano:
    - Runtime: **Docker**, Dockerfile: `./Dockerfile`, Branch: `feature/requirements-copilot-mvp`, Plan: Free.
    - Health Check Path: `/api/analyses`.
-3. Variables de entorno (Environment):
-   - **Demo sin credenciales (recomendado para presentar):** `Providers__Chat=Fake`, `Providers__AnalysisRepository=InMemory`. No necesita Mongo ni Foundry.
-   - **IA real:** `Providers__Chat=Foundry`, `Foundry__Endpoint=…`, `Foundry__ApiKey=…`, `Foundry__Chat__Model=gpt-5-mini`, y el catálogo `Foundry__Chat__Agents__<agente>__Name` / `__Version` por cada agente; `Providers__AnalysisRepository=Mongo`, `Mongo__ConnectionString=…`, `Mongo__Database=…`.
-   - `Cors__Origin` = la URL de Vercel del paso 2 (se rellena después; puedes poner un placeholder y editarlo).
-4. Deploy. Copia la URL pública (ej. `https://requirements-copilot-api.onrender.com`).
-   > Plan free: el servicio duerme tras ~15 min de inactividad; el primer request tarda ~30-60s en despertar. Aceptable para demo.
-
-## 2. Frontend en Vercel
-
-1. [vercel.com](https://vercel.com) → New Project → importa el mismo repo.
-2. **Root Directory: `web`** (importante). Framework: Vite (autodetectado por `web/vercel.json`).
-3. Environment Variable: `VITE_API_BASE_URL` = la URL de Render del paso 1 (sin barra final).
-4. Deploy. Copia la URL de Vercel (ej. `https://requirements-copilot.vercel.app`).
-
-## 3. Cerrar el círculo (CORS)
-
-En Render, pon `Cors__Origin` = la URL exacta de Vercel del paso 2 → Redeploy del backend.
-(Se admite lista separada por `;` si usas varios dominios/preview.)
+3. Variables de entorno:
+   - **Demo sin credenciales (recomendado para presentar):** `Providers__Chat=Fake`, `Providers__AnalysisRepository=InMemory`. Nada más.
+   - **IA real:** `Providers__Chat=Foundry`, `Foundry__Endpoint=…`, `Foundry__ApiKey=…`, `Foundry__Chat__Model=gpt-5-mini`, y por cada agente publicado `Foundry__Chat__Agents__<agente>__Name` / `__Version`; `Providers__AnalysisRepository=Mongo`, `Mongo__ConnectionString=…`, `Mongo__Database=…`.
+4. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
 
 ## Notas
-- Mongo Atlas: si usas Mongo, en Atlas → Network Access permite la IP saliente de Render (o `0.0.0.0/0` solo para la demo) y usa un usuario con rol `readWrite`.
-- Foundry real requiere que los agentes estén **publicados** en el portal (`docs/prompts-agentes.md`); con `Providers__Chat=Fake` no hace falta nada.
+- **Plan free:** el servicio duerme tras ~15 min de inactividad; el primer request tarda ~30-60s en despertar. Despiértalo con un request un minuto antes de presentar.
+- **Mongo Atlas** (si lo usas): Network Access → permite la IP saliente de Render (o `0.0.0.0/0` solo para la demo); usuario con rol `readWrite`.
+- **Foundry real:** requiere los agentes **publicados** en el portal (`docs/prompts-agentes.md`). Con `Providers__Chat=Fake` no hace falta nada.
 - Secretos SOLO como variables de entorno del host, nunca en el repo.
+- El frontend se compila con `VITE_API_BASE_URL=""` (rutas relativas) dentro del Dockerfile; no hay que configurarlo.
+
+## ¿Front y back separados? (alternativa)
+El monolito es lo más simple para una demo. Si más adelante quieres escalarlos por separado (front en Vercel/Render Static + back en Render Docker), habría que volver a exponer `VITE_API_BASE_URL` y configurar `Cors__Origin` con la URL del front. Para esta demo no hace falta.
