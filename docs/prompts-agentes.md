@@ -92,13 +92,18 @@ Observaciones de la rúbrica:
 { "preguntas": ["¿Qué tiempo de respuesta máximo, en segundos, se considera aceptable?"] }
 ```
 
-Las respuestas del cliente se guardan con `PUT /api/analyses/{id}/requirements/{code}/clarifications` y alimentan al StoryWriter.
+Las respuestas del cliente se guardan con `PUT /api/analyses/{id}/requirements/{code}/clarifications` y alimentan al UseCaseWriter.
 
 ---
 
-## 4. StoryWriterAgent (`story-writer-agent`)
+## 4. UseCaseWriterAgent (`use-case-writer-agent`)
 
-**Cuándo corre:** **manual** — al pulsar "Generar historias" (`POST /api/analyses/{id}/requirements/{code}/stories`). Solo si el requerimiento aprobó, o si respondió todas sus preguntas de clarificación.
+**Reemplaza** a los antiguos StoryWriterAgent + TestCaseWriterAgent: la salida ya no es una historia de usuario
+con caso de prueba, sino UN **Caso de Uso** completo en el formato de la plantilla corporativa de HC Consulting.
+
+**Cuándo corre:** **manual** — al pulsar "Generar historias" (`POST /api/analyses/{id}/requirements/{code}/stories`,
+ruta y nombre de método conservados por compatibilidad). Solo si el requerimiento aprobó, o si respondió todas
+sus preguntas de clarificación.
 
 **Entrada:** requerimiento + aclaraciones respondidas (si existen):
 
@@ -112,36 +117,33 @@ Aclaraciones del cliente (úsalas para no malinterpretar):
 
 **Prompt (system):**
 
-> Eres un product owner. A partir del requerimiento aprobado, escribe las historias de usuario necesarias
-> (mínimo 1, máximo 4), cada una con rol, objetivo (quiero), beneficio (para) y de 1 a 4 criterios de aceptación
-> verificables en formato dado/cuando/entonces.
-> Responde ÚNICAMENTE este JSON: `{"historias":[{"rol":"...","quiero":"...","para":"...","criteriosAceptacion":["..."]}]}`
-> No inventes funcionalidad que el requerimiento no mencione.
+> Eres un analista funcional de negocio. A partir del requerimiento aprobado, redacta UN caso de uso siguiendo
+> EXACTAMENTE la plantilla corporativa, con estas 12 secciones:
+> 1. **Nombre** — título del caso de uso (ej. "Módulo de Pólizas – Sistema HC Consulting").
+> 2. **Objetivo** — para qué existe el caso de uso.
+> 3. **Descripción** — resumen de qué hace y quién lo usa.
+> 4. **Actores** — cada uno con nombre y descripción de su rol.
+> 5. **Precondiciones** — lista de condiciones que deben cumplirse antes de iniciar.
+> 6. **Trigger** — el evento que dispara el caso de uso.
+> 7. **Flujos del proceso** — uno o varios flujos, cada uno con título y pasos numerados; cada paso tiene
+>    Acción (qué hace el actor) y Resultado esperado (qué responde el sistema).
+> 8. **Extensiones** — reglas o errores que alteran el flujo principal.
+> 9. **Frecuencia** — con qué periodicidad ocurre.
+> 10. **Importancia** — qué tan crítico es para el negocio.
+> 11. **Urgencia** — qué tan pronto se necesita.
+> 12. **Comentarios** — notas adicionales.
+>
+> Incorpora las aclaraciones respondidas del cliente si existen. No inventes funcionalidad, actores ni reglas
+> que el requerimiento no mencione. Responde en español, ÚNICAMENTE este JSON:
+> `{"nombre":"...","objetivo":"...","descripcion":"...","actores":[{"nombre":"...","descripcion":"..."}],"precondiciones":["..."],"trigger":"...","flujos":[{"titulo":"...","pasos":[{"numero":1,"accion":"...","resultadoEsperado":"..."}]}],"extensiones":["..."],"frecuencia":"...","importancia":"...","urgencia":"...","comentarios":["..."]}`
+
+**Salida esperada:** ver el contrato JSON completo arriba, con un caso de uso realista de pólizas: objetivo claro,
+2 actores, precondiciones, trigger, 1-2 flujos con pasos Acción/Resultado esperado, extensiones, frecuencia
+"Única", importancia/urgencia "Alta" y comentarios.
 
 ---
 
-## 5. TestCaseWriterAgent (`test-case-writer-agent`)
-
-**Cuándo corre:** inmediatamente después del StoryWriter, una vez por historia generada.
-
-**Entrada:**
-
-```
-Historia: como {rol}, quiero {quiero}, para {para}.
-Criterios de aceptación:
-- {criterio 1}
-- ...
-```
-
-**Prompt (system):**
-
-> Eres un ingeniero de QA. A partir de la historia de usuario dada, escribe UN caso de prueba funcional que valide
-> sus criterios de aceptación: título corto, precondiciones, pasos numerables concretos y resultado esperado verificable.
-> Responde ÚNICAMENTE este JSON: `{"titulo":"...","precondiciones":["..."],"pasos":["..."],"resultadoEsperado":"..."}`
-
----
-
-## 6. RequirementBuilderAgent (`requirement-builder-agent`) — NUEVO (v2 conversacional)
+## 5. RequirementBuilderAgent (`requirement-builder-agent`) — NUEVO (v2 conversacional)
 
 **Cuándo corre:** en la pestaña "Conversar" (`POST /api/conversations/messages`), turno a turno,
 mientras el usuario describe su idea en lenguaje natural. El hilo se mantiene con
@@ -189,7 +191,7 @@ enviarlo con `POST /api/conversations/complete`, que crea el análisis y arranca
 
 ---
 
-## 7. ExecutiveSummaryAgent (`executive-summary-agent`) — NUEVO
+## 6. ExecutiveSummaryAgent (`executive-summary-agent`) — NUEVO
 
 **Cuándo corre:** al final del pipeline de análisis (`AnalyzeAsync`), tras evaluar todos los requerimientos y
 solo si hubo al menos uno — antes de marcar el análisis como `Completed`. Su fallo NO tumba el análisis:
@@ -255,8 +257,7 @@ El mapeo de código lógico → agente publicado vive en `Foundry:Chat:Agents`:
         "requirement-extractor-agent": { "Name": "requirement-extractor-agent", "Version": "1" },
         "requirement-evaluator-agent": { "Name": "requirement-evaluator-agent", "Version": "1" },
         "clarifier-agent": { "Name": "clarifier-agent", "Version": "1" },
-        "story-writer-agent": { "Name": "story-writer-agent", "Version": "1" },
-        "test-case-writer-agent": { "Name": "test-case-writer-agent", "Version": "1" },
+        "use-case-writer-agent": { "Name": "use-case-writer-agent", "Version": "1" },
         "requirement-builder-agent": { "Name": "requirement-builder-agent", "Version": "1" },
         "executive-summary-agent": { "Name": "executive-summary-agent", "Version": "1" }
       }
@@ -278,13 +279,12 @@ Subir documento
    └─► 1. Extractor  ──► requerimientos REQ-001..N
           └─► 2. Evaluador (por c/u) ──► rúbrica + Pasa/No pasa
                  └─► 3. Clarificador (solo ambiguos) ──► preguntas al cliente
-   └─► 7. ExecutiveSummaryAgent (si hubo ≥1 requerimiento) ──► resumen ejecutivo (evento `summary`)
+   └─► 6. ExecutiveSummaryAgent (si hubo ≥1 requerimiento) ──► resumen ejecutivo (evento `summary`)
 Ciclo responder → re-evaluar (POST reevaluate):
    Cliente responde preguntas pendientes
       └─► 2. Evaluador CON aclaraciones respondidas ──► nueva rúbrica, reemplaza la evaluación
              └─► si sigue ambiguo: 3. Clarificador CON aclaraciones ──► preguntas NUEVAS (append)
    Se itera hasta aprobar.
 Cliente pulsa "Generar historias" (POST stories) — solo si aprobado o todo respondido
-   └─► 4. StoryWriter (requerimiento + aclaraciones) ──► historias
-          └─► 5. TestCaseWriter (por historia) ──► 1 caso de prueba
+   └─► 4. UseCaseWriter (requerimiento + aclaraciones) ──► caso de uso (formato plantilla corporativa)
 ```

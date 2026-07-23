@@ -10,23 +10,21 @@ public sealed class AnalysisOrchestrator
     private readonly RequirementExtractorAgent _extractor;
     private readonly RequirementEvaluatorAgent _evaluator;
     private readonly ClarifierAgent _clarifier;
-    private readonly StoryWriterAgent _storyWriter;
-    private readonly TestCaseWriterAgent _testCaseWriter;
+    private readonly UseCaseWriterAgent _useCaseWriter;
     private readonly ExecutiveSummaryAgent _summaryAgent;
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
-        RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, StoryWriterAgent storyWriter,
-        TestCaseWriterAgent testCaseWriter, ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
+        RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, UseCaseWriterAgent useCaseWriter,
+        ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
         AnalysisOptions options)
     {
         _textExtractor = textExtractor;
         _extractor = extractor;
         _evaluator = evaluator;
         _clarifier = clarifier;
-        _storyWriter = storyWriter;
-        _testCaseWriter = testCaseWriter;
+        _useCaseWriter = useCaseWriter;
         _summaryAgent = summaryAgent;
         _repository = repository;
         _options = options;
@@ -34,7 +32,7 @@ public sealed class AnalysisOrchestrator
 
     /// <summary>
     /// Pipeline del upload: extraer → evaluar → preguntas de clarificación si hay ambigüedad.
-    /// Las historias NO se generan aquí: se disparan manualmente con <see cref="GenerateStoriesAsync"/>.
+    /// El caso de uso NO se genera aquí: se dispara manualmente con <see cref="GenerateStoriesAsync"/>.
     /// </summary>
     public async IAsyncEnumerable<AnalysisEvent> AnalyzeAsync(Stream content, string fileName,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -153,7 +151,7 @@ public sealed class AnalysisOrchestrator
     /// <summary>
     /// Entrada conversacional (v2): crea un análisis con el requerimiento armado en el chat,
     /// lo evalúa y genera preguntas de clarificación si aplica. Devuelve el id del análisis;
-    /// desde ahí el flujo continúa igual que el de documentos (responder → generar historias).
+    /// desde ahí el flujo continúa igual que el de documentos (responder → generar caso de uso).
     /// </summary>
     public async Task<Guid> CreateFromRequirementAsync(string text, string? area,
         CancellationToken cancellationToken = default)
@@ -217,29 +215,24 @@ public sealed class AnalysisOrchestrator
     }
 
     /// <summary>
-    /// Generación manual: historias + caso de prueba por historia para un requerimiento listo
+    /// Generación manual: caso de uso (formato plantilla corporativa) para un requerimiento listo
     /// (aprobado, o con todas sus clarificaciones respondidas).
     /// </summary>
     public async Task<RequirementDetailDto> GenerateStoriesAsync(Guid analysisId, string requirementCode,
         CancellationToken cancellationToken = default)
     {
         (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
-        if (requirement.Stories.Count > 0)
+        if (requirement.UseCase is not null)
         {
-            throw new InvalidOperationException("El requerimiento ya tiene historias generadas.");
+            throw new InvalidOperationException("El requerimiento ya tiene un caso de uso generado.");
         }
         if (!requirement.ReadyForStories)
         {
             throw new InvalidOperationException(
-                "Responda las preguntas de clarificación antes de generar historias.");
+                "Responda las preguntas de clarificación antes de generar el caso de uso.");
         }
 
-        IReadOnlyList<UserStory> stories = await _storyWriter.WriteAsync(requirement, cancellationToken);
-        foreach (UserStory story in stories)
-        {
-            story.AttachTestCase(await _testCaseWriter.WriteAsync(story, cancellationToken));
-            requirement.AddStory(story);
-        }
+        requirement.SetUseCase(await _useCaseWriter.WriteAsync(requirement, cancellationToken));
 
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);

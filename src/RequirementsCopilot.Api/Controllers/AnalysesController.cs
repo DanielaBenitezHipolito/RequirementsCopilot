@@ -148,8 +148,6 @@ public sealed class AnalysesController : ControllerBase
             AnalysisEventKind.Requirement => new { requerimiento = analysisEvent.Requirement },
             AnalysisEventKind.Evaluation => new { evaluacion = analysisEvent.Evaluation },
             AnalysisEventKind.Clarification => new { aclaracion = analysisEvent.Clarification },
-            AnalysisEventKind.Story => new { historia = analysisEvent.Story },
-            AnalysisEventKind.TestCase => new { caso = analysisEvent.TestCase },
             AnalysisEventKind.Summary => new { resumen = analysisEvent.Summary },
             AnalysisEventKind.Done => new { analysisId = analysisEvent.AnalysisId },
             AnalysisEventKind.Error => new { mensaje = analysisEvent.Message },

@@ -32,15 +32,22 @@ public sealed class FakeChatCompletion : IChatCompletion
         "\"¿Qué tiempo de respuesta máximo, en segundos, se considera aceptable?\"," +
         "\"¿Qué tareas concretas debe poder completar el usuario sin capacitación?\"]}";
 
-    private const string StoriesReply =
-        "{\"historias\":[{\"rol\":\"recepcionista\",\"quiero\":\"registrar el pago de una reserva\",\"para\":\"confirmar la ocupación\"," +
-        "\"criteriosAceptacion\":[\"Dado un monto válido, cuando registro el pago, entonces se genera consecutivo\"," +
-        "\"Dado un pago registrado, cuando consulto la reserva, entonces aparece como pagada\"]}]}";
-
-    private const string TestCaseReply =
-        "{\"titulo\":\"Registro de pago exitoso\",\"precondiciones\":[\"Reserva creada\",\"Sesión de recepción activa\"]," +
-        "\"pasos\":[\"Abrir la reserva\",\"Ingresar monto y tarjeta\",\"Confirmar el pago\"]," +
-        "\"resultadoEsperado\":\"El pago queda registrado con consecutivo y la reserva marcada como pagada\"}";
+    private const string UseCaseReply =
+        "{\"nombre\":\"Módulo de Pólizas – Sistema HC Consulting\"," +
+        "\"objetivo\":\"Permitir el registro del pago de una reserva con tarjeta, dejando trazabilidad del monto, la fecha y el consecutivo generado.\"," +
+        "\"descripcion\":\"El recepcionista registra el pago de una reserva existente; el sistema valida el monto, genera un consecutivo único y marca la reserva como pagada.\"," +
+        "\"actores\":[{\"nombre\":\"Recepcionista\",\"descripcion\":\"Usuario que atiende al huésped y registra el pago en el sistema.\"}," +
+        "{\"nombre\":\"Sistema de Pagos\",\"descripcion\":\"Componente que valida el monto y genera el consecutivo de pago.\"}]," +
+        "\"precondiciones\":[\"La reserva debe existir y estar activa\",\"El recepcionista debe tener sesión iniciada\"]," +
+        "\"trigger\":\"El huésped se presenta a pagar su reserva en recepción.\"," +
+        "\"flujos\":[{\"titulo\":\"Proceso de creación manual\",\"pasos\":[" +
+        "{\"numero\":1,\"accion\":\"El recepcionista abre la reserva del huésped\",\"resultadoEsperado\":\"El sistema muestra el detalle de la reserva\"}," +
+        "{\"numero\":2,\"accion\":\"El recepcionista ingresa el monto y los datos de la tarjeta\",\"resultadoEsperado\":\"El sistema valida el monto contra el saldo pendiente\"}," +
+        "{\"numero\":3,\"accion\":\"El recepcionista confirma el pago\",\"resultadoEsperado\":\"El sistema genera el consecutivo y marca la reserva como pagada\"}]}]," +
+        "\"extensiones\":[\"Si el monto no coincide con el saldo pendiente, el sistema rechaza el pago y muestra un mensaje de error\"," +
+        "\"Si la tarjeta es rechazada, el sistema no genera consecutivo y la reserva permanece sin pagar\"]," +
+        "\"frecuencia\":\"Única\",\"importancia\":\"Alta\",\"urgencia\":\"Alta\"," +
+        "\"comentarios\":[\"El consecutivo debe ser único por empresa\"]}";
 
     private const string BuilderQuestionReply =
         "{\"listo\":false,\"mensaje\":\"¿Quién usará esta funcionalidad y qué dato debe quedar registrado al final?\",\"requerimiento\":null}";
@@ -65,8 +72,7 @@ public sealed class FakeChatCompletion : IChatCompletion
                 ? HighRubric
                 : IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
             ClarifierAgent.AgentName => ClarifierReply,
-            StoryWriterAgent.AgentName => StoriesReply,
-            TestCaseWriterAgent.AgentName => TestCaseReply,
+            UseCaseWriterAgent.AgentName => UseCaseReply,
             // ponytail: guion fijo — 1a llamada pregunta, con hilo previo redacta. Suficiente para demo sin credenciales.
             RequirementBuilderAgent.AgentName =>
                 string.IsNullOrEmpty(prompt.PreviousResponseId) ? BuilderQuestionReply : BuilderReadyReply,

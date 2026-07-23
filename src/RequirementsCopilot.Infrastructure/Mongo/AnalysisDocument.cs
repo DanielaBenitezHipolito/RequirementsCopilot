@@ -37,7 +37,7 @@ public sealed class RequirementDocument
     public string Area { get; set; } = string.Empty;
     public EvaluationDocument? Evaluation { get; set; }
     public List<ClarificationDocument> Clarifications { get; set; } = new();
-    public List<StoryDocument> Stories { get; set; } = new();
+    public UseCaseDocument? UseCase { get; set; }
 
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
@@ -49,7 +49,7 @@ public sealed class RequirementDocument
         {
             Question = c.Question, Answer = c.Answer,
         }).ToList(),
-        Stories = requirement.Stories.Select(StoryDocument.FromDomain).ToList(),
+        UseCase = requirement.UseCase is null ? null : UseCaseDocument.FromDomain(requirement.UseCase),
     };
 
     public Requirement ToDomain()
@@ -63,9 +63,9 @@ public sealed class RequirementDocument
         {
             requirement.AddClarification(Domain.Analyses.Clarification.Rehydrate(clarification.Question, clarification.Answer));
         }
-        foreach (StoryDocument story in Stories)
+        if (UseCase is not null)
         {
-            requirement.AddStory(story.ToDomain());
+            requirement.SetUseCase(UseCase.ToDomain());
         }
         return requirement;
     }
@@ -102,48 +102,76 @@ public sealed class CriterionDocument
     public string Observation { get; set; } = string.Empty;
 }
 
-public sealed class StoryDocument
+public sealed class ActorDocument
 {
-    public string Role { get; set; } = string.Empty;
-    public string Goal { get; set; } = string.Empty;
-    public string Benefit { get; set; } = string.Empty;
-    public List<string> AcceptanceCriteria { get; set; } = new();
-    public TestCaseDocument? TestCase { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
 
-    public static StoryDocument FromDomain(UserStory story) => new()
-    {
-        Role = story.Role,
-        Goal = story.Goal,
-        Benefit = story.Benefit,
-        AcceptanceCriteria = story.AcceptanceCriteria.ToList(),
-        TestCase = story.TestCase is null ? null : TestCaseDocument.FromDomain(story.TestCase),
-    };
+    public static ActorDocument FromDomain(Actor actor) => new() { Nombre = actor.Nombre, Descripcion = actor.Descripcion };
 
-    public UserStory ToDomain()
-    {
-        var story = UserStory.Create(Role, Goal, Benefit, AcceptanceCriteria);
-        if (TestCase is not null)
-        {
-            story.AttachTestCase(TestCase.ToDomain());
-        }
-        return story;
-    }
+    public Actor ToDomain() => new(Nombre, Descripcion);
 }
 
-public sealed class TestCaseDocument
+public sealed class PasoDocument
 {
-    public string Title { get; set; } = string.Empty;
-    public List<string> Preconditions { get; set; } = new();
-    public List<string> Steps { get; set; } = new();
-    public string ExpectedResult { get; set; } = string.Empty;
+    public int Numero { get; set; }
+    public string Accion { get; set; } = string.Empty;
+    public string ResultadoEsperado { get; set; } = string.Empty;
 
-    public static TestCaseDocument FromDomain(TestCase testCase) => new()
+    public static PasoDocument FromDomain(PasoFlujo paso) => new()
     {
-        Title = testCase.Title,
-        Preconditions = testCase.Preconditions.ToList(),
-        Steps = testCase.Steps.ToList(),
-        ExpectedResult = testCase.ExpectedResult,
+        Numero = paso.Numero, Accion = paso.Accion, ResultadoEsperado = paso.ResultadoEsperado,
     };
 
-    public TestCase ToDomain() => TestCase.Create(Title, Preconditions, Steps, ExpectedResult);
+    public PasoFlujo ToDomain() => new(Numero, Accion, ResultadoEsperado);
+}
+
+public sealed class FlujoDocument
+{
+    public string Titulo { get; set; } = string.Empty;
+    public List<PasoDocument> Pasos { get; set; } = new();
+
+    public static FlujoDocument FromDomain(FlujoProceso flujo) => new()
+    {
+        Titulo = flujo.Titulo,
+        Pasos = flujo.Pasos.Select(PasoDocument.FromDomain).ToList(),
+    };
+
+    public FlujoProceso ToDomain() => new(Titulo, Pasos.Select(p => p.ToDomain()).ToArray());
+}
+
+public sealed class UseCaseDocument
+{
+    public string Nombre { get; set; } = string.Empty;
+    public string Objetivo { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    public List<ActorDocument> Actores { get; set; } = new();
+    public List<string> Precondiciones { get; set; } = new();
+    public string Trigger { get; set; } = string.Empty;
+    public List<FlujoDocument> Flujos { get; set; } = new();
+    public List<string> Extensiones { get; set; } = new();
+    public string Frecuencia { get; set; } = string.Empty;
+    public string Importancia { get; set; } = string.Empty;
+    public string Urgencia { get; set; } = string.Empty;
+    public List<string> Comentarios { get; set; } = new();
+
+    public static UseCaseDocument FromDomain(UseCase useCase) => new()
+    {
+        Nombre = useCase.Nombre,
+        Objetivo = useCase.Objetivo,
+        Descripcion = useCase.Descripcion,
+        Actores = useCase.Actores.Select(ActorDocument.FromDomain).ToList(),
+        Precondiciones = useCase.Precondiciones.ToList(),
+        Trigger = useCase.Trigger,
+        Flujos = useCase.Flujos.Select(FlujoDocument.FromDomain).ToList(),
+        Extensiones = useCase.Extensiones.ToList(),
+        Frecuencia = useCase.Frecuencia,
+        Importancia = useCase.Importancia,
+        Urgencia = useCase.Urgencia,
+        Comentarios = useCase.Comentarios.ToList(),
+    };
+
+    public UseCase ToDomain() => UseCase.Create(Nombre, Objetivo, Descripcion,
+        Actores.Select(a => a.ToDomain()).ToArray(), Precondiciones, Trigger,
+        Flujos.Select(f => f.ToDomain()).ToArray(), Extensiones, Frecuencia, Importancia, Urgencia, Comentarios);
 }

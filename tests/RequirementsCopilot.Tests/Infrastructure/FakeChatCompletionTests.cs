@@ -12,8 +12,7 @@ public class FakeChatCompletionTests
     [InlineData(RequirementExtractorAgent.AgentName)]
     [InlineData(RequirementEvaluatorAgent.AgentName)]
     [InlineData(ClarifierAgent.AgentName)]
-    [InlineData(StoryWriterAgent.AgentName)]
-    [InlineData(TestCaseWriterAgent.AgentName)]
+    [InlineData(UseCaseWriterAgent.AgentName)]
     [InlineData(RequirementBuilderAgent.AgentName)]
     public async Task CompleteAsync_CadaAgente_DevuelveJsonParseable(string agent)
     {
@@ -49,9 +48,8 @@ public class FakeChatCompletionTests
         Assert.True(first.Passed);
         Assert.False(second.Passed);
 
-        var stories = await new StoryWriterAgent(_fake).WriteAsync(requirements[0]);
-        Assert.NotEmpty(stories);
-        var testCase = await new TestCaseWriterAgent(_fake).WriteAsync(stories[0]);
-        Assert.False(string.IsNullOrWhiteSpace(testCase.Title));
+        var useCase = await new UseCaseWriterAgent(_fake).WriteAsync(requirements[0]);
+        Assert.False(string.IsNullOrWhiteSpace(useCase.Nombre));
+        Assert.NotEmpty(useCase.Flujos);
     }
 }

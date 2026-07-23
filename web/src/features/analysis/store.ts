@@ -38,7 +38,7 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
           return { statusMessage: evt.data.mensaje ?? '' };
         case 'requirement':
           return {
-            requirements: [...state.requirements, { ...evt.data.requerimiento, aclaraciones: [], historias: [] }],
+            requirements: [...state.requirements, { ...evt.data.requerimiento, aclaraciones: [] }],
           };
         case 'evaluation':
           return {

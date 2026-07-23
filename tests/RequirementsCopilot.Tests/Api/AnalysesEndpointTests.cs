@@ -27,7 +27,7 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
-    public async Task Post_ArchivoTxt_EvaluaPreguntaYPersisteSinHistorias()
+    public async Task Post_ArchivoTxt_EvaluaPreguntaYPersisteSinCasoDeUso()
     {
         var client = _factory.CreateClient();
 
@@ -39,7 +39,7 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Contains("event: requirement", body);
         Assert.Contains("event: evaluation", body);
         Assert.Contains("event: clarification", body); // REQ-002 ambiguo pregunta
-        Assert.DoesNotContain("event: story", body); // historias ya no son automáticas
+        Assert.DoesNotContain("event: story", body); // el caso de uso ya no es automático
         Assert.DoesNotContain("event: testcase", body);
         Assert.Contains("event: summary", body); // resumen ejecutivo antes de done
         Assert.Contains("event: done", body);
@@ -108,7 +108,7 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
-    public async Task FlujoManual_ResponderYGenerarHistorias()
+    public async Task FlujoManual_ResponderYGenerarCasoDeUso()
     {
         var client = _factory.CreateClient();
         var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
@@ -118,8 +118,8 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
         var direct = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stories", null);
         Assert.Equal(HttpStatusCode.OK, direct.StatusCode);
         var directDto = await direct.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.True(directDto.GetProperty("historias").GetArrayLength() > 0);
-        Assert.True(directDto.GetProperty("historias")[0].TryGetProperty("caso", out _));
+        Assert.True(directDto.TryGetProperty("caso", out var caso));
+        Assert.False(string.IsNullOrWhiteSpace(caso.GetProperty("nombre").GetString()));
 
         // Ambiguo: bloqueado hasta responder
         var blocked = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-002/stories", null);

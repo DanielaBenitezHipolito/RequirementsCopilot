@@ -39,20 +39,23 @@ public class AnalysisTests
     }
 
     [Fact]
-    public void FlujoCompleto_RequerimientoConHistoriaYCaso()
+    public void FlujoCompleto_RequerimientoConCasoDeUso()
     {
         var analysis = Analysis.Create("spec.txt");
         var requirement = Requirement.Create("REQ-001", "El sistema debe X", "Pagos");
         requirement.Evaluate(Evaluation.Create(new[] { CriterionScore.Create("Claridad", 5, "ok") }, 3.5));
-        var story = UserStory.Create("cajero", "registrar pago", "cerrar la venta", new[] { "dado A entonces B" });
-        story.AttachTestCase(TestCase.Create("Pago exitoso", new[] { "sesión activa" }, new[] { "abrir caja" }, "pago registrado"));
-        requirement.AddStory(story);
+        var useCase = UseCase.Create("Módulo de Pólizas – Sistema HC Consulting", "Registrar pago", "Descripción",
+            new[] { new Actor("Cajero", "Registra el pago") },
+            new[] { "Sesión activa" }, "El huésped paga",
+            new[] { new FlujoProceso("Proceso de creación manual", new[] { new PasoFlujo(1, "Abrir caja", "Pago registrado") }) },
+            Array.Empty<string>(), "Única", "Alta", "Alta", Array.Empty<string>());
+        requirement.SetUseCase(useCase);
         analysis.AddRequirement(requirement);
         analysis.Complete();
 
         Assert.Equal(AnalysisStatus.Completed, analysis.Status);
         Assert.Single(analysis.Requirements);
         Assert.True(analysis.Requirements[0].Evaluation!.Passed);
-        Assert.NotNull(analysis.Requirements[0].Stories[0].TestCase);
+        Assert.NotNull(analysis.Requirements[0].UseCase);
     }
 }

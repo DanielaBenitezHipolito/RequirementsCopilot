@@ -33,6 +33,15 @@ public class AnalysisOrchestratorTests
         "{\"nombre\":\"Verificabilidad\",\"score\":1,\"observacion\":\"no medible\"},{\"nombre\":\"Consistencia\",\"score\":2,\"observacion\":\"ok\"}," +
         "{\"nombre\":\"Factibilidad\",\"score\":2,\"observacion\":\"dudosa\"}]}";
 
+    private const string UseCaseReply =
+        "{\"nombre\":\"Módulo de Pólizas – Sistema HC Consulting\",\"objetivo\":\"Registrar un pago\"," +
+        "\"descripcion\":\"El cajero registra el pago de una reserva.\"," +
+        "\"actores\":[{\"nombre\":\"Cajero\",\"descripcion\":\"Registra el pago\"}]," +
+        "\"precondiciones\":[\"Caja abierta\"],\"trigger\":\"El huésped paga\"," +
+        "\"flujos\":[{\"titulo\":\"Proceso de creación manual\",\"pasos\":[" +
+        "{\"numero\":1,\"accion\":\"Registrar\",\"resultadoEsperado\":\"Registrado\"}]}]," +
+        "\"extensiones\":[],\"frecuencia\":\"Única\",\"importancia\":\"Alta\",\"urgencia\":\"Alta\",\"comentarios\":[]}";
+
     private static StubChatCompletion PipelineChat() => new()
     {
         Reply = prompt => prompt.Agent switch
@@ -43,10 +52,7 @@ public class AnalysisOrchestratorTests
             RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("REQ-001") ? HighRubric() : LowRubric(),
             ClarifierAgent.AgentName =>
                 "{\"preguntas\":[\"¿Qué significa rápido en segundos?\",\"¿Para qué operaciones aplica?\"]}",
-            StoryWriterAgent.AgentName =>
-                "{\"historias\":[{\"rol\":\"cajero\",\"quiero\":\"registrar un pago\",\"para\":\"cerrar la venta\",\"criteriosAceptacion\":[\"dado A entonces B\"]}]}",
-            TestCaseWriterAgent.AgentName =>
-                "{\"titulo\":\"Pago exitoso\",\"precondiciones\":[\"caja abierta\"],\"pasos\":[\"registrar\"],\"resultadoEsperado\":\"registrado\"}",
+            UseCaseWriterAgent.AgentName => UseCaseReply,
             ExecutiveSummaryAgent.AgentName => "{\"resumen\":\"Resumen ejecutivo de prueba.\"}",
             _ => "{}",
         },
@@ -57,8 +63,7 @@ public class AnalysisOrchestratorTests
         new RequirementExtractorAgent(chat),
         new RequirementEvaluatorAgent(chat),
         new ClarifierAgent(chat),
-        new StoryWriterAgent(chat),
-        new TestCaseWriterAgent(chat),
+        new UseCaseWriterAgent(chat),
         new ExecutiveSummaryAgent(chat),
         repository,
         new AnalysisOptions());
@@ -75,7 +80,7 @@ public class AnalysisOrchestratorTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_EvaluaYPregunta_SinHistoriasAutomaticas()
+    public async Task AnalyzeAsync_EvaluaYPregunta_SinCasoDeUsoAutomatico()
     {
         var repository = new StubRepository();
         var events = await Collect(Orchestrator(PipelineChat(), repository));
@@ -91,7 +96,7 @@ public class AnalysisOrchestratorTests
 
         Assert.Equal(AnalysisStatus.Completed, repository.Saved!.Status);
         Assert.Equal(2, repository.Saved.Requirements.Count);
-        Assert.All(repository.Saved.Requirements, r => Assert.Empty(r.Stories)); // nunca automáticas
+        Assert.All(repository.Saved.Requirements, r => Assert.Null(r.UseCase)); // nunca automático
         Assert.Empty(repository.Saved.Requirements[0].Clarifications); // aprobado y claro: sin preguntas
         Assert.Equal(2, repository.Saved.Requirements[1].Clarifications.Count); // ambiguo: preguntas
         Assert.False(events[4].Evaluation!.Pasa);
@@ -100,7 +105,7 @@ public class AnalysisOrchestratorTests
     }
 
     [Fact]
-    public async Task GenerateStoriesAsync_RequerimientoAprobado_GeneraHistoriasConCaso()
+    public async Task GenerateStoriesAsync_RequerimientoAprobado_GeneraCasoDeUso()
     {
         var repository = new StubRepository();
         var orchestrator = Orchestrator(PipelineChat(), repository);
@@ -108,9 +113,9 @@ public class AnalysisOrchestratorTests
 
         var dto = await orchestrator.GenerateStoriesAsync(repository.Saved!.Id, "REQ-001");
 
-        Assert.Single(dto.Historias);
-        Assert.NotNull(dto.Historias[0].Caso);
-        Assert.Single(repository.Saved.Requirements[0].Stories); // persistido
+        Assert.NotNull(dto.Caso);
+        Assert.Equal("Módulo de Pólizas – Sistema HC Consulting", dto.Caso!.Nombre);
+        Assert.NotNull(repository.Saved.Requirements[0].UseCase); // persistido
     }
 
     [Fact]
@@ -136,7 +141,7 @@ public class AnalysisOrchestratorTests
         Assert.True(answered.ListoParaHistorias);
 
         var dto = await orchestrator.GenerateStoriesAsync(repository.Saved.Id, "REQ-002");
-        Assert.Single(dto.Historias);
+        Assert.NotNull(dto.Caso);
     }
 
     [Fact]
@@ -240,7 +245,7 @@ public class AnalysisOrchestratorTests
         var chat = new StubChatCompletion { Reply = _ => "no json" };
         var brokenOrchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
-            new ClarifierAgent(chat), new StoryWriterAgent(chat), new TestCaseWriterAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat),
             new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions());
 
         await Assert.ThrowsAsync<LlmException>(
@@ -261,7 +266,7 @@ public class AnalysisOrchestratorTests
         Assert.StartsWith("Conversación:", repository.Saved.FileName);
         var requirement = Assert.Single(repository.Saved.Requirements);
         Assert.True(requirement.Evaluation!.Passed);
-        Assert.Empty(requirement.Stories); // las historias siguen siendo manuales
+        Assert.Null(requirement.UseCase); // el caso de uso sigue siendo manual
     }
 
     [Fact]
@@ -319,8 +324,7 @@ public class AnalysisOrchestratorTests
             new RequirementExtractorAgent(chat),
             new RequirementEvaluatorAgent(chat),
             new ClarifierAgent(chat),
-            new StoryWriterAgent(chat),
-            new TestCaseWriterAgent(chat),
+            new UseCaseWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             new StubRepository(),
             new AnalysisOptions { MaxInputChars = 100 });

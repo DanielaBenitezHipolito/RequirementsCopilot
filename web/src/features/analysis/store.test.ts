@@ -31,7 +31,7 @@ describe('useAnalysisStore.applyEvent', () => {
     expect(state.requirements[0].evaluacion?.pasa).toBe(true);
     expect(state.requirements[0].aclaraciones).toHaveLength(2);
     expect(state.requirements[0].aclaraciones[0].pregunta).toBe('¿Qué significa rápido?');
-    expect(state.requirements[0].historias).toHaveLength(0); // ya no llegan por SSE
+    expect(state.requirements[0].caso).toBeUndefined(); // ya no llega por SSE
   });
 
   it('error marca el estado y guarda el mensaje', () => {

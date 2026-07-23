@@ -11,7 +11,7 @@ export function mapRequirement(r: any): RequirementView {
     evaluacion: r.evaluacion ?? undefined,
     aclaraciones: r.aclaraciones ?? [],
     listoParaHistorias: r.listoParaHistorias,
-    historias: (r.historias ?? []).map((h: any) => ({ ...h, caso: h.caso ?? undefined })),
+    caso: r.caso ?? undefined,
   };
 }
 
@@ -36,7 +36,7 @@ export function StoriesBanner({ analysisId, requirements, onUpdate }: Props) {
   const [progress, setProgress] = useState({ i: 0, total: 0 });
   const [error, setError] = useState<string>();
 
-  const pendientes = requirements.filter((r) => r.evaluacion?.pasa && r.historias.length === 0);
+  const pendientes = requirements.filter((r) => r.evaluacion?.pasa && !r.caso);
   const show = requirements.length > 0 && requirements.every((r) => r.evaluacion?.pasa === true) && pendientes.length > 0;
 
   if (!show) return null;

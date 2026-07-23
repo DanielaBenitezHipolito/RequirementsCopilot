@@ -12,9 +12,12 @@ public class AnalysisDocumentTests
         var requirement = Requirement.Create("REQ-001", "El sistema debe X", "Pagos");
         requirement.Evaluate(Evaluation.Create(
             new[] { CriterionScore.Create("Claridad", 4, "clara"), CriterionScore.Create("Completitud", 3, "parcial") }, 3.5));
-        var story = UserStory.Create("cajero", "registrar pago", "cerrar venta", new[] { "dado A entonces B" });
-        story.AttachTestCase(TestCase.Create("Pago ok", new[] { "caja abierta" }, new[] { "registrar" }, "registrado"));
-        requirement.AddStory(story);
+        var useCase = UseCase.Create("Módulo de Pólizas – Sistema HC Consulting", "Registrar pago", "Descripción",
+            new[] { new Actor("Cajero", "Registra el pago") },
+            new[] { "Reserva creada" }, "El huésped paga",
+            new[] { new FlujoProceso("Proceso de creación manual", new[] { new PasoFlujo(1, "Abrir caja", "Caja abierta") }) },
+            new[] { "Si el monto no coincide, se rechaza" }, "Única", "Alta", "Alta", new[] { "Ninguno" });
+        requirement.SetUseCase(useCase);
         analysis.AddRequirement(requirement);
         analysis.Complete();
 
@@ -26,7 +29,10 @@ public class AnalysisDocumentTests
         Assert.Equal("Pagos", restored.Requirements[0].Area);
         Assert.Equal(3.5, restored.Requirements[0].Evaluation!.Average);
         Assert.True(restored.Requirements[0].Evaluation!.Passed);
-        Assert.Equal("Pago ok", restored.Requirements[0].Stories[0].TestCase!.Title);
+        Assert.Equal("Módulo de Pólizas – Sistema HC Consulting", restored.Requirements[0].UseCase!.Nombre);
+        Assert.Single(restored.Requirements[0].UseCase!.Actores);
+        Assert.Single(restored.Requirements[0].UseCase!.Flujos);
+        Assert.Single(restored.Requirements[0].UseCase!.Flujos[0].Pasos);
     }
 
     [Fact]

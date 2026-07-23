@@ -176,33 +176,110 @@ export function RequirementCard({ requirement, onReevaluate }: Props) {
 
           {error && <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
 
-          {requirement.historias.map((h, i) => (
-            <div key={i} className="rounded-lg bg-slate-50 p-3">
-              <p className="text-sm text-slate-700">
-                <span className="font-semibold">Como</span> {h.rol}, <span className="font-semibold">quiero</span>{' '}
-                {h.quiero}, <span className="font-semibold">para</span> {h.para}.
-              </p>
-              <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">
-                {h.criteriosAceptacion.map((c, j) => (
-                  <li key={j}>{c}</li>
-                ))}
-              </ul>
-              {h.caso && (
-                <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-xs">
-                  <p className="font-semibold text-slate-700">Caso de prueba: {h.caso.titulo}</p>
-                  {h.caso.precondiciones.length > 0 && (
-                    <p className="mt-1">Precondiciones: {h.caso.precondiciones.join('; ')}</p>
-                  )}
-                  <ol className="mt-1 list-decimal pl-5">
-                    {h.caso.pasos.map((p, j) => (
-                      <li key={j}>{p}</li>
-                    ))}
-                  </ol>
-                  <p className="mt-1 text-emerald-700">Resultado esperado: {h.caso.resultadoEsperado}</p>
+          {requirement.caso && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Objetivo</p>
+                  <p className="mt-1 text-sm text-slate-700">{requirement.caso.objetivo}</p>
                 </div>
-              )}
+
+                <div>
+                  <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Descripción</p>
+                  <p className="mt-1 text-sm text-slate-700">{requirement.caso.descripcion}</p>
+                </div>
+
+                {requirement.caso.actores.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Actores</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
+                      {requirement.caso.actores.map((a, i) => (
+                        <li key={i}>
+                          <span className="font-semibold">{a.nombre}</span> — {a.descripcion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {requirement.caso.precondiciones.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Precondiciones</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
+                      {requirement.caso.precondiciones.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Trigger</p>
+                  <p className="mt-1 text-sm text-slate-700">{requirement.caso.trigger}</p>
+                </div>
+
+                {requirement.caso.flujos.map((f, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-bold tracking-wide text-slate-600 uppercase">{f.titulo}</p>
+                    <table className="mt-2 w-full text-xs text-slate-700">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-[11px] uppercase text-slate-400">
+                          <th className="py-1 pr-2">Paso</th>
+                          <th className="py-1 pr-2">Acción</th>
+                          <th className="py-1">Resultado esperado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {f.pasos.map((p) => (
+                          <tr key={p.numero} className="border-b border-slate-100 last:border-0">
+                            <td className="py-1 pr-2 font-mono">{p.numero}</td>
+                            <td className="py-1 pr-2">{p.accion}</td>
+                            <td className="py-1">{p.resultadoEsperado}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+
+                {requirement.caso.extensiones.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Extensiones</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
+                      {requirement.caso.extensiones.map((e, i) => (
+                        <li key={i}>{e}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold uppercase text-slate-600">
+                    Frecuencia: {requirement.caso.frecuencia}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold uppercase text-slate-600">
+                    Importancia: {requirement.caso.importancia}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold uppercase text-slate-600">
+                    Urgencia: {requirement.caso.urgencia}
+                  </span>
+                </div>
+
+                {requirement.caso.comentarios.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Comentarios</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-slate-700">
+                      {requirement.caso.comentarios.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

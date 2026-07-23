@@ -2,16 +2,21 @@ using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Application.Analyses;
 
-public sealed record TestCaseDetailDto(string Titulo, IReadOnlyList<string> Precondiciones, IReadOnlyList<string> Pasos,
-    string ResultadoEsperado);
+public sealed record ActorDto(string Nombre, string Descripcion);
 
-public sealed record StoryDetailDto(string Rol, string Quiero, string Para, IReadOnlyList<string> CriteriosAceptacion,
-    TestCaseDetailDto? Caso);
+public sealed record PasoFlujoDto(int Numero, string Accion, string ResultadoEsperado);
+
+public sealed record FlujoDto(string Titulo, IReadOnlyList<PasoFlujoDto> Pasos);
+
+public sealed record UseCaseDto(string Nombre, string Objetivo, string Descripcion, IReadOnlyList<ActorDto> Actores,
+    IReadOnlyList<string> Precondiciones, string Trigger, IReadOnlyList<FlujoDto> Flujos,
+    IReadOnlyList<string> Extensiones, string Frecuencia, string Importancia, string Urgencia,
+    IReadOnlyList<string> Comentarios);
 
 public sealed record ClarificationDto(string Pregunta, string? Respuesta);
 
 public sealed record RequirementDetailDto(string Codigo, string Texto, string Area, EvaluationDto? Evaluacion,
-    IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, IReadOnlyList<StoryDetailDto> Historias);
+    IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso);
 
 public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime CreatedAt, string Status,
     int TotalRequerimientos, int Aprobados);
@@ -55,9 +60,17 @@ public sealed class AnalysisQueries
             Math.Round(r.Evaluation.Average, 2), r.Evaluation.Threshold, r.Evaluation.Passed),
         r.Clarifications.Select(c => new ClarificationDto(c.Question, c.Answer)).ToArray(),
         r.ReadyForStories,
-        r.Stories.Select(s => new StoryDetailDto(
-            s.Role, s.Goal, s.Benefit, s.AcceptanceCriteria,
-            s.TestCase is null ? null : new TestCaseDetailDto(
-                s.TestCase.Title, s.TestCase.Preconditions, s.TestCase.Steps, s.TestCase.ExpectedResult)))
-            .ToArray());
+        r.UseCase is null ? null : new UseCaseDto(
+            r.UseCase.Nombre, r.UseCase.Objetivo, r.UseCase.Descripcion,
+            r.UseCase.Actores.Select(a => new ActorDto(a.Nombre, a.Descripcion)).ToArray(),
+            r.UseCase.Precondiciones,
+            r.UseCase.Trigger,
+            r.UseCase.Flujos.Select(f => new FlujoDto(
+                f.Titulo, f.Pasos.Select(p => new PasoFlujoDto(p.Numero, p.Accion, p.ResultadoEsperado)).ToArray()))
+                .ToArray(),
+            r.UseCase.Extensiones,
+            r.UseCase.Frecuencia,
+            r.UseCase.Importancia,
+            r.UseCase.Urgencia,
+            r.UseCase.Comentarios));
 }
