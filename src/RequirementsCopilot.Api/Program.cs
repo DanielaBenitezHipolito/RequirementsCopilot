@@ -8,6 +8,13 @@ using RequirementsCopilot.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hosts como Render/Railway asignan el puerto por la variable PORT; Kestrel escucha ahí.
+string? port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

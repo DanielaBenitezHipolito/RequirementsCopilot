@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+web/
+tests/
+.git/
+.superpowers/
+.remember/
+docs/
+*.md
+**/appsettings.Development.json
