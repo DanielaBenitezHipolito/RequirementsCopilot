@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAnalyses } from '../../shared/api/client';
+import { Loading } from '../../shared/components/Loading';
 import type { AnalysisSummary } from '../../shared/types';
 
 function DocIcon() {
@@ -31,9 +32,13 @@ function ChevronRightIcon() {
 export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
   const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAnalyses().then(setItems).catch((e) => setError(e.message));
+    getAnalyses()
+      .then(setItems)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -43,10 +48,13 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
         Acceda a los análisis procesados anteriormente por la plataforma.
       </p>
 
-      {error && <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-      {!error && items.length === 0 && <p className="mt-4 text-sm text-slate-500">Sin análisis todavía.</p>}
+      {loading && <Loading text="Cargando historial de auditorías…" />}
+      {!loading && error && <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {!loading && !error && items.length === 0 && (
+        <p className="mt-4 text-sm text-slate-500">Sin análisis todavía.</p>
+      )}
 
-      {!error && items.length > 0 && (
+      {!loading && !error && items.length > 0 && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

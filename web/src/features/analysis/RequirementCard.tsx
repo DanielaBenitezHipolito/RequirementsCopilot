@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { RequirementView } from '../../shared/types';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { downloadText, useCaseToMarkdown } from '../../shared/lib/useCaseDoc';
 
 interface Props {
   requirement: RequirementView;
@@ -178,7 +179,21 @@ export function RequirementCard({ requirement, onReevaluate }: Props) {
 
           {requirement.caso && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+                <BrandButton
+                  variant="secondary"
+                  className="!px-3 !py-1.5 !text-xs"
+                  onClick={() =>
+                    downloadText(
+                      `${requirement.codigo}-caso-de-uso.md`,
+                      useCaseToMarkdown(requirement.caso!, requirement.codigo, requirement.area),
+                    )
+                  }
+                >
+                  ↓ Descargar
+                </BrandButton>
+              </div>
 
               <div className="mt-3 space-y-3">
                 <div>

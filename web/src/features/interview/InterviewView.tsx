@@ -32,10 +32,14 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   const [approving, setApproving] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyError, setHistoryError] = useState<string>();
+  const [loadingConversations, setLoadingConversations] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   function loadConversations() {
-    getConversations().then(setConversations).catch((e) => setHistoryError(e.message));
+    getConversations()
+      .then(setConversations)
+      .catch((e) => setHistoryError(e.message))
+      .finally(() => setLoadingConversations(false));
   }
 
   useEffect(() => {
@@ -100,8 +104,16 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
           </BrandButton>
 
           <div className="mt-3 space-y-2">
-            {historyError && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{historyError}</p>}
-            {!historyError && conversations.length === 0 && (
+            {loadingConversations && (
+              <p className="flex items-center gap-2 text-sm text-slate-400">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-500" />
+                Cargando conversaciones…
+              </p>
+            )}
+            {!loadingConversations && historyError && (
+              <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{historyError}</p>
+            )}
+            {!loadingConversations && !historyError && conversations.length === 0 && (
               <p className="text-sm text-slate-400">Todavía no hay conversaciones.</p>
             )}
             {conversations.map((c) => (
