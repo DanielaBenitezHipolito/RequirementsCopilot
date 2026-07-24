@@ -26,7 +26,7 @@ git push -u origin feature/requirements-copilot-mvp
 ## Notas
 - **Plan free:** el servicio duerme tras ~15 min de inactividad; el primer request tarda ~30-60s en despertar. Despiértalo con un request un minuto antes de presentar.
 - **Mongo Atlas** (si lo usas): Network Access → permite la IP saliente de Render (o `0.0.0.0/0` solo para la demo); usuario con rol `readWrite`.
-- **Foundry real:** requiere los agentes **publicados** en el portal (`docs/prompts-agentes.md`). Con `Providers__Chat=Fake` no hace falta nada.
+- **Foundry real:** requiere los agentes **publicados** en el portal (`docs/agentes/`). Con `Providers__Chat=Fake` no hace falta nada.
 - Secretos SOLO como variables de entorno del host, nunca en el repo.
 - El frontend se compila con `VITE_API_BASE_URL=""` (rutas relativas) dentro del Dockerfile; no hay que configurarlo.
 

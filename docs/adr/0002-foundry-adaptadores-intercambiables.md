@@ -71,14 +71,14 @@ conversacional con hilo gestionado), se unifica todo bajo el modelo de JYDE (ADR
   entrevistador recuerde las respuestas previas del usuario sin que el backend guarde estado.
 - El catálogo de agentes (código lógico → `Name`/`Version`/`Model` en Foundry) se mapea en
   configuración: `Foundry:Chat:Agents`, una entrada por agente (ver `README.md` y
-  `docs/prompts-agentes.md` para el ejemplo completo y los pasos de publicación).
+  `docs/agentes/` para el ejemplo completo y los pasos de publicación).
 - `FakeChatCompletion` no cambia: sigue permitiendo correr el pipeline completo y la conversación
   sin credenciales, para desarrollo y CI.
 
 **Consecuencias de la actualización:**
 
 - Los prompts dejan de vivir solo en el código (`ChatPrompt.Instructions` por agente) y pasan a
-  vivir en Foundry; `docs/prompts-agentes.md` sigue siendo la referencia legible pero debe
+  vivir en Foundry; `docs/agentes/` sigue siendo la referencia legible pero debe
   sincronizarse a mano — ya no hay diff automático en PRs que garantice consistencia.
 - Se recupera la dependencia operativa que esta ADR había descartado originalmente: hay que crear y
   versionar los 6 agentes en el portal de Foundry antes de poder usar `Providers:Chat = Foundry` en

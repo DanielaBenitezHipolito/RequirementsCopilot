@@ -80,7 +80,7 @@ variables de entorno.
 | `Foundry:Endpoint` | — | Endpoint de Azure AI Foundry. Solo necesario con `Providers:Chat = Foundry`. |
 | `Foundry:ApiKey` | — | API key de Foundry. **Secret** — no commitear. |
 | `Foundry:Chat:Model` | `gpt-5-mini` | Modelo asignado a los agentes publicados en Foundry. |
-| `Foundry:Chat:Agents` | — | Mapeo código lógico → agente publicado en Foundry (`Name`/`Version`). Uno por cada uno de los 6 agentes (ver `docs/prompts-agentes.md`). |
+| `Foundry:Chat:Agents` | — | Mapeo código lógico → agente publicado en Foundry (`Name`/`Version`). Uno por cada uno de los 6 agentes (ver `docs/agentes/`). |
 | `Mongo:ConnectionString` | — | Cadena de conexión a MongoDB. **Secret** — no commitear. Solo necesario con `Providers:AnalysisRepository = Mongo`. |
 | `Mongo:Database` | `requirements_copilot` | Base de datos de Mongo donde vive la colección `analyses`. |
 | `Cors:Origin` | `http://localhost:5173` | Origen permitido por CORS (el frontend en dev). |
@@ -95,7 +95,7 @@ Mongo__ConnectionString=...
 
 Ejemplo de `Foundry:Chat` con el catálogo de agentes (necesario solo con `Providers:Chat = Foundry`;
 los agentes deben estar **publicados en Foundry** antes — pasos y contrato de cada uno en
-[`docs/prompts-agentes.md`](docs/prompts-agentes.md)):
+[`docs/agentes/`](docs/agentes/)):
 
 ```json
 {
