@@ -156,9 +156,17 @@ export async function downloadUseCasesDocx(requirements: RequirementView[], file
 /** Descarga un PDF con todos los casos de uso (tablas auto-paginadas). */
 export async function downloadUseCasesPdf(requirements: RequirementView[], fileName: string): Promise<void> {
   const { jsPDF } = await import('jspdf');
-  const autoTable = (await import('jspdf-autotable')).default;
+  // Importar por efecto secundario: engancha el método autoTable al prototipo de jsPDF.
+  await import('jspdf-autotable');
   const secciones = toSections(requirements);
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const docAny = doc as unknown as { autoTable?: (o: Record<string, unknown>) => void; lastAutoTable: { finalY: number } };
+  if (typeof docAny.autoTable !== 'function') {
+    throw new Error('No se pudo cargar jspdf-autotable. Verifica que la dependencia esté instalada.');
+  }
+  // El método vive en la instancia tras el import; se accede vía cast (no está tipado por defecto).
+  const table = (options: Record<string, unknown>) => docAny.autoTable!(options);
+  const finalY = () => docAny.lastAutoTable.finalY;
   const margin = 40;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -184,7 +192,7 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
   };
 
   const metaTable = (rows: [string, string][]) => {
-    autoTable(doc, {
+    table({
       startY: y,
       margin: { left: margin, right: margin },
       theme: 'grid',
@@ -192,11 +200,11 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
       columnStyles: { 0: { cellWidth: (pageWidth - margin * 2) * 0.24, fontStyle: 'bold', textColor: NAVY_RGB, fillColor: [238, 241, 247] } },
       body: rows,
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
+    y = finalY() + 12;
   };
 
   const flowTable = (filas: [string, string, string][]) => {
-    autoTable(doc, {
+    table({
       startY: y,
       margin: { left: margin, right: margin },
       theme: 'grid',
@@ -206,7 +214,7 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
       head: [['Paso', 'Acción', 'Resultado esperado']],
       body: filas,
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
+    y = finalY() + 12;
   };
 
   secciones.forEach((s, i) => {

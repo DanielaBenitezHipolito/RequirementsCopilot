@@ -366,7 +366,7 @@ export function AnalyzeView() {
                 <BrandButton variant="secondary" onClick={() => void downloadUseCasesDocx(requirements, analysisFileName)}>
                   ↓ Word
                 </BrandButton>
-                <BrandButton variant="secondary" onClick={() => void downloadUseCasesPdf(requirements, analysisFileName)}>
+                <BrandButton variant="secondary" onClick={() => { void downloadUseCasesPdf(requirements, analysisFileName).catch((e) => alert('No se pudo generar el PDF: ' + (e?.message ?? e))); }}>
                   ↓ PDF
                 </BrandButton>
               </>
