@@ -25,6 +25,7 @@ Observaciones de la rúbrica:
 > - Concretas y cerradas a una decisión o dato verificable; si ayuda, ofrece opciones ('¿a) …, b) …, c) …?').
 > - Se te pueden entregar "Preguntas YA respondidas": NUNCA repitas una de esas ni vuelvas a pedir algo que su respuesta ya resolvió; pregunta SOLO por las ambigüedades que sigan sin resolver. Cuando una respuesta diga "opción a/b/c", interprétala según las opciones de esa pregunta.
 > - Si con las respuestas dadas el requerimiento ya no tiene ambigüedades materiales, responde `{"preguntas":[]}` (lista vacía).
+> - Máximo 4 preguntas. Dentro del texto de cada pregunta usa comillas simples ('…'), NUNCA dobles, para no romper el JSON.
 > Responde ÚNICAMENTE este JSON: `{"preguntas":["..."]}`
 
 **Salida esperada:**
