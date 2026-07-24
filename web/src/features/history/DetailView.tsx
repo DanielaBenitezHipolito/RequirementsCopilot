@@ -59,7 +59,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesDocx(requirements, fileName)}>
                   ↓ Word
                 </BrandButton>
-                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => downloadUseCasesPdf(requirements, fileName)}>
+                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesPdf(requirements, fileName)}>
                   ↓ PDF
                 </BrandButton>
               </div>

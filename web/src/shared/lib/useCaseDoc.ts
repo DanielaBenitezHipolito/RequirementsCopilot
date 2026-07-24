@@ -1,18 +1,7 @@
-import {
-  BorderStyle,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from 'docx';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import type { CasoDeUso, RequirementView } from '../types';
+
+// Las librerías de export (docx, jspdf) se cargan con import() dinámico SOLO al descargar,
+// para no engordar el bundle inicial (la app abre más rápido; el chunk pesado va bajo demanda).
 
 const NAVY = '1e2a5a';
 const NAVY_RGB: [number, number, number] = [30, 42, 90];
@@ -69,95 +58,110 @@ function baseName(fileName: string): string {
   return (fileName || 'casos-de-uso').replace(/\.[^.]+$/, '');
 }
 
+function triggerDownload(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ---------- Word (.docx nativo) ----------
-
-function metaTableDocx(rows: [string, string][]): Table {
-  const border = { style: BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
-    rows: rows.map(
-      ([label, value]) =>
-        new TableRow({
-          children: [
-            new TableCell({
-              width: { size: 24, type: WidthType.PERCENTAGE },
-              shading: { fill: 'EEF1F7' },
-              children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, color: NAVY })] })],
-            }),
-            new TableCell({
-              children: value.split('\n').map((line) => new Paragraph({ children: [new TextRun(line)] })),
-            }),
-          ],
-        }),
-    ),
-  });
-}
-
-function flowTableDocx(filas: [string, string, string][]): Table {
-  const border = { style: BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
-  const header = (t: string) =>
-    new TableCell({
-      shading: { fill: NAVY },
-      children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: 'FFFFFF' })] })],
-    });
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
-    rows: [
-      new TableRow({ tableHeader: true, children: [header('Paso'), header('Acción'), header('Resultado esperado')] }),
-      ...filas.map(
-        ([n, accion, res]) =>
-          new TableRow({
-            children: [
-              new TableCell({ width: { size: 8, type: WidthType.PERCENTAGE }, children: [new Paragraph(n)] }),
-              new TableCell({ children: [new Paragraph(accion)] }),
-              new TableCell({ children: [new Paragraph(res)] }),
-            ],
-          }),
-      ),
-    ],
-  });
-}
 
 /** Descarga un .docx nativo con todos los casos de uso. */
 export async function downloadUseCasesDocx(requirements: RequirementView[], fileName: string): Promise<void> {
+  const D = await import('docx');
   const secciones = toSections(requirements);
-  const children: (Paragraph | Table)[] = [
-    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: 'Especificación de Casos de Uso', color: NAVY })] }),
-    new Paragraph({ children: [new TextRun({ text: `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, italics: true })] }),
+  const border = { style: D.BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
+  const allBorders = {
+    top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border,
+  };
+
+  const metaTable = (rows: [string, string][]) =>
+    new D.Table({
+      width: { size: 100, type: D.WidthType.PERCENTAGE },
+      borders: allBorders,
+      rows: rows.map(
+        ([label, value]) =>
+          new D.TableRow({
+            children: [
+              new D.TableCell({
+                width: { size: 24, type: D.WidthType.PERCENTAGE },
+                shading: { fill: 'EEF1F7' },
+                children: [new D.Paragraph({ children: [new D.TextRun({ text: label, bold: true, color: NAVY })] })],
+              }),
+              new D.TableCell({
+                children: value.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun(line)] })),
+              }),
+            ],
+          }),
+      ),
+    });
+
+  const flowTable = (filas: [string, string, string][]) => {
+    const header = (t: string) =>
+      new D.TableCell({
+        shading: { fill: NAVY },
+        children: [new D.Paragraph({ children: [new D.TextRun({ text: t, bold: true, color: 'FFFFFF' })] })],
+      });
+    return new D.Table({
+      width: { size: 100, type: D.WidthType.PERCENTAGE },
+      borders: allBorders,
+      rows: [
+        new D.TableRow({ tableHeader: true, children: [header('Paso'), header('Acción'), header('Resultado esperado')] }),
+        ...filas.map(
+          ([n, accion, res]) =>
+            new D.TableRow({
+              children: [
+                new D.TableCell({ width: { size: 8, type: D.WidthType.PERCENTAGE }, children: [new D.Paragraph(n)] }),
+                new D.TableCell({ children: [new D.Paragraph(accion)] }),
+                new D.TableCell({ children: [new D.Paragraph(res)] }),
+              ],
+            }),
+        ),
+      ],
+    });
+  };
+
+  const children: (InstanceType<typeof D.Paragraph> | InstanceType<typeof D.Table>)[] = [
+    new D.Paragraph({ heading: D.HeadingLevel.TITLE, children: [new D.TextRun({ text: 'Especificación de Casos de Uso', color: NAVY })] }),
+    new D.Paragraph({ children: [new D.TextRun({ text: `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, italics: true })] }),
   ];
 
   secciones.forEach((s, i) => {
     children.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_1,
+      new D.Paragraph({
+        heading: D.HeadingLevel.HEADING_1,
         pageBreakBefore: i > 0,
-        children: [new TextRun({ text: `CASO DE USO ${i + 1} — ${s.titulo}`, color: NAVY })],
+        children: [new D.TextRun({ text: `CASO DE USO ${i + 1} — ${s.titulo}`, color: NAVY })],
       }),
     );
-    children.push(metaTableDocx(s.meta1));
+    children.push(metaTable(s.meta1));
     s.flujos.forEach((f) => {
-      children.push(new Paragraph({ children: [new TextRun({ text: `Flujo del proceso — ${f.titulo}`, bold: true, color: NAVY })], spacing: { before: 160, after: 60 } }));
-      children.push(flowTableDocx(f.filas));
+      children.push(new D.Paragraph({ children: [new D.TextRun({ text: `Flujo del proceso — ${f.titulo}`, bold: true, color: NAVY })], spacing: { before: 160, after: 60 } }));
+      children.push(flowTable(f.filas));
     });
-    children.push(new Paragraph({ text: '', spacing: { after: 60 } }));
-    children.push(metaTableDocx(s.meta2));
+    children.push(new D.Paragraph({ text: '', spacing: { after: 60 } }));
+    children.push(metaTable(s.meta2));
   });
 
-  const doc = new Document({ sections: [{ children }] });
-  const blob = await Packer.toBlob(doc);
+  const doc = new D.Document({ sections: [{ children }] });
+  const blob = await D.Packer.toBlob(doc);
   triggerDownload(`${baseName(fileName)} - Casos de Uso.docx`, blob);
 }
 
 // ---------- PDF ----------
 
 /** Descarga un PDF con todos los casos de uso (tablas auto-paginadas). */
-export function downloadUseCasesPdf(requirements: RequirementView[], fileName: string): void {
+export async function downloadUseCasesPdf(requirements: RequirementView[], fileName: string): Promise<void> {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
   const secciones = toSections(requirements);
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const margin = 40;
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
   doc.setTextColor(...NAVY_RGB);
   doc.setFontSize(18);
@@ -169,7 +173,7 @@ export function downloadUseCasesPdf(requirements: RequirementView[], fileName: s
   let y = 90;
 
   const heading = (text: string, size: number) => {
-    if (y > doc.internal.pageSize.getHeight() - 80) {
+    if (y > pageHeight - 80) {
       doc.addPage();
       y = 50;
     }
@@ -188,7 +192,7 @@ export function downloadUseCasesPdf(requirements: RequirementView[], fileName: s
       columnStyles: { 0: { cellWidth: (pageWidth - margin * 2) * 0.24, fontStyle: 'bold', textColor: NAVY_RGB, fillColor: [238, 241, 247] } },
       body: rows,
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
   };
 
   const flowTable = (filas: [string, string, string][]) => {
@@ -202,7 +206,7 @@ export function downloadUseCasesPdf(requirements: RequirementView[], fileName: s
       head: [['Paso', 'Acción', 'Resultado esperado']],
       body: filas,
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
   };
 
   secciones.forEach((s, i) => {
@@ -220,13 +224,4 @@ export function downloadUseCasesPdf(requirements: RequirementView[], fileName: s
   });
 
   doc.save(`${baseName(fileName)} - Casos de Uso.pdf`);
-}
-
-function triggerDownload(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

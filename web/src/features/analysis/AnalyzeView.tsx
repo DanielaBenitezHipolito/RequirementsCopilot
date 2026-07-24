@@ -366,7 +366,7 @@ export function AnalyzeView() {
                 <BrandButton variant="secondary" onClick={() => void downloadUseCasesDocx(requirements, analysisFileName)}>
                   ↓ Word
                 </BrandButton>
-                <BrandButton variant="secondary" onClick={() => downloadUseCasesPdf(requirements, analysisFileName)}>
+                <BrandButton variant="secondary" onClick={() => void downloadUseCasesPdf(requirements, analysisFileName)}>
                   ↓ PDF
                 </BrandButton>
               </>
