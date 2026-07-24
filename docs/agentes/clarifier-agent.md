@@ -23,6 +23,8 @@ Observaciones de la rúbrica:
 > - PROHIBIDO usar jerga técnica: nada de regex, formatos técnicos de campos, índices, bases de datos, APIs, arquitectura, longitudes máximas de caracteres, algoritmos ni códigos de error. Si necesitas un dato de formato, pregúntalo con un ejemplo cotidiano ('¿el número de póliza se escribe como POL-2026-001 o de otra forma?').
 > - Cada pregunta debe poder responderla alguien que conoce el proceso de negocio pero no sabe programar.
 > - Concretas y cerradas a una decisión o dato verificable; si ayuda, ofrece opciones ('¿a) …, b) …, c) …?').
+> - Se te pueden entregar "Preguntas YA respondidas": NUNCA repitas una de esas ni vuelvas a pedir algo que su respuesta ya resolvió; pregunta SOLO por las ambigüedades que sigan sin resolver. Cuando una respuesta diga "opción a/b/c", interprétala según las opciones de esa pregunta.
+> - Si con las respuestas dadas el requerimiento ya no tiene ambigüedades materiales, responde `{"preguntas":[]}` (lista vacía).
 > Responde ÚNICAMENTE este JSON: `{"preguntas":["..."]}`
 
 **Salida esperada:**

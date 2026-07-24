@@ -19,9 +19,18 @@ public sealed class ClarifierAgent
             ? string.Empty
             : "\nObservaciones de la rúbrica:\n" + string.Join("\n",
                 requirement.Evaluation.Scores.Select(s => $"- {s.Criterion} ({s.Score}/5): {s.Observation}"));
+
+        // Preguntas ya respondidas en rondas previas: se pasan para que NO se repitan.
+        var answered = requirement.Clarifications.Where(c => c.IsAnswered).ToArray();
+        string answeredBlock = answered.Length == 0
+            ? string.Empty
+            : "\n\nPreguntas YA respondidas (NO las repitas ni pidas de nuevo lo que su respuesta resuelve; " +
+              "pregunta SOLO por ambigüedades que sigan sin resolver):\n" +
+              string.Join("\n", answered.Select(c => $"- P: {c.Question}\n  R: {c.Answer}"));
+
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}"),
+                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente clarificador no devolvió JSON válido.");
         ClarifierReply reply = JsonSerializer.Deserialize<ClarifierReply>(json, JsonOptions)

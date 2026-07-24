@@ -23,12 +23,19 @@ public sealed class RequirementEvaluatorAgent
         var answered = (answeredClarifications ?? Array.Empty<Clarification>()).Where(c => c.IsAnswered).ToArray();
         string clarifications = answered.Length == 0
             ? string.Empty
-            : "\n\nAclaraciones respondidas:\n" +
+            : "\n\nAclaraciones respondidas (el requerimiento ya incorpora estas respuestas; deben MANTENER o " +
+              "SUBIR los puntajes, nunca bajarlos):\n" +
               string.Join("\n", answered.Select(c => $"- P: {c.Question}\n  R: {c.Answer}"));
+
+        // Ancla: en la re-evaluación se envía el puntaje previo para que no retroceda por variabilidad del modelo.
+        string previous = answered.Length == 0 || requirement.Evaluation is null
+            ? string.Empty
+            : "\n\nPuntaje previo (antes de estas aclaraciones) — no debe bajar:\n" +
+              string.Join("\n", requirement.Evaluation.Scores.Select(s => $"- {s.Criterion}: {s.Score}/5"));
 
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
+                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{previous}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente evaluador no devolvió JSON válido.");
         EvaluatorReply reply = JsonSerializer.Deserialize<EvaluatorReply>(json, JsonOptions)
