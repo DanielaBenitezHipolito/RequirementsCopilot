@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAnalysis, reevaluateRequirement } from '../../shared/api/client';
+import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
+import { downloadUseCasesWord, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
@@ -50,7 +52,18 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
 
       {!loading && !error && (
         <>
-          <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
+            {generatedUseCaseCount(requirements) > 0 && (
+              <BrandButton
+                variant="secondary"
+                className="!px-4 !py-2 !text-xs"
+                onClick={() => downloadUseCasesWord(requirements, fileName)}
+              >
+                ↓ Descargar casos de uso (Word)
+              </BrandButton>
+            )}
+          </div>
           {resumen && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
