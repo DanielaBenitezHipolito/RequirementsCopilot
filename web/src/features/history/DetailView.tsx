@@ -3,7 +3,7 @@ import { getAnalysis, reevaluateRequirement } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
-import { downloadUseCasesWord, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
+import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
@@ -55,13 +55,14 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
             {generatedUseCaseCount(requirements) > 0 && (
-              <BrandButton
-                variant="secondary"
-                className="!px-4 !py-2 !text-xs"
-                onClick={() => downloadUseCasesWord(requirements, fileName)}
-              >
-                ↓ Descargar casos de uso (Word)
-              </BrandButton>
+              <div className="flex gap-2">
+                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesDocx(requirements, fileName)}>
+                  ↓ Word
+                </BrandButton>
+                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => downloadUseCasesPdf(requirements, fileName)}>
+                  ↓ PDF
+                </BrandButton>
+              </div>
             )}
           </div>
           {resumen && (

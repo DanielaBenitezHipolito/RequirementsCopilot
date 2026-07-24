@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",
+    "docx": "^9.0.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.2",

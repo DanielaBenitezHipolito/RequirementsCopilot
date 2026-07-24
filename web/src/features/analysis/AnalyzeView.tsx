@@ -3,7 +3,7 @@ import { analyzeFile, extractDocumentText, reevaluateRequirement } from '../../s
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { StoriesBanner, mapRequirement } from '../../shared/components/StoriesBanner';
-import { downloadUseCasesWord, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
+import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
@@ -362,12 +362,14 @@ export function AnalyzeView() {
         <>
           <div className="flex flex-wrap justify-end gap-3">
             {generatedUseCaseCount(requirements) > 0 && (
-              <BrandButton
-                variant="secondary"
-                onClick={() => downloadUseCasesWord(requirements, analysisFileName)}
-              >
-                ↓ Descargar casos de uso (Word)
-              </BrandButton>
+              <>
+                <BrandButton variant="secondary" onClick={() => void downloadUseCasesDocx(requirements, analysisFileName)}>
+                  ↓ Word
+                </BrandButton>
+                <BrandButton variant="secondary" onClick={() => downloadUseCasesPdf(requirements, analysisFileName)}>
+                  ↓ PDF
+                </BrandButton>
+              </>
             )}
             <BrandButton onClick={reset}>Analizar otro documento</BrandButton>
           </div>

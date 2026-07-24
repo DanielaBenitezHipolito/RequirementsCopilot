@@ -1,110 +1,233 @@
+import {
+  AlignmentType,
+  BorderStyle,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+} from 'docx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { CasoDeUso, RequirementView } from '../types';
 
-function esc(s: string): string {
-  return (s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br/>');
-}
-
-/** Una sección "CASO DE USO N" con la estructura de la plantilla corporativa. */
-function useCaseSection(caso: CasoDeUso, codigo: string, area: string, n: number, pageBreak: boolean): string {
-  const row = (label: string, value: string) =>
-    `<tr><td class="lbl">${label}</td><td>${value}</td></tr>`;
-
-  const actores = caso.actores.length
-    ? `<ul>${caso.actores.map((a) => `<li><b>${esc(a.nombre)}:</b> ${esc(a.descripcion)}</li>`).join('')}</ul>`
-    : '—';
-  const precond = caso.precondiciones.length
-    ? `<ul>${caso.precondiciones.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`
-    : '—';
-  const extens = caso.extensiones.length
-    ? `<ul>${caso.extensiones.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>`
-    : '—';
-  const coment = caso.comentarios.length
-    ? `<ul>${caso.comentarios.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`
-    : '—';
-
-  const flujos = caso.flujos
-    .map(
-      (f) => `
-      <p class="sub">Flujo del proceso — ${esc(f.titulo)}</p>
-      <table class="flow" border="1">
-        <thead><tr><th style="width:8%">Paso</th><th style="width:46%">Acción</th><th style="width:46%">Resultado esperado</th></tr></thead>
-        <tbody>${f.pasos
-          .map((p) => `<tr><td>${p.numero}</td><td>${esc(p.accion)}</td><td>${esc(p.resultadoEsperado)}</td></tr>`)
-          .join('')}</tbody>
-      </table>`,
-    )
-    .join('');
-
-  return `
-  <div ${pageBreak ? 'style="page-break-before:always"' : ''}>
-    <h2>CASO DE USO ${n} — ${esc(caso.nombre)}</h2>
-    <table class="meta" border="1">
-      ${row('CÓDIGO', esc(codigo))}
-      ${row('ÁREA', esc(area))}
-      ${row('OBJETIVO', esc(caso.objetivo))}
-      ${row('DESCRIPCIÓN', esc(caso.descripcion))}
-      ${row('ACTORES', actores)}
-      ${row('PRECONDICIONES', precond)}
-      ${row('TRIGGER', esc(caso.trigger))}
-    </table>
-    ${flujos}
-    <table class="meta" border="1">
-      ${row('EXTENSIONES', extens)}
-      ${row('FRECUENCIA', esc(caso.frecuencia))}
-      ${row('IMPORTANCIA', esc(caso.importancia))}
-      ${row('URGENCIA', esc(caso.urgencia))}
-      ${row('COMENTARIOS', coment)}
-    </table>
-  </div>`;
-}
-
-/** Documento Word (.doc via HTML) con TODOS los casos de uso generados del análisis. */
-export function useCasesToWordHtml(requirements: RequirementView[], fileName: string): string {
-  const conCaso = requirements.filter((r) => r.caso);
-  const secciones = conCaso
-    .map((r, i) => useCaseSection(r.caso!, r.codigo, r.area, i + 1, i > 0))
-    .join('\n');
-
-  return `<!doctype html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-<head><meta charset="utf-8"/>
-<title>Casos de uso — ${esc(fileName)}</title>
-<style>
-  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #222; }
-  h1 { color: #1e2a5a; font-size: 18pt; }
-  h2 { color: #1e2a5a; font-size: 14pt; margin-top: 18pt; }
-  .sub { font-weight: bold; color: #1e2a5a; margin: 10pt 0 4pt; }
-  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; }
-  td, th { border: 1px solid #b8c0d0; padding: 5pt 7pt; vertical-align: top; }
-  th { background: #1e2a5a; color: #fff; text-align: left; }
-  .meta td.lbl { width: 22%; background: #eef1f7; font-weight: bold; color: #1e2a5a; }
-  ul { margin: 0; padding-left: 16pt; }
-</style></head>
-<body>
-  <h1>Especificación de Casos de Uso</h1>
-  <p><b>Documento origen:</b> ${esc(fileName)} &nbsp;|&nbsp; <b>Casos de uso:</b> ${conCaso.length}</p>
-  ${secciones}
-</body></html>`;
-}
+const NAVY = '1e2a5a';
+const NAVY_RGB: [number, number, number] = [30, 42, 90];
 
 /** Cuántos casos de uso hay listos para exportar. */
 export function generatedUseCaseCount(requirements: RequirementView[]): number {
   return requirements.filter((r) => r.caso).length;
 }
 
-/** Descarga el documento Word (.doc) con todos los casos de uso. */
-export function downloadUseCasesWord(requirements: RequirementView[], fileName: string): void {
-  const html = useCasesToWordHtml(requirements, fileName);
-  const base = (fileName || 'casos-de-uso').replace(/\.[^.]+$/, '');
-  const blob = new Blob(['﻿', html], { type: 'application/msword;charset=utf-8' });
+interface Seccion {
+  titulo: string;
+  meta1: [string, string][];
+  flujos: { titulo: string; filas: [string, string, string][] }[];
+  meta2: [string, string][];
+}
+
+function joinList(items: string[]): string {
+  return items.length ? items.map((i) => `• ${i}`).join('\n') : '—';
+}
+
+/** Normaliza cada caso de uso a la estructura de secciones de la plantilla. */
+function toSections(requirements: RequirementView[]): Seccion[] {
+  return requirements
+    .filter((r) => r.caso)
+    .map((r) => {
+      const c = r.caso as CasoDeUso;
+      return {
+        titulo: c.nombre,
+        meta1: [
+          ['Código', r.codigo],
+          ['Área', r.area],
+          ['Objetivo', c.objetivo],
+          ['Descripción', c.descripcion],
+          ['Actores', c.actores.length ? c.actores.map((a) => `• ${a.nombre}: ${a.descripcion}`).join('\n') : '—'],
+          ['Precondiciones', joinList(c.precondiciones)],
+          ['Trigger', c.trigger],
+        ] as [string, string][],
+        flujos: c.flujos.map((f) => ({
+          titulo: f.titulo,
+          filas: f.pasos.map((p) => [String(p.numero), p.accion, p.resultadoEsperado] as [string, string, string]),
+        })),
+        meta2: [
+          ['Extensiones', joinList(c.extensiones)],
+          ['Frecuencia', c.frecuencia],
+          ['Importancia', c.importancia],
+          ['Urgencia', c.urgencia],
+          ['Comentarios', joinList(c.comentarios)],
+        ] as [string, string][],
+      };
+    });
+}
+
+function baseName(fileName: string): string {
+  return (fileName || 'casos-de-uso').replace(/\.[^.]+$/, '');
+}
+
+// ---------- Word (.docx nativo) ----------
+
+function metaTableDocx(rows: [string, string][]): Table {
+  const border = { style: BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
+    rows: rows.map(
+      ([label, value]) =>
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 24, type: WidthType.PERCENTAGE },
+              shading: { fill: 'EEF1F7' },
+              children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, color: NAVY })] })],
+            }),
+            new TableCell({
+              children: value.split('\n').map((line) => new Paragraph({ children: [new TextRun(line)] })),
+            }),
+          ],
+        }),
+    ),
+  });
+}
+
+function flowTableDocx(filas: [string, string, string][]): Table {
+  const border = { style: BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
+  const header = (t: string) =>
+    new TableCell({
+      shading: { fill: NAVY },
+      children: [new Paragraph({ children: [new TextRun({ text: t, bold: true, color: 'FFFFFF' })] })],
+    });
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },
+    rows: [
+      new TableRow({ tableHeader: true, children: [header('Paso'), header('Acción'), header('Resultado esperado')] }),
+      ...filas.map(
+        ([n, accion, res]) =>
+          new TableRow({
+            children: [
+              new TableCell({ width: { size: 8, type: WidthType.PERCENTAGE }, children: [new Paragraph(n)] }),
+              new TableCell({ children: [new Paragraph(accion)] }),
+              new TableCell({ children: [new Paragraph(res)] }),
+            ],
+          }),
+      ),
+    ],
+  });
+}
+
+/** Descarga un .docx nativo con todos los casos de uso. */
+export async function downloadUseCasesDocx(requirements: RequirementView[], fileName: string): Promise<void> {
+  const secciones = toSections(requirements);
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: 'Especificación de Casos de Uso', color: NAVY })] }),
+    new Paragraph({ children: [new TextRun({ text: `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, italics: true })] }),
+  ];
+
+  secciones.forEach((s, i) => {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        pageBreakBefore: i > 0,
+        children: [new TextRun({ text: `CASO DE USO ${i + 1} — ${s.titulo}`, color: NAVY })],
+      }),
+    );
+    children.push(metaTableDocx(s.meta1));
+    s.flujos.forEach((f) => {
+      children.push(new Paragraph({ children: [new TextRun({ text: `Flujo del proceso — ${f.titulo}`, bold: true, color: NAVY })], spacing: { before: 160, after: 60 } }));
+      children.push(flowTableDocx(f.filas));
+    });
+    children.push(new Paragraph({ text: '', spacing: { after: 60 } }));
+    children.push(metaTableDocx(s.meta2));
+  });
+
+  const doc = new Document({ sections: [{ children }] });
+  const blob = await Packer.toBlob(doc);
+  triggerDownload(`${baseName(fileName)} - Casos de Uso.docx`, blob);
+}
+
+// ---------- PDF ----------
+
+/** Descarga un PDF con todos los casos de uso (tablas auto-paginadas). */
+export function downloadUseCasesPdf(requirements: RequirementView[], fileName: string): void {
+  const secciones = toSections(requirements);
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const margin = 40;
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  doc.setTextColor(...NAVY_RGB);
+  doc.setFontSize(18);
+  doc.text('Especificación de Casos de Uso', margin, 50);
+  doc.setTextColor(90);
+  doc.setFontSize(10);
+  doc.text(`Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, margin, 68);
+
+  let y = 90;
+
+  const heading = (text: string, size: number) => {
+    if (y > doc.internal.pageSize.getHeight() - 80) {
+      doc.addPage();
+      y = 50;
+    }
+    doc.setTextColor(...NAVY_RGB);
+    doc.setFontSize(size);
+    doc.text(text, margin, y);
+    y += size + 6;
+  };
+
+  const metaTable = (rows: [string, string][]) => {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4, valign: 'top' },
+      columnStyles: { 0: { cellWidth: (pageWidth - margin * 2) * 0.24, fontStyle: 'bold', textColor: NAVY_RGB, fillColor: [238, 241, 247] } },
+      body: rows,
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+  };
+
+  const flowTable = (filas: [string, string, string][]) => {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+      headStyles: { fillColor: NAVY_RGB, textColor: [255, 255, 255] },
+      styles: { fontSize: 9, cellPadding: 4, valign: 'top' },
+      columnStyles: { 0: { cellWidth: 36 } },
+      head: [['Paso', 'Acción', 'Resultado esperado']],
+      body: filas,
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+  };
+
+  secciones.forEach((s, i) => {
+    if (i > 0) {
+      doc.addPage();
+      y = 50;
+    }
+    heading(`CASO DE USO ${i + 1} — ${s.titulo}`, 14);
+    metaTable(s.meta1);
+    s.flujos.forEach((f) => {
+      heading(`Flujo del proceso — ${f.titulo}`, 11);
+      flowTable(f.filas);
+    });
+    metaTable(s.meta2);
+  });
+
+  doc.save(`${baseName(fileName)} - Casos de Uso.pdf`);
+}
+
+function triggerDownload(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${base} - Casos de Uso.doc`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
