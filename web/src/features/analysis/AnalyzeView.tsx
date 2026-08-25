@@ -217,6 +217,13 @@ export function AnalyzeView() {
           <p className="mt-1 text-sm text-slate-500">
             Cargue un documento de requerimientos para auditarlo técnicamente.
           </p>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <ProjectPicker value={proyecto} onChange={setProyecto} />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Elija el sistema existente al que pertenece el requerimiento (o suba su descripción en .md) para que el
+              análisis no pregunte por funcionalidades que ya existen. Sin selección se trata como proyecto nuevo.
+            </p>
+          </div>
           {!staged && (
           <div
             className={`mt-4 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
@@ -318,8 +325,7 @@ export function AnalyzeView() {
                 <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{previewError}</p>
               )}
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <ProjectPicker value={proyecto} onChange={setProyecto} />
+              <div className="mt-4 flex justify-end">
                 <BrandButton sparkle onClick={startAudit}>
                   Iniciar Auditoría de Calidad
                 </BrandButton>
