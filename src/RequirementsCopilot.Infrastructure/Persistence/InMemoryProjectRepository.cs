@@ -23,4 +23,8 @@ public sealed class InMemoryProjectRepository : IProjectRepository
     public Task<IReadOnlyList<Project>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Project>>(
             _store.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToArray());
+
+    /// <inheritdoc />
+    public Task<bool> DeleteAsync(string name, CancellationToken cancellationToken = default)
+        => Task.FromResult(_store.TryRemove(name.Trim(), out _));
 }

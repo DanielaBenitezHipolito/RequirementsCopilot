@@ -25,6 +25,7 @@ export interface ConversationSummary {
   analysisId?: string; preview: string;
 }
 export interface ProjectSummary { nombre: string; updatedAt: string }
+export interface ProjectDetail extends ProjectSummary { contenido: string }
 export interface ConversationDetailDto {
   id: string; status: 'Abierta' | 'Completada'; analysisId?: string; lastResponseId?: string; proyecto?: string;
   messages: { role: 'user' | 'agent'; text: string }[];

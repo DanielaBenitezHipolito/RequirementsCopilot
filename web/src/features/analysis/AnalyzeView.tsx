@@ -220,8 +220,9 @@ export function AnalyzeView() {
           <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <ProjectPicker value={proyecto} onChange={setProyecto} />
             <p className="mt-1.5 text-xs text-slate-500">
-              Elija el sistema existente al que pertenece el requerimiento (o suba su descripción en .md) para que el
-              análisis no pregunte por funcionalidades que ya existen. Sin selección se trata como proyecto nuevo.
+              Elija el sistema existente al que pertenece el requerimiento para que el análisis no pregunte por
+              funcionalidades que ya existen. Sin selección se trata como proyecto nuevo. Los proyectos se gestionan en
+              la pestaña Proyectos.
             </p>
           </div>
           {!staged && (

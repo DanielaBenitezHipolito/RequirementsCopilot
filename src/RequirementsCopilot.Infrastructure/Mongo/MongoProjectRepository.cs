@@ -35,4 +35,12 @@ public sealed class MongoProjectRepository : IProjectRepository
             .SortBy(d => d.Id).ToListAsync(cancellationToken);
         return documents.Select(d => d.ToProject()).ToArray();
     }
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(string name, CancellationToken cancellationToken = default)
+    {
+        string key = ProjectDocument.KeyFor(name);
+        DeleteResult result = await _collection.DeleteOneAsync(d => d.Id == key, cancellationToken);
+        return result.DeletedCount > 0;
+    }
 }

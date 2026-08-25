@@ -3,8 +3,9 @@ import { AnalyzeView } from './features/analysis/AnalyzeView';
 import { HistoryView } from './features/history/HistoryView';
 import { DetailView } from './features/history/DetailView';
 import { InterviewView } from './features/interview/InterviewView';
+import { ProjectsView } from './features/projects/ProjectsView';
 
-type View = 'analyze' | 'interview' | 'history' | 'detail';
+type View = 'analyze' | 'interview' | 'history' | 'projects' | 'detail';
 
 const BRAND = '#1e2a5a';
 
@@ -52,6 +53,14 @@ function HistoryIcon() {
   );
 }
 
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<View>('analyze');
   const [selectedId, setSelectedId] = useState<string>();
@@ -91,10 +100,11 @@ export default function App() {
       </header>
 
       <main className="flex w-full flex-1 flex-col px-6 py-6 lg:px-10">
-        <div className="mb-6 grid shrink-0 grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3">
+        <div className="mb-6 grid shrink-0 grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-4">
           {tab('analyze', 'Auditar Requerimientos', <AuditIcon />)}
           {tab('interview', 'Copilot Chat de IA', <ChatIcon />)}
           {tab('history', 'Historial de Auditorías', <HistoryIcon />)}
+          {tab('projects', 'Proyectos', <FolderIcon />)}
         </div>
 
         <div className="min-h-0 flex-1">
@@ -117,6 +127,7 @@ export default function App() {
               }}
             />
           )}
+          {view === 'projects' && <ProjectsView />}
           {view === 'detail' && selectedId && <DetailView id={selectedId} onBack={() => setView('history')} />}
         </div>
       </main>

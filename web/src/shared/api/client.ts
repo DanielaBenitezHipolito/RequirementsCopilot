@@ -1,4 +1,4 @@
-import type { AnalysisSummary, ConversationDetailDto, ConversationSummary, ProjectSummary } from '../types';
+import type { AnalysisSummary, ConversationDetailDto, ConversationSummary, ProjectDetail, ProjectSummary } from '../types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5100';
 
@@ -126,4 +126,26 @@ export async function uploadProject(file: File, nombre?: string): Promise<{ nomb
   if (nombre) form.append('nombre', nombre);
   const response = await fetch(`${API_BASE}/api/projects`, { method: 'POST', body: form });
   return readOrThrow(response);
+}
+
+export async function getProject(nombre: string): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}`);
+  return readOrThrow(response);
+}
+
+export async function updateProject(nombre: string, contenido: string): Promise<{ nombre: string }> {
+  const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contenido }),
+  });
+  return readOrThrow(response);
+}
+
+export async function deleteProject(nombre: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
 }

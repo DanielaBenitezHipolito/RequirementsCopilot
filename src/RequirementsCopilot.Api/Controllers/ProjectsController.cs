@@ -13,6 +13,8 @@ public sealed class ProjectsController : ControllerBase
 {
     private const long MaxFileBytes = 2 * 1024 * 1024;
 
+    public sealed record UpdateRequest(string? Contenido);
+
     private readonly IProjectRepository _projects;
 
     public ProjectsController(IProjectRepository projects) => _projects = projects;
@@ -73,4 +75,33 @@ public sealed class ProjectsController : ControllerBase
         await _projects.SaveAsync(project, cancellationToken);
         return Ok(new { nombre = project.Name, updatedAt = project.UpdatedAt });
     }
+
+    /// <summary>Reemplaza el contenido Markdown de un proyecto existente (edición en pantalla).</summary>
+    [HttpPut("{nombre}")]
+    public async Task<IActionResult> Update(string nombre, [FromBody] UpdateRequest? request, CancellationToken cancellationToken)
+    {
+        Project? existing = await _projects.GetByNameAsync(nombre, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound(new { mensaje = "Proyecto no encontrado." });
+        }
+        Project project;
+        try
+        {
+            project = Project.Create(existing.Name, request?.Contenido ?? string.Empty);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { mensaje = ex.Message });
+        }
+        await _projects.SaveAsync(project, cancellationToken);
+        return Ok(new { nombre = project.Name, updatedAt = project.UpdatedAt });
+    }
+
+    /// <summary>Elimina un proyecto. Los análisis ya hechos conservan el nombre, pero dejan de recibir contexto.</summary>
+    [HttpDelete("{nombre}")]
+    public async Task<IActionResult> Delete(string nombre, CancellationToken cancellationToken)
+        => await _projects.DeleteAsync(nombre, cancellationToken)
+            ? NoContent()
+            : NotFound(new { mensaje = "Proyecto no encontrado." });
 }

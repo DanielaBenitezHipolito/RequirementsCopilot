@@ -11,4 +11,7 @@ public interface IProjectRepository
 
     /// <summary>Todos los proyectos ordenados por nombre.</summary>
     Task<IReadOnlyList<Project>> GetAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Elimina el proyecto; devuelve false si no existía.</summary>
+    Task<bool> DeleteAsync(string name, CancellationToken cancellationToken = default);
 }

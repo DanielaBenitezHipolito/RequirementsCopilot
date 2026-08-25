@@ -76,6 +76,28 @@ public class ProjectsEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task Update_YDelete_Proyecto()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("Siniestros.md", "v1"));
+
+        var update = await client.PutAsJsonAsync("/api/projects/Siniestros", new { contenido = "v2 editada" });
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/Siniestros");
+        Assert.Equal("v2 editada", detail.GetProperty("contenido").GetString());
+
+        var empty = await client.PutAsJsonAsync("/api/projects/Siniestros", new { contenido = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        var missing = await client.PutAsJsonAsync("/api/projects/NoExiste", new { contenido = "x" });
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+
+        var delete = await client.DeleteAsync("/api/projects/Siniestros");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync("/api/projects/Siniestros")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/projects/Siniestros")).StatusCode);
+    }
+
+    [Fact]
     public async Task Conversacion_ConProyecto_PersisteYExponeElProyecto()
     {
         var client = _factory.CreateClient();
