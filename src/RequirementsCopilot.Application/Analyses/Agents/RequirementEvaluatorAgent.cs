@@ -14,11 +14,12 @@ public sealed class RequirementEvaluatorAgent
     public RequirementEvaluatorAgent(IChatCompletion chat) => _chat = chat;
 
     public Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold, CancellationToken cancellationToken = default)
-        => EvaluateAsync(requirement, threshold, answeredClarifications: null, cancellationToken);
+        => EvaluateAsync(requirement, threshold, answeredClarifications: null, projectContext: null, cancellationToken);
 
     /// <summary>Re-evaluación tras responder aclaraciones: el input incluye las preguntas ya respondidas.</summary>
     public async Task<Evaluation> EvaluateAsync(Requirement requirement, double threshold,
-        IReadOnlyList<Clarification>? answeredClarifications, CancellationToken cancellationToken = default)
+        IReadOnlyList<Clarification>? answeredClarifications, string? projectContext = null,
+        CancellationToken cancellationToken = default)
     {
         var answered = (answeredClarifications ?? Array.Empty<Clarification>()).Where(c => c.IsAnswered).ToArray();
         string clarifications = answered.Length == 0
@@ -35,7 +36,7 @@ public sealed class RequirementEvaluatorAgent
 
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{previous}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{previous}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente evaluador no devolvió JSON válido.");
         EvaluatorReply reply = JsonSerializer.Deserialize<EvaluatorReply>(json, JsonOptions)

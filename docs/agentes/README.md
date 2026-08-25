@@ -12,6 +12,12 @@ Con `Providers:Chat=Fake` no se usan estos prompts (el adaptador `Fake` devuelve
 - Responden **únicamente JSON** con el contrato indicado (el parseo es defensivo: la prosa extra se descarta y se reintenta una vez si no hay JSON).
 - No inventan contenido que el insumo no mencione.
 - El modelo se consume vía el puerto `IChatCompletion` (`Fake` en dev, Azure AI Foundry `gpt-5-mini` en real).
+- **Contexto de proyecto existente:** si el usuario elige un proyecto (archivo `.md` subido por
+  `POST /api/projects`), `ProjectContextLoader` antepone al *input* del evaluador, clarificador,
+  redactor de casos de uso y entrevistador (solo primer turno) un bloque
+  `CONTEXTO DEL PROYECTO EXISTENTE «nombre»` con la instrucción de **no preguntar** por
+  funcionalidades ya documentadas. Sin proyecto seleccionado = proyecto nuevo (sin contexto).
+  Tope configurable en `Analysis:MaxProjectContextChars` (30 000 por defecto).
 
 ## Agentes (6)
 

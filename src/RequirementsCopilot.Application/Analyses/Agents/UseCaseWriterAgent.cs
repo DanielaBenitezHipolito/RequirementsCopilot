@@ -17,7 +17,8 @@ public sealed class UseCaseWriterAgent
     public UseCaseWriterAgent(IChatCompletion chat) => _chat = chat;
 
     /// <summary>Genera el caso de uso del requerimiento, incorporando sus aclaraciones respondidas si existen.</summary>
-    public async Task<UseCase> WriteAsync(Requirement requirement, CancellationToken cancellationToken = default)
+    public async Task<UseCase> WriteAsync(Requirement requirement, string? projectContext = null,
+        CancellationToken cancellationToken = default)
     {
         var answered = requirement.Clarifications.Where(c => c.IsAnswered).ToArray();
         string clarifications = answered.Length == 0
@@ -26,7 +27,7 @@ public sealed class UseCaseWriterAgent
               string.Join("\n", answered.Select(c => $"- P: {c.Question} R: {c.Answer}"));
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente de casos de uso no devolvió JSON válido.");
         UseCaseReply reply = JsonSerializer.Deserialize<UseCaseReply>(json, JsonOptions)

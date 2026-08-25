@@ -1,6 +1,7 @@
 using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
 using RequirementsCopilot.Application.Conversations;
+using RequirementsCopilot.Application.Projects;
 using RequirementsCopilot.Infrastructure.Chat;
 using RequirementsCopilot.Infrastructure.Documents;
 using RequirementsCopilot.Infrastructure.Mongo;
@@ -64,11 +65,13 @@ if (repositoryProvider == "Mongo")
         new MongoDB.Driver.MongoClient(mongoOptions.ConnectionString).GetDatabase(mongoOptions.Database));
     builder.Services.AddSingleton<IAnalysisRepository, MongoAnalysisRepository>();
     builder.Services.AddSingleton<IConversationRepository, MongoConversationRepository>();
+    builder.Services.AddSingleton<IProjectRepository, MongoProjectRepository>();
 }
 else
 {
     builder.Services.AddSingleton<IAnalysisRepository, InMemoryAnalysisRepository>();
     builder.Services.AddSingleton<IConversationRepository, InMemoryConversationRepository>();
+    builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
 }
 
 builder.Services.AddSingleton(
@@ -80,6 +83,7 @@ builder.Services.AddScoped<ClarifierAgent>();
 builder.Services.AddScoped<UseCaseWriterAgent>();
 builder.Services.AddScoped<RequirementBuilderAgent>();
 builder.Services.AddScoped<ExecutiveSummaryAgent>();
+builder.Services.AddScoped<ProjectContextLoader>();
 builder.Services.AddScoped<AnalysisOrchestrator>();
 builder.Services.AddScoped<AnalysisQueries>();
 

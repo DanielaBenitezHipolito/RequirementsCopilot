@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
 using RequirementsCopilot.Application.Conversations;
+using RequirementsCopilot.Application.Projects;
 
 namespace RequirementsCopilot.Api.Controllers;
 
@@ -18,9 +19,9 @@ namespace RequirementsCopilot.Api.Controllers;
 [Route("api/conversations")]
 public sealed class ConversationsController : ControllerBase
 {
-    public sealed record MessageRequest(string? Mensaje, string? PreviousResponseId, Guid? ConversationId);
+    public sealed record MessageRequest(string? Mensaje, string? PreviousResponseId, Guid? ConversationId, string? Proyecto);
 
-    public sealed record CompleteRequest(string? Texto, string? Area, Guid? ConversationId);
+    public sealed record CompleteRequest(string? Texto, string? Area, Guid? ConversationId, string? Proyecto);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -30,10 +31,11 @@ public sealed class ConversationsController : ControllerBase
     private readonly RequirementBuilderAgent _builder;
     private readonly AnalysisOrchestrator _orchestrator;
     private readonly IConversationRepository _conversations;
+    private readonly ProjectContextLoader _projectContext;
 
     public ConversationsController(RequirementBuilderAgent builder, AnalysisOrchestrator orchestrator,
-        IConversationRepository conversations)
-        => (_builder, _orchestrator, _conversations) = (builder, orchestrator, conversations);
+        IConversationRepository conversations, ProjectContextLoader projectContext)
+        => (_builder, _orchestrator, _conversations, _projectContext) = (builder, orchestrator, conversations, projectContext);
 
     [HttpPost("messages")]
     public async Task<IActionResult> SendMessage([FromBody] MessageRequest? request, CancellationToken cancellationToken)
@@ -46,7 +48,7 @@ public sealed class ConversationsController : ControllerBase
         ConversationRecord? conversation = request.ConversationId is Guid id
             ? await _conversations.GetByIdAsync(id, cancellationToken)
             : null;
-        conversation ??= ConversationRecord.Create();
+        conversation ??= ConversationRecord.Create(request.Proyecto);
         conversation.Append("user", request.Mensaje);
 
         Response.ContentType = "text/event-stream";
@@ -54,7 +56,11 @@ public sealed class ConversationsController : ControllerBase
 
         try
         {
-            BuilderTurn turn = await _builder.ChatAsync(request.Mensaje, request.PreviousResponseId, cancellationToken);
+            // El contexto del proyecto viaja solo en el primer turno; el hilo (previous_response_id) lo conserva.
+            string projectContext = request.PreviousResponseId is null
+                ? await _projectContext.LoadAsync(conversation.ProjectName, cancellationToken)
+                : string.Empty;
+            BuilderTurn turn = await _builder.ChatAsync(request.Mensaje, request.PreviousResponseId, projectContext, cancellationToken);
 
             conversation.Append("agent", turn.Mensaje);
             conversation.SetLastResponseId(turn.ResponseId);
@@ -114,6 +120,7 @@ public sealed class ConversationsController : ControllerBase
             status = conversation.Status,
             analysisId = conversation.AnalysisId,
             lastResponseId = conversation.LastResponseId,
+            proyecto = conversation.ProjectName,
             messages = conversation.Messages.Select(m => new { role = m.Role, text = m.Text }),
         });
     }
@@ -138,7 +145,8 @@ public sealed class ConversationsController : ControllerBase
 
         try
         {
-            Guid analysisId = await _orchestrator.CreateFromRequirementAsync(request.Texto, request.Area, cancellationToken);
+            Guid analysisId = await _orchestrator.CreateFromRequirementAsync(request.Texto, request.Area,
+                request.Proyecto, cancellationToken);
 
             if (request.ConversationId is Guid conversationId)
             {

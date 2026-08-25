@@ -24,7 +24,8 @@ export interface ConversationSummary {
   id: string; createdAt: string; updatedAt: string; status: 'Abierta' | 'Completada';
   analysisId?: string; preview: string;
 }
+export interface ProjectSummary { nombre: string; updatedAt: string }
 export interface ConversationDetailDto {
-  id: string; status: 'Abierta' | 'Completada'; analysisId?: string; lastResponseId?: string;
+  id: string; status: 'Abierta' | 'Completada'; analysisId?: string; lastResponseId?: string; proyecto?: string;
   messages: { role: 'user' | 'agent'; text: string }[];
 }

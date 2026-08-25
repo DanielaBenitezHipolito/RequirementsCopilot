@@ -10,24 +10,32 @@ public sealed class Analysis
     public AnalysisStatus Status { get; private set; }
     public string? Error { get; private set; }
     public string? Summary { get; private set; }
+
+    /// <summary>Proyecto existente al que pertenece (contexto para los agentes); null = proyecto nuevo.</summary>
+    public string? ProjectName { get; }
     public IReadOnlyList<Requirement> Requirements => _requirements;
 
-    private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error, string? summary)
-        => (Id, FileName, CreatedAt, Status, Error, Summary) = (id, fileName, createdAt, status, error, summary);
+    private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error, string? summary,
+        string? projectName)
+        => (Id, FileName, CreatedAt, Status, Error, Summary, ProjectName)
+            = (id, fileName, createdAt, status, error, summary, NormalizeProject(projectName));
 
-    public static Analysis Create(string fileName)
+    private static string? NormalizeProject(string? projectName)
+        => string.IsNullOrWhiteSpace(projectName) ? null : projectName.Trim();
+
+    public static Analysis Create(string fileName, string? projectName = null)
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
             throw new ArgumentException("El análisis requiere nombre de archivo.", nameof(fileName));
         }
-        return new Analysis(Guid.NewGuid(), fileName.Trim(), DateTime.UtcNow, AnalysisStatus.Processing, null, null);
+        return new Analysis(Guid.NewGuid(), fileName.Trim(), DateTime.UtcNow, AnalysisStatus.Processing, null, null, projectName);
     }
 
     public static Analysis Rehydrate(Guid id, string fileName, DateTime createdAt, AnalysisStatus status,
-        string? error, string? summary, IReadOnlyList<Requirement> requirements)
+        string? error, string? summary, IReadOnlyList<Requirement> requirements, string? projectName = null)
     {
-        var analysis = new Analysis(id, fileName, createdAt, status, error, summary);
+        var analysis = new Analysis(id, fileName, createdAt, status, error, summary, projectName);
         analysis._requirements.AddRange(requirements);
         return analysis;
     }

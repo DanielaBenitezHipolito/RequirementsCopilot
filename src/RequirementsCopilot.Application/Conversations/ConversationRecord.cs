@@ -12,17 +12,25 @@ public sealed class ConversationRecord
     public string Status { get; private set; } = "Abierta";
     public Guid? AnalysisId { get; private set; }
     public string? LastResponseId { get; private set; }
+
+    /// <summary>Proyecto existente elegido al iniciar el chat; null = proyecto nuevo.</summary>
+    public string? ProjectName { get; private set; }
     public List<ConversationMessage> Messages { get; private set; } = new();
 
-    public static ConversationRecord Create()
+    public static ConversationRecord Create(string? projectName = null)
     {
         DateTime now = DateTime.UtcNow;
-        return new ConversationRecord { Id = Guid.NewGuid(), CreatedAt = now, UpdatedAt = now, Status = "Abierta" };
+        return new ConversationRecord
+        {
+            Id = Guid.NewGuid(), CreatedAt = now, UpdatedAt = now, Status = "Abierta",
+            ProjectName = string.IsNullOrWhiteSpace(projectName) ? null : projectName.Trim(),
+        };
     }
 
     /// <summary>Rehidrata desde persistencia (Mongo/InMemory), sin pasar por Create().</summary>
     public static ConversationRecord Rehydrate(Guid id, DateTime createdAt, DateTime updatedAt, string status,
-        Guid? analysisId, string? lastResponseId, IEnumerable<ConversationMessage> messages) => new()
+        Guid? analysisId, string? lastResponseId, IEnumerable<ConversationMessage> messages,
+        string? projectName = null) => new()
     {
         Id = id,
         CreatedAt = createdAt,
@@ -30,6 +38,7 @@ public sealed class ConversationRecord
         Status = status,
         AnalysisId = analysisId,
         LastResponseId = lastResponseId,
+        ProjectName = projectName,
         Messages = messages.ToList(),
     };
 

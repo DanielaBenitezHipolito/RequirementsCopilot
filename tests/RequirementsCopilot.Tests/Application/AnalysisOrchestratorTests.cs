@@ -1,6 +1,8 @@
 using System.Text;
 using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
+using RequirementsCopilot.Application.Projects;
+using RequirementsCopilot.Infrastructure.Persistence;
 using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Tests.Application;
@@ -66,7 +68,18 @@ public class AnalysisOrchestratorTests
         new UseCaseWriterAgent(chat),
         new ExecutiveSummaryAgent(chat),
         repository,
-        new AnalysisOptions());
+        new AnalysisOptions(),
+        Projects());
+
+    private static ProjectContextLoader Projects(params Project[] projects)
+    {
+        var store = new InMemoryProjectRepository();
+        foreach (Project project in projects)
+        {
+            store.SaveAsync(project).Wait();
+        }
+        return new ProjectContextLoader(store, new AnalysisOptions());
+    }
 
     private static async Task<List<AnalysisEvent>> Collect(AnalysisOrchestrator orchestrator)
     {
@@ -246,7 +259,7 @@ public class AnalysisOrchestratorTests
         var brokenOrchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
             new ClarifierAgent(chat), new UseCaseWriterAgent(chat),
-            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions());
+            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions(), Projects());
 
         await Assert.ThrowsAsync<LlmException>(
             () => brokenOrchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002", new[] { "algo", "algo" }));
@@ -327,12 +340,73 @@ public class AnalysisOrchestratorTests
             new UseCaseWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             new StubRepository(),
-            new AnalysisOptions { MaxInputChars = 100 });
+            new AnalysisOptions { MaxInputChars = 100 },
+            Projects());
 
         await Collect(orchestrator);
 
         string extractorInput = chat.Prompts[0].Input;
         Assert.Contains(new string('x', 100), extractorInput);
         Assert.DoesNotContain(new string('x', 101), extractorInput);
+    }
+    [Fact]
+    public async Task AnalyzeAsync_ConProyecto_InyectaContextoAEvaluadorYClarificadorYPersisteNombre()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = new AnalysisOrchestrator(
+            new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new ExecutiveSummaryAgent(chat),
+            repository, new AnalysisOptions(),
+            Projects(Project.Create("Hotelería", "# Sistema de reservas\nYa existe módulo de pagos.")));
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("doc"));
+        await foreach (var _ in orchestrator.AnalyzeAsync(stream, "spec.txt", "Hotelería")) { }
+
+        Assert.Equal("Hotelería", repository.Saved!.ProjectName);
+        var evaluator = chat.Prompts.First(p => p.Agent == RequirementEvaluatorAgent.AgentName);
+        var clarifier = chat.Prompts.First(p => p.Agent == ClarifierAgent.AgentName);
+        Assert.StartsWith("CONTEXTO DEL PROYECTO EXISTENTE «Hotelería»", evaluator.Input);
+        Assert.Contains("Ya existe módulo de pagos.", clarifier.Input);
+        Assert.DoesNotContain("CONTEXTO DEL PROYECTO", chat.Prompts.First(p => p.Agent == RequirementExtractorAgent.AgentName).Input);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SinProyecto_NoInyectaContexto()
+    {
+        var chat = PipelineChat();
+        await Collect(Orchestrator(chat, new StubRepository()));
+
+        Assert.All(chat.Prompts, p => Assert.DoesNotContain("CONTEXTO DEL PROYECTO", p.Input));
+    }
+
+    [Fact]
+    public async Task CreateFromRequirementAsync_ConProyecto_ContextoLlegaAEvaluadorYAlRedactorDeCasos()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = new AnalysisOrchestrator(
+            new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new ExecutiveSummaryAgent(chat),
+            repository, new AnalysisOptions(),
+            Projects(Project.Create("Hotelería", "Descripción del sistema.")));
+
+        Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 El sistema debe registrar pagos", "Pagos", "Hotelería");
+        await orchestrator.GenerateStoriesAsync(id, "REQ-001");
+
+        Assert.Equal("Hotelería", repository.Saved!.ProjectName);
+        Assert.Contains("Descripción del sistema.", chat.Prompts.First(p => p.Agent == RequirementEvaluatorAgent.AgentName).Input);
+        Assert.Contains("Descripción del sistema.", chat.Prompts.First(p => p.Agent == UseCaseWriterAgent.AgentName).Input);
+    }
+
+    [Fact]
+    public async Task CreateFromRequirementAsync_ProyectoInexistente_SeTrataComoNuevo()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        await Orchestrator(chat, repository).CreateFromRequirementAsync("REQ-001 texto", "Pagos", "NoExiste");
+
+        Assert.Equal("NoExiste", repository.Saved!.ProjectName);
+        Assert.All(chat.Prompts, p => Assert.DoesNotContain("CONTEXTO DEL PROYECTO", p.Input));
     }
 }

@@ -89,4 +89,13 @@ describe('useInterviewStore', () => {
     useInterviewStore.getState().reset();
     expect(useInterviewStore.getState().conversationId).toBeUndefined();
   });
+
+  it('setProyecto fija el proyecto y hydrate lo recupera de la conversación', () => {
+    useInterviewStore.getState().setProyecto('Hotelería');
+    expect(useInterviewStore.getState().proyecto).toBe('Hotelería');
+    useInterviewStore.getState().hydrate({ id: 'c1', messages: [], proyecto: 'Reservas' });
+    expect(useInterviewStore.getState().proyecto).toBe('Reservas');
+    useInterviewStore.getState().reset();
+    expect(useInterviewStore.getState().proyecto).toBeUndefined();
+  });
 });

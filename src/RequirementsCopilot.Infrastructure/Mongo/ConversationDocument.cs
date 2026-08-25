@@ -13,6 +13,7 @@ public sealed class ConversationDocument
     public string Status { get; set; } = string.Empty;
     public Guid? AnalysisId { get; set; }
     public string? LastResponseId { get; set; }
+    public string? ProjectName { get; set; }
     public List<ConversationMessageDocument> Messages { get; set; } = new();
 
     public static ConversationDocument FromRecord(ConversationRecord record) => new()
@@ -23,12 +24,13 @@ public sealed class ConversationDocument
         Status = record.Status,
         AnalysisId = record.AnalysisId,
         LastResponseId = record.LastResponseId,
+        ProjectName = record.ProjectName,
         Messages = record.Messages.Select(m => new ConversationMessageDocument { Role = m.Role, Text = m.Text }).ToList(),
     };
 
     public ConversationRecord ToRecord() => ConversationRecord.Rehydrate(
         Id, CreatedAt, UpdatedAt, Status, AnalysisId, LastResponseId,
-        Messages.Select(m => new ConversationMessage(m.Role, m.Text)));
+        Messages.Select(m => new ConversationMessage(m.Role, m.Text)), ProjectName);
 }
 
 [BsonIgnoreExtraElements]

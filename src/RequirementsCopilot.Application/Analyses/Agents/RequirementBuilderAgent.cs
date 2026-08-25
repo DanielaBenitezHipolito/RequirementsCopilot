@@ -19,11 +19,16 @@ public sealed class RequirementBuilderAgent
 
     public RequirementBuilderAgent(IChatCompletion chat) => _chat = chat;
 
+    /// <summary>
+    /// Un turno del entrevistador. <paramref name="projectContext"/> se antepone solo al primer turno
+    /// (sin <paramref name="previousResponseId"/>): el hilo lo conserva en los siguientes.
+    /// </summary>
     public async Task<BuilderTurn> ChatAsync(string userMessage, string? previousResponseId,
-        CancellationToken cancellationToken = default)
+        string? projectContext = null, CancellationToken cancellationToken = default)
     {
+        string input = previousResponseId is null ? $"{projectContext}{userMessage}" : userMessage;
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, userMessage, previousResponseId), cancellationToken);
+            new ChatPrompt(AgentName, input, previousResponseId), cancellationToken);
 
         string json = JsonText.FirstJsonObject(result.Text)
             ?? throw new InvalidOperationException("El agente entrevistador no devolvió JSON válido.");

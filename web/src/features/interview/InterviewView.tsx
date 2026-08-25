@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { completeConversation, getConversation, getConversations, sendConversationMessage } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { ProjectPicker } from '../../shared/components/ProjectPicker';
 import type { ConversationSummary } from '../../shared/types';
 import { useInterviewStore } from './store';
 
@@ -26,7 +27,7 @@ function SendIcon() {
 }
 
 export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string) => void }) {
-  const { messages, draft, previousResponseId, conversationId, status, error, addUserMessage, applyEvent, hydrate, reset } =
+  const { messages, draft, previousResponseId, conversationId, proyecto, status, error, setProyecto, addUserMessage, applyEvent, hydrate, reset } =
     useInterviewStore();
   const [text, setText] = useState('');
   const [approving, setApproving] = useState(false);
@@ -56,7 +57,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
     setText('');
     addUserMessage(mensaje);
     try {
-      const response = await sendConversationMessage(mensaje, previousResponseId, conversationId);
+      const response = await sendConversationMessage(mensaje, previousResponseId, conversationId, proyecto);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
       loadConversations();
     } catch (e) {
@@ -68,7 +69,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
     if (!draft) return;
     setApproving(true);
     try {
-      const { analysisId } = await completeConversation(draft.texto, draft.area, conversationId);
+      const { analysisId } = await completeConversation(draft.texto, draft.area, conversationId, proyecto);
       reset();
       loadConversations();
       onAnalyzed?.(analysisId);
@@ -153,6 +154,10 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> En línea · Howden AI
           </p>
+          {/* El proyecto se fija al iniciar el chat: el contexto viaja en el primer turno. */}
+          <div className="mt-2">
+            <ProjectPicker value={proyecto} onChange={setProyecto} disabled={messages.length > 0} />
+          </div>
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">

@@ -19,10 +19,10 @@ public sealed record RequirementDetailDto(string Codigo, string Texto, string Ar
     IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso);
 
 public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime CreatedAt, string Status,
-    int TotalRequerimientos, int Aprobados);
+    int TotalRequerimientos, int Aprobados, string? Proyecto);
 
 public sealed record AnalysisDetailDto(Guid Id, string FileName, DateTime CreatedAt, string Status, string? Error,
-    string? Resumen, IReadOnlyList<RequirementDetailDto> Requerimientos);
+    string? Resumen, IReadOnlyList<RequirementDetailDto> Requerimientos, string? Proyecto);
 
 public sealed class AnalysisQueries
 {
@@ -36,7 +36,7 @@ public sealed class AnalysisQueries
         return analyses.Select(a => new AnalysisSummaryDto(
             a.Id, a.FileName, a.CreatedAt, a.Status.ToString(),
             a.Requirements.Count,
-            a.Requirements.Count(r => r.Evaluation?.Passed == true))).ToArray();
+            a.Requirements.Count(r => r.Evaluation?.Passed == true), a.ProjectName)).ToArray();
     }
 
     public async Task<AnalysisDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -49,7 +49,7 @@ public sealed class AnalysisQueries
 
         return new AnalysisDetailDto(analysis.Id, analysis.FileName, analysis.CreatedAt, analysis.Status.ToString(),
             analysis.Error, analysis.Summary,
-            analysis.Requirements.Select(MapRequirement).ToArray());
+            analysis.Requirements.Select(MapRequirement).ToArray(), analysis.ProjectName);
     }
 
     public static RequirementDetailDto MapRequirement(Requirement r) => new(

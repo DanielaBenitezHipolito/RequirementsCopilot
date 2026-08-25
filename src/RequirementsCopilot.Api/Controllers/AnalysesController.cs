@@ -28,7 +28,7 @@ public sealed class AnalysesController : ControllerBase
 
     [HttpPost]
     [RequestSizeLimit(MaxFileBytes + 1024)]
-    public async Task<IActionResult> Analyze(IFormFile? file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Analyze(IFormFile? file, [FromForm] string? proyecto, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
         {
@@ -48,7 +48,7 @@ public sealed class AnalysesController : ControllerBase
         Response.Headers.CacheControl = "no-cache";
 
         await using Stream content = file.OpenReadStream();
-        await foreach (AnalysisEvent analysisEvent in _orchestrator.AnalyzeAsync(content, file.FileName, cancellationToken))
+        await foreach (AnalysisEvent analysisEvent in _orchestrator.AnalyzeAsync(content, file.FileName, proyecto, cancellationToken))
         {
             await WriteEventAsync(analysisEvent, cancellationToken);
         }

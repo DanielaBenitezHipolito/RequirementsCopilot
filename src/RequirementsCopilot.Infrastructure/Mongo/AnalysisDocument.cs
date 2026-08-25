@@ -13,6 +13,7 @@ public sealed class AnalysisDocument
     public string Status { get; set; } = string.Empty;
     public string? Error { get; set; }
     public string? Summary { get; set; }
+    public string? ProjectName { get; set; }
     public List<RequirementDocument> Requirements { get; set; } = new();
 
     public static AnalysisDocument FromDomain(Analysis analysis) => new()
@@ -23,12 +24,13 @@ public sealed class AnalysisDocument
         Status = analysis.Status.ToString(),
         Error = analysis.Error,
         Summary = analysis.Summary,
+        ProjectName = analysis.ProjectName,
         Requirements = analysis.Requirements.Select(RequirementDocument.FromDomain).ToList(),
     };
 
     public Analysis ToDomain() => Analysis.Rehydrate(
         Id, FileName, CreatedAt, Enum.Parse<AnalysisStatus>(Status), Error, Summary,
-        Requirements.Select(r => r.ToDomain()).ToArray());
+        Requirements.Select(r => r.ToDomain()).ToArray(), ProjectName);
 }
 
 [BsonIgnoreExtraElements]

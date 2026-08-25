@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { analyzeFile, extractDocumentText, reevaluateRequirement } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { ProjectPicker } from '../../shared/components/ProjectPicker';
 import { StoriesBanner, mapRequirement } from '../../shared/components/StoriesBanner';
 import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
 import { useAnalysisStore } from './store';
@@ -78,6 +79,7 @@ export function AnalyzeView() {
   const [analysisFileName, setAnalysisFileName] = useState('análisis');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editedText, setEditedText] = useState<string | null>(null);
+  const [proyecto, setProyecto] = useState<string>();
 
   function clearStaged() {
     setStaged(null);
@@ -129,7 +131,7 @@ export function AnalyzeView() {
     setAnalysisFileName(file.name);
     start();
     try {
-      const response = await analyzeFile(file);
+      const response = await analyzeFile(file, proyecto);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
       // Stream cortado sin done/error (servidor caído a mitad): no dejar la UI girando eterna.
       if (useAnalysisStore.getState().status === 'running') {
@@ -316,7 +318,8 @@ export function AnalyzeView() {
                 <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{previewError}</p>
               )}
 
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <ProjectPicker value={proyecto} onChange={setProyecto} />
                 <BrandButton sparkle onClick={startAudit}>
                   Iniciar Auditoría de Calidad
                 </BrandButton>

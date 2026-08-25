@@ -13,7 +13,9 @@ public sealed class ClarifierAgent
 
     public ClarifierAgent(IChatCompletion chat) => _chat = chat;
 
-    public async Task<IReadOnlyList<string>> AskAsync(Requirement requirement, CancellationToken cancellationToken = default)
+    /// <summary>Genera preguntas; <paramref name="projectContext"/> evita preguntar por lo ya documentado.</summary>
+    public async Task<IReadOnlyList<string>> AskAsync(Requirement requirement, string? projectContext = null,
+        CancellationToken cancellationToken = default)
     {
         string observations = requirement.Evaluation is null
             ? string.Empty
@@ -30,7 +32,7 @@ public sealed class ClarifierAgent
 
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente clarificador no devolvió JSON válido.");
         ClarifierReply reply = JsonSerializer.Deserialize<ClarifierReply>(json, JsonOptions)

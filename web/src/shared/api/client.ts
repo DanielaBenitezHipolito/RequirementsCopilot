@@ -1,10 +1,11 @@
-import type { AnalysisSummary, ConversationDetailDto, ConversationSummary } from '../types';
+import type { AnalysisSummary, ConversationDetailDto, ConversationSummary, ProjectSummary } from '../types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5100';
 
-export async function analyzeFile(file: File): Promise<Response> {
+export async function analyzeFile(file: File, proyecto?: string): Promise<Response> {
   const form = new FormData();
   form.append('file', file);
+  if (proyecto) form.append('proyecto', proyecto);
   const response = await fetch(`${API_BASE}/api/analyses`, { method: 'POST', body: form });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -58,6 +59,7 @@ export async function sendConversationMessage(
   mensaje: string,
   previousResponseId?: string,
   conversationId?: string,
+  proyecto?: string,
 ): Promise<Response> {
   const response = await fetch(`${API_BASE}/api/conversations/messages`, {
     method: 'POST',
@@ -66,6 +68,7 @@ export async function sendConversationMessage(
       mensaje,
       previousResponseId: previousResponseId ?? null,
       conversationId: conversationId ?? null,
+      proyecto: proyecto ?? null,
     }),
   });
   if (!response.ok) {
@@ -79,11 +82,12 @@ export async function completeConversation(
   texto: string,
   area: string,
   conversationId?: string,
+  proyecto?: string,
 ): Promise<{ analysisId: string }> {
   const response = await fetch(`${API_BASE}/api/conversations/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texto, area, conversationId: conversationId ?? null }),
+    body: JSON.stringify({ texto, area, conversationId: conversationId ?? null, proyecto: proyecto ?? null }),
   });
   return readOrThrow(response);
 }
@@ -108,4 +112,18 @@ export async function extractDocumentText(file: File): Promise<{ texto: string }
     throw new Error(body?.mensaje ?? `Error ${response.status}`);
   }
   return response.json();
+}
+
+export async function getProjects(): Promise<ProjectSummary[]> {
+  const response = await fetch(`${API_BASE}/api/projects`);
+  if (!response.ok) throw new Error('No se pudieron cargar los proyectos.');
+  return response.json();
+}
+
+export async function uploadProject(file: File, nombre?: string): Promise<{ nombre: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  if (nombre) form.append('nombre', nombre);
+  const response = await fetch(`${API_BASE}/api/projects`, { method: 'POST', body: form });
+  return readOrThrow(response);
 }

@@ -14,6 +14,7 @@ interface Draft {
 interface ConversationDetail {
   id: string;
   lastResponseId?: string;
+  proyecto?: string;
   messages: Message[];
 }
 
@@ -22,8 +23,10 @@ interface InterviewState {
   draft?: Draft;
   previousResponseId?: string;
   conversationId?: string;
+  proyecto?: string;
   status: 'idle' | 'sending' | 'error';
   error?: string;
+  setProyecto: (proyecto?: string) => void;
   addUserMessage: (text: string) => void;
   applyEvent: (evt: SseEvent) => void;
   hydrate: (detail: ConversationDetail) => void;
@@ -35,12 +38,14 @@ const initial = {
   draft: undefined,
   previousResponseId: undefined,
   conversationId: undefined as string | undefined,
+  proyecto: undefined as string | undefined,
   status: 'idle' as const,
   error: undefined,
 };
 
 export const useInterviewStore = create<InterviewState>((set) => ({
   ...initial,
+  setProyecto: (proyecto) => set({ proyecto }),
   addUserMessage: (text) =>
     set((state) => ({
       messages: [...state.messages, { role: 'user', text }],
@@ -54,6 +59,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       messages: detail.messages,
       previousResponseId: detail.lastResponseId,
       conversationId: detail.id,
+      proyecto: detail.proyecto,
       draft: undefined,
       status: 'idle',
       error: undefined,

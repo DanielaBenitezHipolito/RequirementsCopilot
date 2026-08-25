@@ -8,7 +8,7 @@ public class ConversationDocumentTests
     [Fact]
     public void FromRecord_ToRecord_RoundTripAbierta()
     {
-        ConversationRecord record = ConversationRecord.Create();
+        ConversationRecord record = ConversationRecord.Create("Hotelería");
         record.Append("user", "Quiero controlar los pagos de las reservas");
         record.Append("agent", "¿Quién usará esta funcionalidad?");
         record.SetLastResponseId("resp-123");
@@ -21,6 +21,7 @@ public class ConversationDocumentTests
         Assert.Equal("Abierta", restored.Status);
         Assert.Null(restored.AnalysisId);
         Assert.Equal("resp-123", restored.LastResponseId);
+        Assert.Equal("Hotelería", restored.ProjectName);
         Assert.Equal(2, restored.Messages.Count);
         Assert.Equal("user", restored.Messages[0].Role);
         Assert.Equal("Quiero controlar los pagos de las reservas", restored.Messages[0].Text);

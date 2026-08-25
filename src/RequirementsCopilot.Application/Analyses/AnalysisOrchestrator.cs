@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using RequirementsCopilot.Application.Analyses.Agents;
+using RequirementsCopilot.Application.Projects;
 using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Application.Analyses;
@@ -14,11 +15,12 @@ public sealed class AnalysisOrchestrator
     private readonly ExecutiveSummaryAgent _summaryAgent;
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
+    private readonly ProjectContextLoader _projectContext;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
         RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, UseCaseWriterAgent useCaseWriter,
         ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
-        AnalysisOptions options)
+        AnalysisOptions options, ProjectContextLoader projectContext)
     {
         _textExtractor = textExtractor;
         _extractor = extractor;
@@ -28,6 +30,7 @@ public sealed class AnalysisOrchestrator
         _summaryAgent = summaryAgent;
         _repository = repository;
         _options = options;
+        _projectContext = projectContext;
     }
 
     /// <summary>
@@ -35,10 +38,11 @@ public sealed class AnalysisOrchestrator
     /// El caso de uso NO se genera aquí: se dispara manualmente con <see cref="GenerateStoriesAsync"/>.
     /// </summary>
     public async IAsyncEnumerable<AnalysisEvent> AnalyzeAsync(Stream content, string fileName,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        string? projectName = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        Analysis analysis = Analysis.Create(fileName);
+        Analysis analysis = Analysis.Create(fileName, projectName);
         yield return AnalysisEvent.Status("Extrayendo requerimientos del documento…");
+        string projectContext = await _projectContext.LoadAsync(projectName, cancellationToken);
 
         string? error = null;
         IReadOnlyList<Requirement> requirements = Array.Empty<Requirement>();
@@ -65,7 +69,8 @@ public sealed class AnalysisOrchestrator
                 Evaluation? evaluation = null;
                 try
                 {
-                    evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold, cancellationToken);
+                    evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
+                        answeredClarifications: null, projectContext, cancellationToken);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { error = ex.Message; }
@@ -84,7 +89,7 @@ public sealed class AnalysisOrchestrator
                 IReadOnlyList<string> questions = Array.Empty<string>();
                 try
                 {
-                    questions = await _clarifier.AskAsync(requirement, cancellationToken);
+                    questions = await _clarifier.AskAsync(requirement, projectContext, cancellationToken);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { error = ex.Message; }
@@ -154,7 +159,7 @@ public sealed class AnalysisOrchestrator
     /// desde ahí el flujo continúa igual que el de documentos (responder → generar caso de uso).
     /// </summary>
     public async Task<Guid> CreateFromRequirementAsync(string text, string? area,
-        CancellationToken cancellationToken = default)
+        string? projectName = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -163,17 +168,19 @@ public sealed class AnalysisOrchestrator
 
         string title = text.Trim();
         Analysis analysis = Analysis.Create(
-            $"Conversación: {(title.Length > 40 ? title[..40] + "…" : title)}");
+            $"Conversación: {(title.Length > 40 ? title[..40] + "…" : title)}", projectName);
         Requirement requirement = Requirement.Create("REQ-001", text, area ?? "General");
         analysis.AddRequirement(requirement);
 
         try
         {
-            Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold, cancellationToken);
+            string projectContext = await _projectContext.LoadAsync(projectName, cancellationToken);
+            Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
+                answeredClarifications: null, projectContext, cancellationToken);
             requirement.Evaluate(evaluation);
             if (NeedsClarification(evaluation))
             {
-                foreach (string question in await _clarifier.AskAsync(requirement, cancellationToken))
+                foreach (string question in await _clarifier.AskAsync(requirement, projectContext, cancellationToken))
                 {
                     requirement.AddClarification(Clarification.Create(question));
                 }
@@ -232,7 +239,8 @@ public sealed class AnalysisOrchestrator
                 "Responda las preguntas de clarificación antes de generar el caso de uso.");
         }
 
-        requirement.SetUseCase(await _useCaseWriter.WriteAsync(requirement, cancellationToken));
+        string projectContext = await _projectContext.LoadAsync(analysis.ProjectName, cancellationToken);
+        requirement.SetUseCase(await _useCaseWriter.WriteAsync(requirement, projectContext, cancellationToken));
 
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);
@@ -266,11 +274,12 @@ public sealed class AnalysisOrchestrator
             }
         }
 
+        string projectContext = await _projectContext.LoadAsync(analysis.ProjectName, cancellationToken);
         Evaluation evaluation;
         try
         {
             evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
-                requirement.Clarifications, cancellationToken);
+                requirement.Clarifications, projectContext, cancellationToken);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { throw new LlmException(ex.Message); }
@@ -282,7 +291,7 @@ public sealed class AnalysisOrchestrator
             IReadOnlyList<string> questions;
             try
             {
-                questions = await _clarifier.AskAsync(requirement, cancellationToken);
+                questions = await _clarifier.AskAsync(requirement, projectContext, cancellationToken);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { throw new LlmException(ex.Message); }

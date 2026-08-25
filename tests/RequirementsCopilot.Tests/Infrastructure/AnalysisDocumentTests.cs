@@ -8,7 +8,7 @@ public class AnalysisDocumentTests
     [Fact]
     public void FromDomain_ToDomain_RoundTripCompleto()
     {
-        var analysis = Analysis.Create("spec.pdf");
+        var analysis = Analysis.Create("spec.pdf", "Hotelería");
         var requirement = Requirement.Create("REQ-001", "El sistema debe X", "Pagos");
         requirement.Evaluate(Evaluation.Create(
             new[] { CriterionScore.Create("Claridad", 4, "clara"), CriterionScore.Create("Completitud", 3, "parcial") }, 3.5));
@@ -25,6 +25,7 @@ public class AnalysisDocumentTests
 
         Assert.Equal(analysis.Id, restored.Id);
         Assert.Equal(analysis.Status, restored.Status);
+        Assert.Equal("Hotelería", restored.ProjectName);
         Assert.Equal("REQ-001", restored.Requirements[0].Code);
         Assert.Equal("Pagos", restored.Requirements[0].Area);
         Assert.Equal(3.5, restored.Requirements[0].Evaluation!.Average);
