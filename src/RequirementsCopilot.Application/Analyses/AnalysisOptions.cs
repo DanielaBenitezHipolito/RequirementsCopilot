@@ -8,5 +8,5 @@ public sealed record AnalysisOptions
     public int MaxInputChars { get; init; } = 60_000;
 
     /// <summary>Tope de caracteres del .md de proyecto inyectado como contexto a los agentes.</summary>
-    public int MaxProjectContextChars { get; init; } = 30_000;
+    public int MaxProjectContextChars { get; init; } = 60_000;
 }

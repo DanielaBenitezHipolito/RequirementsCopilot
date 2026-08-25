@@ -17,7 +17,7 @@ Con `Providers:Chat=Fake` no se usan estos prompts (el adaptador `Fake` devuelve
   redactor de casos de uso y entrevistador (solo primer turno) un bloque
   `CONTEXTO DEL PROYECTO EXISTENTE «nombre»` con la instrucción de **no preguntar** por
   funcionalidades ya documentadas. Sin proyecto seleccionado = proyecto nuevo (sin contexto).
-  Tope configurable en `Analysis:MaxProjectContextChars` (30 000 por defecto).
+  Tope configurable en `Analysis:MaxProjectContextChars` (60 000 por defecto).
 
 ## Agentes (6)
 
