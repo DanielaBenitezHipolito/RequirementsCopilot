@@ -94,7 +94,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   }
 
   return (
-    {/* Altura fija al viewport: los mensajes hacen scroll dentro del panel, no en la página. */}
+    // Altura fija al viewport: los mensajes hacen scroll dentro del panel, no en la página.
     <div className="grid min-h-[28rem] grid-cols-1 gap-4 lg:h-[calc(100vh-16rem)] lg:grid-cols-3">
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-1">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
