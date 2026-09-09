@@ -53,20 +53,40 @@ public class RequirementBuilderAgentTests
     }
 
     [Fact]
-    public async Task ChatAsync_SinJson_Lanza()
+    public async Task ChatAsync_SinJson_DevuelveElTextoComoMensaje()
     {
-        var chat = new StubChatCompletion { Reply = _ => "no json" };
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => new RequirementBuilderAgent(chat).ChatAsync("idea", null));
+        var chat = new StubChatCompletion { Reply = _ => "Historias de usuario: 1. Como cajero...", ResponseId = "resp_9" };
+        var turn = await new RequirementBuilderAgent(chat).ChatAsync("idea", null);
+        Assert.False(turn.Listo);
+        Assert.Equal("Historias de usuario: 1. Como cajero...", turn.Mensaje);
+        Assert.Equal("resp_9", turn.ResponseId);
     }
 
     [Fact]
-    public async Task ChatAsync_MensajeVacio_Lanza()
+    public async Task ChatAsync_JsonTruncado_DevuelveElTextoComoMensaje()
+    {
+        var chat = new StubChatCompletion { Reply = _ => "{\"listo\":false,\"mensaje\":\"corta" };
+        var turn = await new RequirementBuilderAgent(chat).ChatAsync("idea", null);
+        Assert.False(turn.Listo);
+        Assert.Contains("corta", turn.Mensaje);
+    }
+
+    [Fact]
+    public async Task ChatAsync_MensajeVacioEnJson_UsaElTextoCrudo()
     {
         var chat = new StubChatCompletion
         {
             Reply = _ => "{\"listo\":false,\"mensaje\":\"   \",\"requerimiento\":null}",
         };
+        var turn = await new RequirementBuilderAgent(chat).ChatAsync("idea", null);
+        Assert.False(turn.Listo);
+        Assert.False(string.IsNullOrWhiteSpace(turn.Mensaje));
+    }
+
+    [Fact]
+    public async Task ChatAsync_RespuestaVacia_Lanza()
+    {
+        var chat = new StubChatCompletion { Reply = _ => "  " };
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => new RequirementBuilderAgent(chat).ChatAsync("idea", null));
     }

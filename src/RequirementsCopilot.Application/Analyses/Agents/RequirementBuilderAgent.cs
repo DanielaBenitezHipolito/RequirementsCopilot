@@ -30,14 +30,16 @@ public sealed class RequirementBuilderAgent
         ChatResult result = await _chat.CompleteAsync(
             new ChatPrompt(AgentName, input, previousResponseId), cancellationToken);
 
-        string json = JsonText.FirstJsonObject(result.Text)
-            ?? throw new InvalidOperationException("El agente entrevistador no devolvió JSON válido.");
-        BuilderReply reply = JsonSerializer.Deserialize<BuilderReply>(json, JsonOptions)
-            ?? throw new InvalidOperationException("El agente entrevistador devolvió una respuesta vacía.");
-
-        if (string.IsNullOrWhiteSpace(reply.Mensaje))
+        // Respuesta larga truncada (max_output_tokens) o sin el contrato JSON: no se tumba el turno,
+        // se muestra el texto tal cual y el chat continúa (listo=false hasta que llegue JSON válido).
+        BuilderReply? reply = TryParse(result.Text);
+        if (reply is null || string.IsNullOrWhiteSpace(reply.Mensaje))
         {
-            throw new InvalidOperationException("El agente entrevistador devolvió un mensaje vacío.");
+            if (string.IsNullOrWhiteSpace(result.Text))
+            {
+                throw new InvalidOperationException("El agente entrevistador devolvió una respuesta vacía.");
+            }
+            return new BuilderTurn(result.Text.Trim(), false, null, null, result.ResponseId);
         }
 
         bool ready = reply.Listo && !string.IsNullOrWhiteSpace(reply.Requerimiento?.Texto);
@@ -47,6 +49,24 @@ public sealed class RequirementBuilderAgent
             ready ? reply.Requerimiento!.Texto!.Trim() : null,
             ready ? reply.Requerimiento!.Area?.Trim() : null,
             result.ResponseId);
+    }
+
+    /// <summary>Intenta extraer y deserializar el objeto JSON del turno; null si no hay uno válido.</summary>
+    private static BuilderReply? TryParse(string text)
+    {
+        string? json = JsonText.FirstJsonObject(text);
+        if (json is null)
+        {
+            return null;
+        }
+        try
+        {
+            return JsonSerializer.Deserialize<BuilderReply>(json, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private sealed record BuilderReply(bool Listo, string? Mensaje, DraftRequirement? Requerimiento);
