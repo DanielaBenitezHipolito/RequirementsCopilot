@@ -95,7 +95,7 @@ export function ProjectsView() {
   const dirty = content !== savedContent;
 
   return (
-    <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid min-h-[28rem] grid-cols-1 gap-4 lg:h-[calc(100vh-16rem)] lg:grid-cols-3">
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:col-span-1">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Nuevo proyecto</h2>
