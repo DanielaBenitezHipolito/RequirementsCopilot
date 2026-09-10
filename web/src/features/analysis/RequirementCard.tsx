@@ -5,6 +5,7 @@ import { BrandButton } from '../../shared/components/BrandButton';
 interface Props {
   requirement: RequirementView;
   onReevaluate?: (respuestas: string[]) => Promise<void>;
+  onGenerateUserStories?: () => Promise<void>;
 }
 
 const BRAND = '#1e2a5a';
@@ -29,7 +30,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories }: Props) {
   const evaluacion = requirement.evaluacion;
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
@@ -278,6 +279,64 @@ export function RequirementCard({ requirement, onReevaluate }: Props) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {requirement.historias.length > 0 && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-slate-800">HISTORIAS DE USUARIO</p>
+                <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
+                  {requirement.historias.reduce((sum, h) => sum + h.puntos, 0)} pts totales
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] italic text-slate-400">
+                Estimación orientativa generada por IA (complejidad relativa); no es un compromiso de entrega.
+              </p>
+              <div className="mt-3 space-y-3">
+                {requirement.historias.map((h, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-bold text-slate-800">{h.titulo}</p>
+                      <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-0.5 font-mono text-[11px] font-bold" style={{ color: BRAND }}>
+                        {h.puntos} pts
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-sm text-slate-700">
+                      <span className="font-semibold">Como</span> {h.como}, <span className="font-semibold">quiero</span>{' '}
+                      {h.quiero}, <span className="font-semibold">para</span> {h.para}.
+                    </p>
+                    {h.criteriosAceptacion.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Criterios de aceptación</p>
+                        <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">
+                          {h.criteriosAceptacion.map((c, j) => (
+                            <li key={j}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {h.dependencias.length > 0 && (
+                      <p className="mt-2 text-xs text-slate-400">Depende de: {h.dependencias.join(', ')}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {onGenerateUserStories && requirement.listoParaHistorias && requirement.historias.length === 0 && (
+            <div className="flex justify-end">
+              <BrandButton
+                sparkle
+                variant="secondary"
+                className="!px-4 !py-2 !text-xs"
+                loading={busy}
+                loadingText="Generando historias…"
+                onClick={() => run(onGenerateUserStories)}
+              >
+                📋 Generar Historias de Usuario (backlog)
+              </BrandButton>
             </div>
           )}
         </div>

@@ -19,7 +19,7 @@ Con `Providers:Chat=Fake` no se usan estos prompts (el adaptador `Fake` devuelve
   funcionalidades ya documentadas. Sin proyecto seleccionado = proyecto nuevo (sin contexto).
   Tope configurable en `Analysis:MaxProjectContextChars` (60 000 por defecto).
 
-## Agentes (6)
+## Agentes (7)
 
 | Código lógico | Archivo | Rol |
 |---|---|---|
@@ -29,6 +29,7 @@ Con `Providers:Chat=Fake` no se usan estos prompts (el adaptador `Fake` devuelve
 | `use-case-writer-agent` | [use-case-writer-agent.md](use-case-writer-agent.md) | Redacta el caso de uso (plantilla corporativa) |
 | `requirement-builder-agent` | [requirement-builder-agent.md](requirement-builder-agent.md) | Entrevistador conversacional (v2) |
 | `executive-summary-agent` | [executive-summary-agent.md](executive-summary-agent.md) | Resumen ejecutivo de la auditoría |
+| `user-story-writer-agent` | [user-story-writer-agent.md](user-story-writer-agent.md) | Historias de usuario con puntos Fibonacci (ADR-0006) |
 
 ## Publicación en Foundry
 

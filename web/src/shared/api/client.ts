@@ -46,6 +46,11 @@ export async function generateStories(id: string, codigo: string): Promise<any> 
   return readOrThrow(response);
 }
 
+export async function generateUserStories(id: string, codigo: string): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/user-stories`, { method: 'POST' });
+  return readOrThrow(response);
+}
+
 export async function reevaluateRequirement(id: string, codigo: string, respuestas: string[]): Promise<any> {
   const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/reevaluate`, {
     method: 'POST',

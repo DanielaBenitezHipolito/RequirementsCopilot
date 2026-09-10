@@ -49,6 +49,19 @@ public sealed class FakeChatCompletion : IChatCompletion
         "\"frecuencia\":\"Única\",\"importancia\":\"Alta\",\"urgencia\":\"Alta\"," +
         "\"comentarios\":[\"El consecutivo debe ser único por empresa\"]}";
 
+    private const string UserStoriesReply =
+        "{\"historias\":[" +
+        "{\"titulo\":\"Registrar pago de reserva\",\"como\":\"Recepcionista\"," +
+        "\"quiero\":\"registrar el pago de una reserva con monto, fecha y consecutivo\"," +
+        "\"para\":\"dejar trazabilidad del recaudo\"," +
+        "\"criteriosAceptacion\":[\"El consecutivo generado es único\",\"La reserva queda marcada como pagada\"]," +
+        "\"puntos\":3,\"dependencias\":[]}," +
+        "{\"titulo\":\"Rechazar pago con monto inválido\",\"como\":\"Recepcionista\"," +
+        "\"quiero\":\"que el sistema rechace pagos cuyo monto no coincida con el saldo\"," +
+        "\"para\":\"evitar registros de caja incorrectos\"," +
+        "\"criteriosAceptacion\":[\"Se muestra un mensaje de negocio claro\",\"No se genera consecutivo\"]," +
+        "\"puntos\":2,\"dependencias\":[\"Registrar pago de reserva\"]}]}";
+
     private const string BuilderQuestionReply =
         "{\"listo\":false,\"mensaje\":\"¿Quién usará esta funcionalidad y qué dato debe quedar registrado al final?\",\"requerimiento\":null}";
 
@@ -73,6 +86,7 @@ public sealed class FakeChatCompletion : IChatCompletion
                 : IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
             ClarifierAgent.AgentName => ClarifierReply,
             UseCaseWriterAgent.AgentName => UseCaseReply,
+            UserStoryWriterAgent.AgentName => UserStoriesReply,
             // ponytail: guion fijo — 1a llamada pregunta, con hilo previo redacta. Suficiente para demo sin credenciales.
             RequirementBuilderAgent.AgentName =>
                 string.IsNullOrEmpty(prompt.PreviousResponseId) ? BuilderQuestionReply : BuilderReadyReply,

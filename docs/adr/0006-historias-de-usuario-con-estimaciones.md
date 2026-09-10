@@ -1,6 +1,6 @@
 # ADR 0006 — Historias de usuario con estimaciones como paso posterior al requerimiento
 
-- **Estado:** Propuesto
+- **Estado:** Aceptado (implementado; agente pendiente de publicar en Foundry)
 - **Fecha:** 2026-08-26
 - **Decisores:** Equipo Requirements Copilot
 

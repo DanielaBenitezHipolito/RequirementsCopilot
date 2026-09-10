@@ -11,9 +11,13 @@ export interface CasoDeUso {
   trigger: string; flujos: Flujo[]; extensiones: string[]; frecuencia: string; importancia: string;
   urgencia: string; comentarios: string[];
 }
+export interface UserStory {
+  titulo: string; como: string; quiero: string; para: string;
+  criteriosAceptacion: string[]; puntos: number; dependencias: string[];
+}
 export interface RequirementView {
   codigo: string; texto: string; area: string; evaluacion?: Evaluacion;
-  aclaraciones: Aclaracion[]; listoParaHistorias?: boolean; caso?: CasoDeUso;
+  aclaraciones: Aclaracion[]; listoParaHistorias?: boolean; caso?: CasoDeUso; historias: UserStory[];
 }
 export interface AnalysisSummary {
   id: string; fileName: string; createdAt: string; status: string;

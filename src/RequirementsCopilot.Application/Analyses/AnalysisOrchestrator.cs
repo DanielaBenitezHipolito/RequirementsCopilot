@@ -12,6 +12,7 @@ public sealed class AnalysisOrchestrator
     private readonly RequirementEvaluatorAgent _evaluator;
     private readonly ClarifierAgent _clarifier;
     private readonly UseCaseWriterAgent _useCaseWriter;
+    private readonly UserStoryWriterAgent _userStoryWriter;
     private readonly ExecutiveSummaryAgent _summaryAgent;
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
@@ -19,9 +20,10 @@ public sealed class AnalysisOrchestrator
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
         RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, UseCaseWriterAgent useCaseWriter,
-        ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
+        UserStoryWriterAgent userStoryWriter, ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
         AnalysisOptions options, ProjectContextLoader projectContext)
     {
+        _userStoryWriter = userStoryWriter;
         _textExtractor = textExtractor;
         _extractor = extractor;
         _evaluator = evaluator;
@@ -242,6 +244,38 @@ public sealed class AnalysisOrchestrator
         string projectContext = await _projectContext.LoadAsync(analysis.ProjectName, cancellationToken);
         requirement.SetUseCase(await _useCaseWriter.WriteAsync(requirement, projectContext, cancellationToken));
 
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Generación manual (ADR-0006): backlog de historias de usuario con puntos Fibonacci para un
+    /// requerimiento listo. Reutiliza aclaraciones, caso de uso y contexto del proyecto.
+    /// </summary>
+    public async Task<RequirementDetailDto> GenerateUserStoriesAsync(Guid analysisId, string requirementCode,
+        CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (requirement.UserStories.Count > 0)
+        {
+            throw new InvalidOperationException("El requerimiento ya tiene historias de usuario generadas.");
+        }
+        if (!requirement.ReadyForStories)
+        {
+            throw new InvalidOperationException(
+                "Responda las preguntas de clarificación antes de generar las historias.");
+        }
+
+        string projectContext = await _projectContext.LoadAsync(analysis.ProjectName, cancellationToken);
+        IReadOnlyList<UserStory> stories;
+        try
+        {
+            stories = await _userStoryWriter.WriteAsync(requirement, projectContext, cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (InvalidOperationException ex) { throw new LlmException(ex.Message); }
+
+        requirement.SetUserStories(stories);
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);
     }

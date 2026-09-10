@@ -18,6 +18,11 @@ public class AnalysisDocumentTests
             new[] { new FlujoProceso("Proceso de creación manual", new[] { new PasoFlujo(1, "Abrir caja", "Caja abierta") }) },
             new[] { "Si el monto no coincide, se rechaza" }, "Única", "Alta", "Alta", new[] { "Ninguno" });
         requirement.SetUseCase(useCase);
+        requirement.SetUserStories(new[]
+        {
+            UserStory.Create("Registrar pago", "Cajero", "registrar el pago", "trazabilidad",
+                new[] { "Consecutivo único" }, 3, new[] { "Abrir caja" }),
+        });
         analysis.AddRequirement(requirement);
         analysis.Complete();
 
@@ -26,6 +31,10 @@ public class AnalysisDocumentTests
         Assert.Equal(analysis.Id, restored.Id);
         Assert.Equal(analysis.Status, restored.Status);
         Assert.Equal("Hotelería", restored.ProjectName);
+        var restoredStory = Assert.Single(restored.Requirements[0].UserStories);
+        Assert.Equal("Registrar pago", restoredStory.Titulo);
+        Assert.Equal(3, restoredStory.Puntos);
+        Assert.Equal("Abrir caja", Assert.Single(restoredStory.Dependencias));
         Assert.Equal("REQ-001", restored.Requirements[0].Code);
         Assert.Equal("Pagos", restored.Requirements[0].Area);
         Assert.Equal(3.5, restored.Requirements[0].Evaluation!.Average);

@@ -58,4 +58,28 @@ public class AnalysisTests
         Assert.True(analysis.Requirements[0].Evaluation!.Passed);
         Assert.NotNull(analysis.Requirements[0].UseCase);
     }
+    [Fact]
+    public void UserStory_Create_ValidaTituloYPuntos()
+    {
+        Assert.Throws<ArgumentException>(() => UserStory.Create(" ", "a", "b", "c", null, 3, null));
+        Assert.Throws<ArgumentException>(() => UserStory.Create("t", "a", "b", "c", null, 4, null));
+
+        var story = UserStory.Create(" Título ", null, null, null, new[] { "ok", "  " }, 5, null);
+        Assert.Equal("Título", story.Titulo);
+        Assert.Equal(5, story.Puntos);
+        Assert.Single(story.CriteriosAceptacion);
+        Assert.Empty(story.Dependencias);
+    }
+
+    [Fact]
+    public void Requirement_SetUserStories_ReemplazaYRechazaVacio()
+    {
+        var requirement = Requirement.Create("REQ-001", "texto", "Pagos");
+        Assert.Throws<ArgumentException>(() => requirement.SetUserStories(Array.Empty<UserStory>()));
+
+        requirement.SetUserStories(new[] { UserStory.Create("A", null, null, null, null, 1, null) });
+        requirement.SetUserStories(new[] { UserStory.Create("B", null, null, null, null, 2, null) });
+        var story = Assert.Single(requirement.UserStories);
+        Assert.Equal("B", story.Titulo);
+    }
 }

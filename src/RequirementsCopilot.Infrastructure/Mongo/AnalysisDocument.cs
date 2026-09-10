@@ -42,6 +42,7 @@ public sealed class RequirementDocument
     public EvaluationDocument? Evaluation { get; set; }
     public List<ClarificationDocument> Clarifications { get; set; } = new();
     public UseCaseDocument? UseCase { get; set; }
+    public List<UserStoryDocument> UserStories { get; set; } = new();
 
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
@@ -54,6 +55,7 @@ public sealed class RequirementDocument
             Question = c.Question, Answer = c.Answer,
         }).ToList(),
         UseCase = requirement.UseCase is null ? null : UseCaseDocument.FromDomain(requirement.UseCase),
+        UserStories = requirement.UserStories.Select(UserStoryDocument.FromDomain).ToList(),
     };
 
     public Requirement ToDomain()
@@ -71,8 +73,38 @@ public sealed class RequirementDocument
         {
             requirement.SetUseCase(UseCase.ToDomain());
         }
+        if (UserStories.Count > 0)
+        {
+            requirement.SetUserStories(UserStories.Select(h => h.ToDomain()).ToArray());
+        }
         return requirement;
     }
+}
+
+[BsonIgnoreExtraElements]
+public sealed class UserStoryDocument
+{
+    public string Titulo { get; set; } = string.Empty;
+    public string Como { get; set; } = string.Empty;
+    public string Quiero { get; set; } = string.Empty;
+    public string Para { get; set; } = string.Empty;
+    public List<string> CriteriosAceptacion { get; set; } = new();
+    public int Puntos { get; set; }
+    public List<string> Dependencias { get; set; } = new();
+
+    public static UserStoryDocument FromDomain(UserStory story) => new()
+    {
+        Titulo = story.Titulo,
+        Como = story.Como,
+        Quiero = story.Quiero,
+        Para = story.Para,
+        CriteriosAceptacion = story.CriteriosAceptacion.ToList(),
+        Puntos = story.Puntos,
+        Dependencias = story.Dependencias.ToList(),
+    };
+
+    public UserStory ToDomain()
+        => UserStory.Create(Titulo, Como, Quiero, Para, CriteriosAceptacion, Puntos, Dependencias);
 }
 
 [BsonIgnoreExtraElements]

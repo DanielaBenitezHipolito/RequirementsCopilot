@@ -15,8 +15,12 @@ public sealed record UseCaseDto(string Nombre, string Objetivo, string Descripci
 
 public sealed record ClarificationDto(string Pregunta, string? Respuesta);
 
+public sealed record UserStoryDto(string Titulo, string Como, string Quiero, string Para,
+    IReadOnlyList<string> CriteriosAceptacion, int Puntos, IReadOnlyList<string> Dependencias);
+
 public sealed record RequirementDetailDto(string Codigo, string Texto, string Area, EvaluationDto? Evaluacion,
-    IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso);
+    IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso,
+    IReadOnlyList<UserStoryDto> Historias);
 
 public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime CreatedAt, string Status,
     int TotalRequerimientos, int Aprobados, string? Proyecto);
@@ -72,5 +76,7 @@ public sealed class AnalysisQueries
             r.UseCase.Frecuencia,
             r.UseCase.Importancia,
             r.UseCase.Urgencia,
-            r.UseCase.Comentarios));
+            r.UseCase.Comentarios),
+        r.UserStories.Select(h => new UserStoryDto(h.Titulo, h.Como, h.Quiero, h.Para,
+            h.CriteriosAceptacion, h.Puntos, h.Dependencias)).ToArray());
 }

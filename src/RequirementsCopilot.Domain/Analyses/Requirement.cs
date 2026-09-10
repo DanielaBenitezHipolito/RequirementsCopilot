@@ -4,6 +4,7 @@ namespace RequirementsCopilot.Domain.Analyses;
 public sealed class Requirement
 {
     private readonly List<Clarification> _clarifications = new();
+    private readonly List<UserStory> _userStories = new();
 
     /// <summary>Código secuencial del requerimiento (ej. REQ-001).</summary>
     public string Code { get; }
@@ -22,6 +23,9 @@ public sealed class Requirement
 
     /// <summary>Preguntas de clarificación asociadas al requerimiento.</summary>
     public IReadOnlyList<Clarification> Clarifications => _clarifications;
+
+    /// <summary>Historias de usuario generadas, si ya se generaron.</summary>
+    public IReadOnlyList<UserStory> UserStories => _userStories;
 
     /// <summary>Aprobado directo, o con todas sus preguntas de clarificación respondidas.</summary>
     public bool ReadyForStories => Evaluation is not null &&
@@ -50,4 +54,15 @@ public sealed class Requirement
 
     /// <summary>Agrega una pregunta de clarificación al requerimiento.</summary>
     public void AddClarification(Clarification clarification) => _clarifications.Add(clarification);
+
+    /// <summary>Reemplaza las historias de usuario generadas para este requerimiento.</summary>
+    public void SetUserStories(IReadOnlyList<UserStory> stories)
+    {
+        if (stories is null || stories.Count == 0)
+        {
+            throw new ArgumentException("Debe asignar al menos una historia.", nameof(stories));
+        }
+        _userStories.Clear();
+        _userStories.AddRange(stories);
+    }
 }

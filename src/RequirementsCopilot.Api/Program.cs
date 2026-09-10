@@ -81,6 +81,7 @@ builder.Services.AddScoped<RequirementExtractorAgent>();
 builder.Services.AddScoped<RequirementEvaluatorAgent>();
 builder.Services.AddScoped<ClarifierAgent>();
 builder.Services.AddScoped<UseCaseWriterAgent>();
+builder.Services.AddScoped<UserStoryWriterAgent>();
 builder.Services.AddScoped<RequirementBuilderAgent>();
 builder.Services.AddScoped<ExecutiveSummaryAgent>();
 builder.Services.AddScoped<ProjectContextLoader>();

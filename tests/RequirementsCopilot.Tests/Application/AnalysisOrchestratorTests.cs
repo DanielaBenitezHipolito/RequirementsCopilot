@@ -55,6 +55,9 @@ public class AnalysisOrchestratorTests
             ClarifierAgent.AgentName =>
                 "{\"preguntas\":[\"¿Qué significa rápido en segundos?\",\"¿Para qué operaciones aplica?\"]}",
             UseCaseWriterAgent.AgentName => UseCaseReply,
+            UserStoryWriterAgent.AgentName =>
+                "{\"historias\":[{\"titulo\":\"Registrar pago\",\"como\":\"Cajero\",\"quiero\":\"registrar el pago\"," +
+                "\"para\":\"trazabilidad\",\"criteriosAceptacion\":[\"Consecutivo único\"],\"puntos\":3,\"dependencias\":[]}]}",
             ExecutiveSummaryAgent.AgentName => "{\"resumen\":\"Resumen ejecutivo de prueba.\"}",
             _ => "{}",
         },
@@ -66,6 +69,7 @@ public class AnalysisOrchestratorTests
         new RequirementEvaluatorAgent(chat),
         new ClarifierAgent(chat),
         new UseCaseWriterAgent(chat),
+        new UserStoryWriterAgent(chat),
         new ExecutiveSummaryAgent(chat),
         repository,
         new AnalysisOptions(),
@@ -258,7 +262,7 @@ public class AnalysisOrchestratorTests
         var chat = new StubChatCompletion { Reply = _ => "no json" };
         var brokenOrchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
-            new ClarifierAgent(chat), new UseCaseWriterAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
             new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions(), Projects());
 
         await Assert.ThrowsAsync<LlmException>(
@@ -338,6 +342,7 @@ public class AnalysisOrchestratorTests
             new RequirementEvaluatorAgent(chat),
             new ClarifierAgent(chat),
             new UseCaseWriterAgent(chat),
+            new UserStoryWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             new StubRepository(),
             new AnalysisOptions { MaxInputChars = 100 },
@@ -356,7 +361,8 @@ public class AnalysisOrchestratorTests
         var repository = new StubRepository();
         var orchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
-            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new ExecutiveSummaryAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat),
             repository, new AnalysisOptions(),
             Projects(Project.Create("Hotelería", "# Sistema de reservas\nYa existe módulo de pagos.")));
 
@@ -387,7 +393,8 @@ public class AnalysisOrchestratorTests
         var repository = new StubRepository();
         var orchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
-            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new ExecutiveSummaryAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat),
             repository, new AnalysisOptions(),
             Projects(Project.Create("Hotelería", "Descripción del sistema.")));
 
@@ -408,5 +415,62 @@ public class AnalysisOrchestratorTests
 
         Assert.Equal("NoExiste", repository.Saved!.ProjectName);
         Assert.All(chat.Prompts, p => Assert.DoesNotContain("CONTEXTO DEL PROYECTO", p.Input));
+    }
+    [Fact]
+    public async Task GenerateUserStoriesAsync_RequerimientoListo_GeneraConContexto()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = new AnalysisOrchestrator(
+            new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat),
+            repository, new AnalysisOptions(),
+            Projects(Project.Create("Hotelería", "Ya existe check-in.")));
+
+        Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 registrar pagos", "Pagos", "Hotelería");
+        var dto = await orchestrator.GenerateUserStoriesAsync(id, "REQ-001");
+
+        var historia = Assert.Single(dto.Historias);
+        Assert.Equal("Registrar pago", historia.Titulo);
+        Assert.Equal(3, historia.Puntos);
+        Assert.Contains("Ya existe check-in.",
+            chat.Prompts.First(p => p.Agent == UserStoryWriterAgent.AgentName).Input);
+        Assert.Single(repository.Saved!.Requirements[0].UserStories);
+    }
+
+    [Fact]
+    public async Task GenerateUserStoriesAsync_YaGeneradas_Rechaza()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 registrar pagos", "Pagos");
+        await orchestrator.GenerateUserStoriesAsync(id, "REQ-001");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => orchestrator.GenerateUserStoriesAsync(id, "REQ-001"));
+    }
+
+    [Fact]
+    public async Task GenerateUserStoriesAsync_NoListo_Rechaza()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+        await Collect(orchestrator);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => orchestrator.GenerateUserStoriesAsync(repository.Saved!.Id, "REQ-002"));
+    }
+
+    [Fact]
+    public async Task GenerateUserStoriesAsync_AgenteSinHistorias_LanzaLlmException()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(chat, repository);
+        Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 registrar pagos", "Pagos");
+
+        chat.Reply = _ => "{\"historias\":[]}";
+        await Assert.ThrowsAsync<LlmException>(() => orchestrator.GenerateUserStoriesAsync(id, "REQ-001"));
     }
 }

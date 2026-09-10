@@ -1,8 +1,7 @@
-# UserStoryWriterAgent (`user-story-writer-agent`) — PROPUESTO (no publicado)
+# UserStoryWriterAgent (`user-story-writer-agent`) — NUEVO (ADR-0006)
 
-> Estado: **propuesto** en [ADR-0006](../adr/0006-historias-de-usuario-con-estimaciones.md).
-> No existe aún en Foundry ni en el código; este archivo es el borrador del prompt para
-> publicarlo cuando se implemente.
+> Implementado en código. **Pendiente: publicar este prompt como agente en Foundry** con el
+> nombre `user-story-writer-agent`; con `Providers:Chat=Fake` responde datos de ejemplo.
 
 **Cuándo corre:** generación manual (`POST /api/analyses/{id}/requirements/{code}/user-stories`)
 sobre un requerimiento listo (aprobado o con clarificaciones respondidas).

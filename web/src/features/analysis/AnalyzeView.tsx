@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { analyzeFile, extractDocumentText, reevaluateRequirement } from '../../shared/api/client';
+import { analyzeFile, extractDocumentText, generateUserStories, reevaluateRequirement } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
@@ -461,6 +461,11 @@ export function AnalyzeView() {
                   analysisId
                     ? async (respuestas) =>
                         updateRequirement(mapRequirement(await reevaluateRequirement(analysisId, r.codigo, respuestas)))
+                    : undefined
+                }
+                onGenerateUserStories={
+                  analysisId
+                    ? async () => updateRequirement(mapRequirement(await generateUserStories(analysisId, r.codigo)))
                     : undefined
                 }
               />

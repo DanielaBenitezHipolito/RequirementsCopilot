@@ -109,6 +109,11 @@ public sealed class AnalysesController : ControllerBase
     public Task<IActionResult> GenerateStories(Guid id, string code, CancellationToken cancellationToken)
         => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, cancellationToken));
 
+    /// <summary>Genera el backlog de historias de usuario (ADR-0006) para un requerimiento listo.</summary>
+    [HttpPost("{id:guid}/requirements/{code}/user-stories")]
+    public Task<IActionResult> GenerateUserStories(Guid id, string code, CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateUserStoriesAsync(id, code, cancellationToken));
+
     [HttpPost("{id:guid}/requirements/{code}/reevaluate")]
     public Task<IActionResult> Reevaluate(Guid id, string code,
         [FromBody] ClarificationAnswersRequest? request, CancellationToken cancellationToken)

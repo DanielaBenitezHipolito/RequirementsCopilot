@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAnalysis, reevaluateRequirement } from '../../shared/api/client';
+import { generateUserStories, getAnalysis, reevaluateRequirement } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
@@ -94,6 +94,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 key={r.codigo}
                 requirement={r}
                 onReevaluate={async (respuestas) => replace(await reevaluateRequirement(id, r.codigo, respuestas))}
+                onGenerateUserStories={async () => replace(await generateUserStories(id, r.codigo))}
               />
             ))}
           </div>

@@ -12,6 +12,7 @@ export function mapRequirement(r: any): RequirementView {
     aclaraciones: r.aclaraciones ?? [],
     listoParaHistorias: r.listoParaHistorias,
     caso: r.caso ?? undefined,
+    historias: r.historias ?? [],
   };
 }
 
