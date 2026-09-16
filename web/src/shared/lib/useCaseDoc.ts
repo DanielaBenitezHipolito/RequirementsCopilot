@@ -1,4 +1,4 @@
-import type { CasoDeUso, RequirementView } from '../types';
+import type { RequirementView, UserStory } from '../types';
 
 // Las librerías de export (docx, jspdf) se cargan con import() dinámico SOLO al descargar,
 // para no engordar el bundle inicial (la app abre más rápido; el chunk pesado va bajo demanda).
@@ -6,9 +6,9 @@ import type { CasoDeUso, RequirementView } from '../types';
 const NAVY = '1e2a5a';
 const NAVY_RGB: [number, number, number] = [30, 42, 90];
 
-/** Cuántos casos de uso hay listos para exportar. */
+/** Cuántos requerimientos tienen algo exportable (caso de uso y/o historias). */
 export function generatedUseCaseCount(requirements: RequirementView[]): number {
-  return requirements.filter((r) => r.caso).length;
+  return requirements.filter((r) => r.caso || r.historias.length > 0).length;
 }
 
 interface Seccion {
@@ -16,6 +16,30 @@ interface Seccion {
   meta1: [string, string][];
   flujos: { titulo: string; filas: [string, string, string][] }[];
   meta2: [string, string][];
+  historias: UserStory[];
+}
+
+export const STORY_DISCLAIMER =
+  'Puntos = complejidad relativa (Fibonacci), estimación orientativa generada por IA; no es un compromiso de entrega.';
+
+/** Fila de historia para las tablas de export: [#, historia, criterios, puntos]. */
+function storyRows(historias: UserStory[]): [string, string, string, string][] {
+  return historias.map((h, i) => {
+    let historia = h.titulo;
+    if (h.como || h.quiero || h.para) {
+      historia += `
+Como ${h.como}, quiero ${h.quiero}, para ${h.para}.`;
+    }
+    if (h.dependencias.length) {
+      historia += `
+Depende de: ${h.dependencias.join(', ')}`;
+    }
+    return [String(i + 1), historia, joinList(h.criteriosAceptacion), String(h.puntos)];
+  });
+}
+
+function totalPoints(historias: UserStory[]): number {
+  return historias.reduce((sum, h) => sum + h.puntos, 0);
 }
 
 function joinList(items: string[]): string {
@@ -25,9 +49,23 @@ function joinList(items: string[]): string {
 /** Normaliza cada caso de uso a la estructura de secciones de la plantilla. */
 function toSections(requirements: RequirementView[]): Seccion[] {
   return requirements
-    .filter((r) => r.caso)
+    .filter((r) => r.caso || r.historias.length > 0)
     .map((r) => {
-      const c = r.caso as CasoDeUso;
+      // Requerimiento con historias pero sin caso de uso: sección mínima con el enunciado.
+      const c = r.caso;
+      if (!c) {
+        return {
+          titulo: r.codigo,
+          meta1: [
+            ['Código', r.codigo],
+            ['Área', r.area],
+            ['Requerimiento', r.texto],
+          ] as [string, string][],
+          flujos: [],
+          meta2: [] as [string, string][],
+          historias: r.historias,
+        };
+      }
       return {
         titulo: c.nombre,
         meta1: [
@@ -50,6 +88,7 @@ function toSections(requirements: RequirementView[]): Seccion[] {
           ['Urgencia', c.urgencia],
           ['Comentarios', joinList(c.comentarios)],
         ] as [string, string][],
+        historias: r.historias,
       };
     });
 }
@@ -124,6 +163,31 @@ export async function downloadUseCasesDocx(requirements: RequirementView[], file
     });
   };
 
+  const storyTable = (filas: [string, string, string, string][]) => {
+    const header = (t: string) =>
+      new D.TableCell({
+        shading: { fill: NAVY },
+        children: [new D.Paragraph({ children: [new D.TextRun({ text: t, bold: true, color: 'FFFFFF' })] })],
+      });
+    const cell = (text: string, width?: number) =>
+      new D.TableCell({
+        ...(width ? { width: { size: width, type: D.WidthType.PERCENTAGE } } : {}),
+        children: text.split('\n').map((line) => new D.Paragraph(line)),
+      });
+    return new D.Table({
+      width: { size: 100, type: D.WidthType.PERCENTAGE },
+      borders: allBorders,
+      rows: [
+        new D.TableRow({
+          tableHeader: true,
+          children: [header('#'), header('Historia'), header('Criterios de aceptación'), header('Pts')],
+        }),
+        ...filas.map(([n, historia, criterios, pts]) =>
+          new D.TableRow({ children: [cell(n, 5), cell(historia), cell(criterios), cell(pts, 7)] })),
+      ],
+    });
+  };
+
   const children: (InstanceType<typeof D.Paragraph> | InstanceType<typeof D.Table>)[] = [
     new D.Paragraph({ heading: D.HeadingLevel.TITLE, children: [new D.TextRun({ text: 'Especificación de Casos de Uso', color: NAVY })] }),
     new D.Paragraph({ children: [new D.TextRun({ text: `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, italics: true })] }),
@@ -142,8 +206,21 @@ export async function downloadUseCasesDocx(requirements: RequirementView[], file
       children.push(new D.Paragraph({ children: [new D.TextRun({ text: `Flujo del proceso — ${f.titulo}`, bold: true, color: NAVY })], spacing: { before: 160, after: 60 } }));
       children.push(flowTable(f.filas));
     });
-    children.push(new D.Paragraph({ text: '', spacing: { after: 60 } }));
-    children.push(metaTable(s.meta2));
+    if (s.meta2.length) {
+      children.push(new D.Paragraph({ text: '', spacing: { after: 60 } }));
+      children.push(metaTable(s.meta2));
+    }
+    if (s.historias.length) {
+      children.push(new D.Paragraph({
+        children: [new D.TextRun({ text: `Historias de usuario (backlog) — ${totalPoints(s.historias)} pts`, bold: true, color: NAVY })],
+        spacing: { before: 160, after: 20 },
+      }));
+      children.push(new D.Paragraph({
+        children: [new D.TextRun({ text: STORY_DISCLAIMER, italics: true, size: 16 })],
+        spacing: { after: 60 },
+      }));
+      children.push(storyTable(storyRows(s.historias)));
+    }
   });
 
   const doc = new D.Document({ sections: [{ children }] });
@@ -228,7 +305,27 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
       heading(`Flujo del proceso — ${f.titulo}`, 11);
       flowTable(f.filas);
     });
-    metaTable(s.meta2);
+    if (s.meta2.length) {
+      metaTable(s.meta2);
+    }
+    if (s.historias.length) {
+      heading(`Historias de usuario (backlog) — ${totalPoints(s.historias)} pts`, 11);
+      doc.setTextColor(120);
+      doc.setFontSize(8);
+      doc.text(STORY_DISCLAIMER, margin, y, { maxWidth: pageWidth - margin * 2 });
+      y += 14;
+      table({
+        startY: y,
+        margin: { left: margin, right: margin },
+        theme: 'grid',
+        headStyles: { fillColor: NAVY_RGB, textColor: [255, 255, 255] },
+        styles: { fontSize: 9, cellPadding: 4, valign: 'top' },
+        columnStyles: { 0: { cellWidth: 24 }, 3: { cellWidth: 30 } },
+        head: [['#', 'Historia', 'Criterios de aceptación', 'Pts']],
+        body: storyRows(s.historias),
+      });
+      y = finalY() + 12;
+    }
   });
 
   doc.save(`${baseName(fileName)} - Casos de Uso.pdf`);
