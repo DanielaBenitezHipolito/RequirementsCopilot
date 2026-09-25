@@ -48,4 +48,15 @@ describe('useAnalysisStore.applyEvent', () => {
     const state = useAnalysisStore.getState();
     expect(state.resumen).toBe('El documento está en buen estado general.');
   });
+
+  it('el evento requirement inicializa aclaraciones e historias vacias (la tarjeta las recorre)', () => {
+    useAnalysisStore.getState().start();
+    useAnalysisStore.getState().applyEvent({
+      event: 'requirement',
+      data: { requerimiento: { codigo: 'REQ-001', texto: 'x', area: 'Pagos' } },
+    });
+    const r = useAnalysisStore.getState().requirements[0];
+    expect(r.aclaraciones).toEqual([]);
+    expect(r.historias).toEqual([]);
+  });
 });
