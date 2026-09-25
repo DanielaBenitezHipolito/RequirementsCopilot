@@ -79,7 +79,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100">
+    <div className="flex h-screen flex-col bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
         <div className="flex w-full items-center gap-4 px-6 py-3 lg:px-10">
           <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex w-full flex-1 flex-col px-6 py-6 lg:px-10">
+      <main className="flex w-full min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6 lg:px-10">
         <div className="mb-6 grid shrink-0 grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-4">
           {tab('analyze', 'Auditar Requerimientos', <AuditIcon />)}
           {tab('interview', 'Copilot Chat de IA', <ChatIcon />)}

@@ -44,6 +44,9 @@ public sealed class AnalysisOrchestrator
     {
         Analysis analysis = Analysis.Create(fileName, projectName);
         yield return AnalysisEvent.Status("Extrayendo requerimientos del documento…");
+        // Persistencia incremental: si el cliente se desconecta a mitad (análisis largo), el avance
+        // queda en el historial con estado Processing en vez de perderse por completo.
+        await TrySaveAsync(analysis, cancellationToken);
         string projectContext = await _projectContext.LoadAsync(projectName, cancellationToken);
 
         string? error = null;
@@ -83,6 +86,7 @@ public sealed class AnalysisOrchestrator
 
                 requirement.Evaluate(evaluation!);
                 yield return AnalysisEvent.FromEvaluation(requirement);
+                await TrySaveAsync(analysis, cancellationToken);
                 if (!NeedsClarification(evaluation!))
                 {
                     continue;
@@ -110,6 +114,7 @@ public sealed class AnalysisOrchestrator
                 }
             }
         }
+        await TrySaveAsync(analysis, cancellationToken);
 
         AnalysisEvent? summaryEvent = null;
         if (error is null && analysis.Requirements.Count > 0)
@@ -338,6 +343,23 @@ public sealed class AnalysisOrchestrator
 
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Guardado best-effort durante el streaming: un fallo transitorio de persistencia no debe
+    /// tumbar el análisis en curso (el guardado final sí reporta el error).
+    /// </summary>
+    private async Task TrySaveAsync(Analysis analysis, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _repository.SaveAsync(analysis, cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception)
+        {
+            // Ignorado a propósito: es un checkpoint, no el guardado definitivo.
+        }
     }
 
     private async Task<(Analysis, Requirement)> FindAsync(Guid analysisId, string requirementCode,

@@ -473,4 +473,24 @@ public class AnalysisOrchestratorTests
         chat.Reply = _ => "{\"historias\":[]}";
         await Assert.ThrowsAsync<LlmException>(() => orchestrator.GenerateUserStoriesAsync(id, "REQ-001"));
     }
+    [Fact]
+    public async Task AnalyzeAsync_ClienteSeDesconectaAMitad_ElAvanceQuedaPersistido()
+    {
+        var repository = new StubRepository();
+        var orchestrator = Orchestrator(PipelineChat(), repository);
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("doc"));
+        await foreach (var analysisEvent in orchestrator.AnalyzeAsync(stream, "spec.txt"))
+        {
+            // Simula el corte: el consumidor abandona el stream tras la primera evaluación.
+            if (analysisEvent.Kind == AnalysisEventKind.Evaluation)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(repository.Saved);
+        Assert.Equal(AnalysisStatus.Processing, repository.Saved!.Status);
+        Assert.Contains(repository.Saved.Requirements, r => r.Evaluation is not null);
+    }
 }

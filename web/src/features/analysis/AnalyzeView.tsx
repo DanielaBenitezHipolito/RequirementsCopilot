@@ -130,6 +130,7 @@ export function AnalyzeView() {
   async function analyze(file: File) {
     setAnalysisFileName(file.name);
     start();
+    let failed = false;
     try {
       const response = await analyzeFile(file, proyecto);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
@@ -137,11 +138,19 @@ export function AnalyzeView() {
       if (useAnalysisStore.getState().status === 'running') {
         applyEvent({
           event: 'error',
-          data: { mensaje: 'La conexión con el servidor se interrumpió antes de terminar el análisis. Intente de nuevo.' },
+          data: {
+            mensaje:
+              'La conexión se interrumpió antes de terminar. El avance parcial queda en el Historial de Auditorías; el archivo sigue cargado para reintentar.',
+          },
         });
       }
     } catch (e) {
       applyEvent({ event: 'error', data: { mensaje: e instanceof Error ? e.message : 'Error inesperado' } });
+    }
+    failed = useAnalysisStore.getState().status === 'error';
+    if (failed) {
+      // El archivo vuelve a quedar cargado: reintentar es un clic, no re-subir.
+      setStaged(file);
     }
   }
 
@@ -336,7 +345,16 @@ export function AnalyzeView() {
         </div>
       )}
 
-      {status === 'error' && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {status === 'error' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-rose-50 p-3">
+          <p className="text-sm text-rose-700">{error}</p>
+          {staged && (
+            <BrandButton className="!px-4 !py-2 !text-xs" onClick={startAudit}>
+              ↻ Reintentar análisis
+            </BrandButton>
+          )}
+        </div>
+      )}
 
       {showProgress && (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
