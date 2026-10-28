@@ -53,13 +53,23 @@ public sealed class AnalysisOrchestrator
         IReadOnlyList<Requirement> requirements = Array.Empty<Requirement>();
         try
         {
-            string text = await _textExtractor.ExtractAsync(content, fileName, cancellationToken);
+            DocumentContent document = await _textExtractor.ExtractAsync(content, fileName, cancellationToken);
+            string text = document.Text;
             if (text.Length > _options.MaxInputChars)
             {
                 // Control de costos: documentos enormes se truncan antes de ir al LLM.
                 text = text[.._options.MaxInputChars];
             }
-            requirements = await _extractor.ExtractAsync(text, cancellationToken);
+            IReadOnlyList<ImageAttachment> images = document.Images.Count > _options.MaxImages
+                ? document.Images.Take(_options.MaxImages).ToArray()
+                : document.Images;
+            if (string.IsNullOrWhiteSpace(text) && images.Count == 0)
+            {
+                // Típico PDF escaneado sin OCR y sin imágenes rescatables: avisar en vez de analizar vacío.
+                throw new InvalidOperationException(
+                    "El documento no contiene texto legible ni imágenes para analizar.");
+            }
+            requirements = await _extractor.ExtractAsync(text, images, cancellationToken);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { error = ex.Message; }

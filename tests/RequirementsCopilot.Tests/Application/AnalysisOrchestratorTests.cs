@@ -21,8 +21,8 @@ public class AnalysisOrchestratorTests
 
     private sealed class StubExtractor : IDocumentTextExtractor
     {
-        public Task<string> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
-            => Task.FromResult("texto del documento");
+        public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
+            => Task.FromResult(DocumentContent.FromText("texto del documento"));
     }
 
     private static string HighRubric() =>
@@ -326,10 +326,73 @@ public class AnalysisOrchestratorTests
         Assert.NotNull(repository.Saved.Error);
     }
 
+    private sealed class ImageContentExtractor : IDocumentTextExtractor
+    {
+        public string Text { get; init; } = "texto del documento";
+        public int ImageCount { get; init; } = 1;
+
+        public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
+            => Task.FromResult(new DocumentContent(Text,
+                Enumerable.Range(0, ImageCount).Select(i => new ImageAttachment("image/png", $"IMG{i}")).ToArray()));
+    }
+
+    private static AnalysisOrchestrator OrchestratorWith(IDocumentTextExtractor extractor,
+        StubChatCompletion chat, StubRepository repository) => new(
+        extractor,
+        new RequirementExtractorAgent(chat),
+        new RequirementEvaluatorAgent(chat),
+        new ClarifierAgent(chat),
+        new UseCaseWriterAgent(chat),
+        new UserStoryWriterAgent(chat),
+        new ExecutiveSummaryAgent(chat),
+        repository,
+        new AnalysisOptions(),
+        Projects());
+
+    [Fact]
+    public async Task AnalyzeAsync_DocumentoConImagenes_LasAdjuntaAlExtractor()
+    {
+        var chat = PipelineChat();
+        var orchestrator = OrchestratorWith(new ImageContentExtractor(), chat, new StubRepository());
+
+        await Collect(orchestrator);
+
+        ChatPrompt prompt = chat.Prompts.First(p => p.Agent == RequirementExtractorAgent.AgentName);
+        ImageAttachment image = Assert.Single(prompt.Images!);
+        Assert.Equal("IMG0", image.Base64Data);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_DemasiadasImagenes_TruncaAlTope()
+    {
+        var chat = PipelineChat();
+        var orchestrator = OrchestratorWith(new ImageContentExtractor { ImageCount = 12 }, chat, new StubRepository());
+
+        await Collect(orchestrator);
+
+        ChatPrompt prompt = chat.Prompts.First(p => p.Agent == RequirementExtractorAgent.AgentName);
+        Assert.Equal(new AnalysisOptions().MaxImages, prompt.Images!.Count);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SinTextoNiImagenes_EmiteErrorSinLlamarAlLlm()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = OrchestratorWith(new ImageContentExtractor { Text = " \n", ImageCount = 0 }, chat, repository);
+
+        var events = await Collect(orchestrator);
+
+        AnalysisEvent error = Assert.Single(events, e => e.Kind == AnalysisEventKind.Error);
+        Assert.Contains("legible", error.Message);
+        Assert.Empty(chat.Prompts);
+        Assert.Equal(AnalysisStatus.Failed, repository.Saved!.Status);
+    }
+
     private sealed class LongTextExtractor : IDocumentTextExtractor
     {
-        public Task<string> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
-            => Task.FromResult(new string('x', 500));
+        public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
+            => Task.FromResult(DocumentContent.FromText(new string('x', 500)));
     }
 
     [Fact]

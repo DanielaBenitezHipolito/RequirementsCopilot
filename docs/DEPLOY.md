@@ -20,7 +20,7 @@ git push -u origin feature/requirements-copilot-mvp
    - Health Check Path: `/api/analyses`.
 3. Variables de entorno:
    - **Demo sin credenciales (recomendado para presentar):** `Providers__Chat=Fake`, `Providers__AnalysisRepository=InMemory`. Nada más.
-   - **IA real:** `Providers__Chat=Foundry`, `Foundry__Endpoint=…`, `Foundry__ApiKey=…`, `Foundry__Chat__Model=gpt-5-mini`, y por cada agente publicado `Foundry__Chat__Agents__<agente>__Name` / `__Version`; `Providers__AnalysisRepository=Mongo`, `Mongo__ConnectionString=…`, `Mongo__Database=…`.
+   - **IA real:** `Providers__Chat=Foundry`, `Foundry__Endpoint=…`, `Foundry__ApiKey=…`, `Foundry__Chat__Model=gpt-5-mini`; `Providers__AnalysisRepository=Mongo`, `Mongo__ConnectionString=…`, `Mongo__Database=…`. Los prompts de los agentes viven en `/prompts` del repo y se despliegan con la app (ADR-0008): cambiar un prompt = commit + deploy, sin tocar el portal Foundry. Las variables `Foundry__Chat__Agents__<agente>__Name/__Version` quedaron obsoletas (pueden borrarse del dashboard); el override opcional `Foundry__Chat__Agents__<agente>__Model` sigue vigente.
 4. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
 
 ## Notas

@@ -37,16 +37,25 @@ public class FoundryChatCompletionTests
             Model = "gpt-4.1-mini",
             Agents = new Dictionary<string, FoundryAgentSettings>
             {
-                ["agente-x"] = new() { Name = "agente-x", Version = "2" },
+                ["agente-x"] = new() { Model = "gpt-5-mini" },
             },
         },
     };
 
+    /// <summary>Catálogo real sobre una carpeta temporal con el prompt de «agente-x».</summary>
+    private static FilePromptCatalog Catalog()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "prompts-" + Guid.NewGuid());
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "agente-x.md"), "Eres el agente X.");
+        return new FilePromptCatalog(dir);
+    }
+
     [Fact]
-    public async Task CompleteAsync_AgentePublicado_UsaAgentReferenceYExtraeTexto()
+    public async Task CompleteAsync_EnviaInstructionsDelCatalogoSinAgentReference()
     {
         var handler = new RecordingHandler { ResponseBody = ResponsesReply };
-        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
 
         var result = await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada", "resp_prev"));
 
@@ -59,30 +68,42 @@ public class FoundryChatCompletionTests
 
         using var body = JsonDocument.Parse(handler.RequestBody!);
         var root = body.RootElement;
-        Assert.Equal("gpt-4.1-mini", root.GetProperty("model").GetString());
-        Assert.Equal("agente-x", root.GetProperty("agent_reference").GetProperty("name").GetString());
-        Assert.Equal("agent_reference", root.GetProperty("agent_reference").GetProperty("type").GetString());
-        Assert.Equal("2", root.GetProperty("agent_reference").GetProperty("version").GetString());
+        Assert.Equal("Eres el agente X.", root.GetProperty("instructions").GetString());
+        Assert.False(root.TryGetProperty("agent_reference", out _));
+        Assert.Equal("gpt-5-mini", root.GetProperty("model").GetString()); // override por agente
         Assert.Equal("resp_prev", root.GetProperty("previous_response_id").GetString());
         Assert.Equal("entrada",
             root.GetProperty("input")[0].GetProperty("content")[0].GetProperty("text").GetString());
     }
 
     [Fact]
-    public async Task CompleteAsync_AgenteNoEnCatalogo_UsaNombreLogicoYModeloPorDefecto()
+    public async Task CompleteAsync_AgenteSinOverride_UsaModeloPorDefecto()
     {
+        string dir = Path.Combine(Path.GetTempPath(), "prompts-" + Guid.NewGuid());
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "agente-simple.md"), "Prompt simple.");
         var handler = new RecordingHandler { ResponseBody = ResponsesReply };
-        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), new FilePromptCatalog(dir));
 
-        await chat.CompleteAsync(new ChatPrompt("agente-desconocido", "entrada"));
+        await chat.CompleteAsync(new ChatPrompt("agente-simple", "entrada"));
 
         using var body = JsonDocument.Parse(handler.RequestBody!);
         var root = body.RootElement;
         Assert.Equal("gpt-4.1-mini", root.GetProperty("model").GetString());
-        Assert.Equal("agente-desconocido", root.GetProperty("agent_reference").GetProperty("name").GetString());
-        Assert.False(root.GetProperty("agent_reference").TryGetProperty("version", out _));
+        Assert.Equal("Prompt simple.", root.GetProperty("instructions").GetString());
         Assert.False(root.TryGetProperty("previous_response_id", out _));
         Assert.False(root.TryGetProperty("max_output_tokens", out _)); // sin tope configurado no se envía
+    }
+
+    [Fact]
+    public async Task CompleteAsync_AgenteSinPrompt_LanzaSinLlamarALaApi()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => chat.CompleteAsync(new ChatPrompt("agente-fantasma", "entrada")));
+        Assert.Null(handler.Request);
     }
 
     [Fact]
@@ -91,7 +112,7 @@ public class FoundryChatCompletionTests
         var options = Options();
         options.Chat.MaxOutputTokens = 1234;
         var handler = new RecordingHandler { ResponseBody = ResponsesReply };
-        var chat = new FoundryChatCompletion(new HttpClient(handler), options);
+        var chat = new FoundryChatCompletion(new HttpClient(handler), options, Catalog());
 
         await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
 
@@ -100,11 +121,43 @@ public class FoundryChatCompletionTests
     }
 
     [Fact]
+    public async Task CompleteAsync_ConImagenes_EmiteInputImageJuntoAlTexto()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
+        var imagen = new ImageAttachment("image/png", "AAAA");
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada", null, new[] { imagen }));
+
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        JsonElement content = body.RootElement.GetProperty("input")[0].GetProperty("content");
+        Assert.Equal(2, content.GetArrayLength());
+        Assert.Equal("input_text", content[0].GetProperty("type").GetString());
+        Assert.Equal("entrada", content[0].GetProperty("text").GetString());
+        Assert.Equal("input_image", content[1].GetProperty("type").GetString());
+        Assert.Equal("data:image/png;base64,AAAA", content[1].GetProperty("image_url").GetString());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_SinImagenes_MantienePayloadSoloTexto()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        JsonElement content = body.RootElement.GetProperty("input")[0].GetProperty("content");
+        Assert.Equal(1, content.GetArrayLength());
+        Assert.Equal("input_text", content[0].GetProperty("type").GetString());
+    }
+
+    [Fact]
     public async Task CompleteAsync_RespuestaSinOutput_DevuelveVacio()
     {
         var handler = new RecordingHandler { ResponseBody = "{}" };
-        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
-        var result = await chat.CompleteAsync(new ChatPrompt("a", "in"));
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
+        var result = await chat.CompleteAsync(new ChatPrompt("agente-x", "in"));
         Assert.Equal(string.Empty, result.Text);
         Assert.Null(result.ResponseId);
     }
@@ -135,7 +188,7 @@ public class FoundryChatCompletionTests
     public async Task CompleteAsync_FalloTransitorio_ReintentaYCompleta()
     {
         var handler = new FlakyHandler(failures: 1);
-        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
 
         var result = await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
 
@@ -147,7 +200,7 @@ public class FoundryChatCompletionTests
     public async Task CompleteAsync_FalloPersistente_LanzaConCausaInterna()
     {
         var handler = new FlakyHandler(failures: 5);
-        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => chat.CompleteAsync(new ChatPrompt("agente-x", "entrada")));

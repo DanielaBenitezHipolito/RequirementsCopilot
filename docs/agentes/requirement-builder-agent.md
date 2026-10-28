@@ -49,3 +49,8 @@ conversación.
 Cuando `listo=true`, el frontend recibe el borrador vía el evento SSE `draft` y el usuario puede
 enviarlo con `POST /api/conversations/complete`, que crea el análisis y arranca el pipeline normal
 (1. Extractor... como si viniera de un documento, pero con un solo requerimiento ya redactado).
+
+## Imágenes adjuntas (ADR-0007)
+
+El turno puede incluir imágenes (`input_image`). La instrucción correspondiente ya está en el
+prompt versionado del repo ([`prompts/requirement-builder-agent.md`](../../prompts/requirement-builder-agent.md)).

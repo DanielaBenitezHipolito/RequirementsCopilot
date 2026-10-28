@@ -11,7 +11,8 @@ namespace RequirementsCopilot.Api.Controllers;
 public sealed class AnalysesController : ControllerBase
 {
     private const long MaxFileBytes = 10 * 1024 * 1024;
-    private static readonly string[] AllowedExtensions = { ".pdf", ".docx", ".txt", ".md" };
+    private static readonly string[] AllowedExtensions =
+        { ".pdf", ".docx", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp", ".gif" };
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -41,7 +42,7 @@ public sealed class AnalysesController : ControllerBase
         string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(extension))
         {
-            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT o MD." });
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT, MD o una imagen (PNG, JPG, WEBP, GIF)." });
         }
 
         Response.ContentType = "text/event-stream";
@@ -71,14 +72,14 @@ public sealed class AnalysesController : ControllerBase
         string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(extension))
         {
-            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT o MD." });
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT, MD o una imagen (PNG, JPG, WEBP, GIF)." });
         }
 
         await using Stream content = file.OpenReadStream();
         try
         {
-            string texto = await _textExtractor.ExtractAsync(content, file.FileName, cancellationToken);
-            return Ok(new { texto });
+            DocumentContent contenido = await _textExtractor.ExtractAsync(content, file.FileName, cancellationToken);
+            return Ok(new { texto = contenido.Text, imagenes = contenido.Images.Count });
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

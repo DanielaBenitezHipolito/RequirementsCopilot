@@ -26,10 +26,37 @@ function SendIcon() {
   );
 }
 
+function ClipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+      />
+    </svg>
+  );
+}
+
+const MAX_CHAT_IMAGES = 4;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string) => void }) {
   const { messages, draft, previousResponseId, conversationId, proyecto, status, error, setProyecto, addUserMessage, applyEvent, hydrate, reset } =
     useInterviewStore();
   const [text, setText] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [imageError, setImageError] = useState<string>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [approving, setApproving] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [historyError, setHistoryError] = useState<string>();
@@ -51,13 +78,37 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
     messagesEndRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, status]);
 
+  async function attachFiles(files: Iterable<File>) {
+    setImageError(undefined);
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      if (images.length >= MAX_CHAT_IMAGES) {
+        setImageError(`Máximo ${MAX_CHAT_IMAGES} imágenes por mensaje.`);
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        setImageError('Cada imagen debe pesar máximo 5 MB.');
+        return;
+      }
+      try {
+        const dataUrl = await readAsDataUrl(file);
+        setImages((prev) => (prev.length < MAX_CHAT_IMAGES ? [...prev, dataUrl] : prev));
+      } catch (e) {
+        setImageError(e instanceof Error ? e.message : 'No se pudo leer la imagen.');
+      }
+    }
+  }
+
   async function send() {
     const mensaje = text.trim();
-    if (!mensaje || status === 'sending') return;
+    const adjuntas = images;
+    if ((!mensaje && adjuntas.length === 0) || status === 'sending') return;
     setText('');
-    addUserMessage(mensaje);
+    setImages([]);
+    setImageError(undefined);
+    addUserMessage(mensaje || '(imagen adjunta)', adjuntas.length > 0 ? adjuntas : undefined);
     try {
-      const response = await sendConversationMessage(mensaje, previousResponseId, conversationId, proyecto);
+      const response = await sendConversationMessage(mensaje, previousResponseId, conversationId, proyecto, adjuntas);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
       loadConversations();
     } catch (e) {
@@ -175,7 +226,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
                   <BotIcon />
                 </span>
               )}
-              <p
+              <div
                 className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
                   m.role === 'user'
                     ? 'text-white'
@@ -183,8 +234,15 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
                 }`}
                 style={m.role === 'user' ? { backgroundColor: BRAND } : undefined}
               >
+                {m.images && m.images.length > 0 && (
+                  <div className="mb-1.5 flex flex-wrap gap-1.5">
+                    {m.images.map((src, j) => (
+                      <img key={j} src={src} alt="imagen adjunta" className="h-24 max-w-40 rounded-lg object-cover" />
+                    ))}
+                  </div>
+                )}
                 {m.text}
-              </p>
+              </div>
             </div>
           ))}
           {status === 'sending' && <p className="text-sm text-slate-400">El agente está escribiendo…</p>}
@@ -206,25 +264,72 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
           </div>
         )}
 
-        <div className="flex shrink-0 gap-2 border-t border-slate-100 p-4">
-          <input
-            className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
-            placeholder="Consúltale cualquier duda al Copilot…"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void send();
-            }}
-          />
-          <BrandButton
-            className="!h-10 !w-10 !rounded-full !p-0"
-            disabled={!text.trim()}
-            loading={status === 'sending'}
-            loadingText=""
-            onClick={() => void send()}
-          >
-            <SendIcon />
-          </BrandButton>
+        <div className="shrink-0 border-t border-slate-100 p-4">
+          {imageError && <p className="mb-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{imageError}</p>}
+          {images.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {images.map((src, i) => (
+                <span key={i} className="relative">
+                  <img src={src} alt={`adjunto ${i + 1}`} className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
+                  <button
+                    type="button"
+                    aria-label="Quitar imagen"
+                    className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white hover:bg-rose-600"
+                    onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) void attachFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Adjuntar imagen"
+              title="Adjuntar imagen (o pegue una captura con Ctrl+V)"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ClipIcon />
+            </button>
+            <input
+              className="flex-1 rounded-full border border-slate-300 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+              placeholder="Consúltale cualquier duda al Copilot…"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void send();
+              }}
+              onPaste={(e) => {
+                const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'));
+                if (files.length > 0) {
+                  e.preventDefault();
+                  void attachFiles(files);
+                }
+              }}
+            />
+            <BrandButton
+              className="!h-10 !w-10 !rounded-full !p-0"
+              disabled={!text.trim() && images.length === 0}
+              loading={status === 'sending'}
+              loadingText=""
+              onClick={() => void send()}
+            >
+              <SendIcon />
+            </BrandButton>
+          </div>
         </div>
       </div>
     </div>

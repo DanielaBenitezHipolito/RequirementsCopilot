@@ -9,4 +9,7 @@ public sealed record AnalysisOptions
 
     /// <summary>Tope de caracteres del .md de proyecto inyectado como contexto a los agentes.</summary>
     public int MaxProjectContextChars { get; init; } = 60_000;
+
+    /// <summary>Tope de imágenes del documento enviadas al extractor (control de costos).</summary>
+    public int MaxImages { get; init; } = 10;
 }

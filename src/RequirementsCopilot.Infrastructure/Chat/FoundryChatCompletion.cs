@@ -6,9 +6,9 @@ using RequirementsCopilot.Application.Analyses;
 namespace RequirementsCopilot.Infrastructure.Chat;
 
 /// <summary>
-/// Adaptador de <see cref="IChatCompletion"/> sobre Azure AI Foundry (Responses API), invocando un
-/// agente publicado por referencia (<c>agent_reference</c>) y manteniendo el hilo con
-/// <c>previous_response_id</c>. Espeja el patrón de JYDE.OpenDataCopilot:
+/// Adaptador de <see cref="IChatCompletion"/> sobre Azure AI Foundry (Responses API). El prompt de
+/// sistema del agente viaja en cada request (<c>instructions</c>, desde <see cref="FilePromptCatalog"/>;
+/// ADR-0008) y el hilo se mantiene con <c>previous_response_id</c>:
 /// <c>POST {endpoint}/openai/v1/responses</c> con cabecera <c>api-key</c>.
 /// </summary>
 public sealed class FoundryChatCompletion : IChatCompletion
@@ -17,13 +17,16 @@ public sealed class FoundryChatCompletion : IChatCompletion
 
     private readonly HttpClient _httpClient;
     private readonly FoundryOptions _options;
+    private readonly FilePromptCatalog _prompts;
 
-    public FoundryChatCompletion(HttpClient httpClient, FoundryOptions options)
+    public FoundryChatCompletion(HttpClient httpClient, FoundryOptions options, FilePromptCatalog prompts)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(prompts);
         _httpClient = httpClient;
         _options = options;
+        _prompts = prompts;
 
         if (!string.IsNullOrWhiteSpace(options.ApiKey) && !_httpClient.DefaultRequestHeaders.Contains("api-key"))
         {
@@ -37,31 +40,27 @@ public sealed class FoundryChatCompletion : IChatCompletion
 
         FoundryAgentSettings? agent = _options.Chat.Agents.GetValueOrDefault(prompt.Agent);
         string model = agent?.Model ?? _options.Chat.Model;
-        string agentName = agent?.Name ?? prompt.Agent;
+        string instructions = _prompts.Get(prompt.Agent);
 
-        Dictionary<string, object> agentReference = new()
+        List<object> content = new() { new { type = "input_text", text = prompt.Input } };
+        foreach (ImageAttachment image in prompt.Images ?? Array.Empty<ImageAttachment>())
         {
-            ["name"] = agentName,
-            ["type"] = "agent_reference",
-        };
-        if (!string.IsNullOrWhiteSpace(agent?.Version))
-        {
-            agentReference["version"] = agent.Version;
+            content.Add(new { type = "input_image", image_url = image.ToDataUrl() });
         }
 
         Dictionary<string, object> payload = new()
         {
             ["model"] = model,
+            ["instructions"] = instructions,
             ["input"] = new[]
             {
                 new
                 {
                     role = "user",
                     type = "message",
-                    content = new[] { new { type = "input_text", text = prompt.Input } },
+                    content,
                 },
             },
-            ["agent_reference"] = agentReference,
         };
         if (!string.IsNullOrWhiteSpace(prompt.PreviousResponseId))
         {

@@ -4,6 +4,8 @@ import type { SseEvent } from '../../shared/types';
 interface Message {
   role: 'user' | 'agent';
   text: string;
+  /** Data URLs de las imágenes adjuntas al mensaje (solo vista local; el historial persiste texto). */
+  images?: string[];
 }
 
 interface Draft {
@@ -27,7 +29,7 @@ interface InterviewState {
   status: 'idle' | 'sending' | 'error';
   error?: string;
   setProyecto: (proyecto?: string) => void;
-  addUserMessage: (text: string) => void;
+  addUserMessage: (text: string, images?: string[]) => void;
   applyEvent: (evt: SseEvent) => void;
   hydrate: (detail: ConversationDetail) => void;
   reset: () => void;
@@ -46,9 +48,9 @@ const initial = {
 export const useInterviewStore = create<InterviewState>((set) => ({
   ...initial,
   setProyecto: (proyecto) => set({ proyecto }),
-  addUserMessage: (text) =>
+  addUserMessage: (text, images) =>
     set((state) => ({
-      messages: [...state.messages, { role: 'user', text }],
+      messages: [...state.messages, { role: 'user', text, images }],
       draft: undefined,
       status: 'sending',
       error: undefined,

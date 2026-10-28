@@ -15,4 +15,9 @@
     <ProjectReference Include="..\RequirementsCopilot.Infrastructure\RequirementsCopilot.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- Prompts de los agentes (ADR-0008): versionados en /prompts y desplegados junto al binario. -->
+  <ItemGroup>
+    <Content Include="..\..\prompts\**\*.md" LinkBase="prompts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

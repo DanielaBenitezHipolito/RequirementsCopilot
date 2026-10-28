@@ -65,6 +65,8 @@ function StepLabel({ text, state }: { text: string; state: 'done' | 'active' | '
 }
 
 const PREVIEWABLE = /\.(txt|md)$/i;
+const ALLOWED_FILE = /\.(pdf|docx|txt|md|png|jpe?g|webp|gif)$/i;
+const IMAGE_FILE = /\.(png|jpe?g|webp|gif)$/i;
 
 function isPreviewable(file: File) {
   return PREVIEWABLE.test(file.name);
@@ -80,6 +82,18 @@ export function AnalyzeView() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editedText, setEditedText] = useState<string | null>(null);
   const [proyecto, setProyecto] = useState<string>();
+
+  const [stageError, setStageError] = useState<string>();
+
+  // El accept del input solo filtra el diálogo del navegador: el drop necesita su propia validación.
+  function stage(file: File) {
+    if (!ALLOWED_FILE.test(file.name)) {
+      setStageError(`Formato no soportado: ${file.name}. Use PDF, DOCX, TXT, MD o una imagen (PNG, JPG, WEBP, GIF).`);
+      return;
+    }
+    setStageError(undefined);
+    setStaged(file);
+  }
 
   function clearStaged() {
     setStaged(null);
@@ -249,14 +263,16 @@ export function AnalyzeView() {
               e.preventDefault();
               setDragging(false);
               const file = e.dataTransfer.files[0];
-              if (file) setStaged(file);
+              if (file) stage(file);
             }}
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
               <UploadIcon />
             </span>
             <p className="mt-4 font-semibold text-slate-700">Arrastre su documento de requerimientos aquí</p>
-            <p className="mt-1 text-xs text-slate-500">Soporta archivos .pdf, .docx, .txt y .md · máximo 10 MB</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Soporta .pdf, .docx, .txt, .md e imágenes (.png, .jpg, .webp, .gif) · máximo 10 MB
+            </p>
             <button
               type="button"
               className="mt-5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
@@ -268,14 +284,17 @@ export function AnalyzeView() {
             >
               Explorar Archivos
             </button>
+            {stageError && (
+              <p className="mt-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-700">{stageError}</p>
+            )}
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.docx,.txt,.md"
+              accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,.gif"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) setStaged(file);
+                if (file) stage(file);
                 e.target.value = '';
               }}
             />
@@ -294,16 +313,19 @@ export function AnalyzeView() {
                     Contenido cargado con éxito · {(staged.size / 1024).toFixed(1)} KB · Listo para auditar
                   </p>
                 </div>
-                <BrandButton
-                  variant="secondary"
-                  sparkle
-                  className="!px-4 !py-2 !text-xs"
-                  loading={extracting}
-                  loadingText="Extrayendo texto…"
-                  onClick={() => void togglePreview()}
-                >
-                  {previewOpen ? 'Ocultar Vista Previa' : 'Ver / Editar Contenido'}
-                </BrandButton>
+                {/* Una imagen no tiene texto que previsualizar/editar: se analiza directo. */}
+                {!IMAGE_FILE.test(staged.name) && (
+                  <BrandButton
+                    variant="secondary"
+                    sparkle
+                    className="!px-4 !py-2 !text-xs"
+                    loading={extracting}
+                    loadingText="Extrayendo texto…"
+                    onClick={() => void togglePreview()}
+                  >
+                    {previewOpen ? 'Ocultar Vista Previa' : 'Ver / Editar Contenido'}
+                  </BrandButton>
+                )}
                 <button
                   type="button"
                   onClick={clearStaged}

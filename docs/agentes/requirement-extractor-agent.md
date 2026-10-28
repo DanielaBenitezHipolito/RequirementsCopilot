@@ -25,3 +25,8 @@
 ```json
 { "requerimientos": [ { "codigo": "REQ-001", "texto": "...", "area": "Pagos" } ] }
 ```
+
+## Imágenes adjuntas (ADR-0007)
+
+El turno puede incluir imágenes (`input_image`). La instrucción correspondiente ya está en el
+prompt versionado del repo ([`prompts/requirement-extractor-agent.md`](../../prompts/requirement-extractor-agent.md)).

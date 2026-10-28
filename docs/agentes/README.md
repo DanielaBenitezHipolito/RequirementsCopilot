@@ -1,5 +1,10 @@
 # Prompts de los agentes — RequirementsCopilot
 
+> **Fuente de verdad de los prompts: [`/prompts`](../../prompts/) (ADR-0008).** Estos documentos
+> describen cuándo corre cada agente y su contrato de entrada/salida; el texto que se envía al
+> modelo en cada request es el del archivo `prompts/<agente>.md`. Ya no hay agentes publicados
+> en el portal Foundry.
+
 Un archivo por agente en esta carpeta. **Fuente de verdad del proveedor real:** los agentes
 publicados en **Azure AI Foundry** (portal). Estos documentos replican sus instrucciones para
 revisión de producto y para publicarlos/actualizarlos; si editas un prompt en Foundry, actualiza

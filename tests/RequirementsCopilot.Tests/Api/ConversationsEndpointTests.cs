@@ -71,6 +71,45 @@ public class ConversationsEndpointTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
+    public async Task SendMessage_ConImagen_Responde200()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "Mira esta pantalla", imagenes = new[] { "data:image/png;base64,AAAA" } });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("event: token", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SendMessage_SoloImagenSinTexto_Responde200()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "", imagenes = new[] { "data:image/png;base64,AAAA" } });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("event: token", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SendMessage_ImagenInvalida_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "hola", imagenes = new[] { "https://example.com/foto.png" } });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SendMessage_DemasiadasImagenes_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        string[] imagenes = Enumerable.Repeat("data:image/png;base64,AAAA", 5).ToArray();
+        var response = await client.PostAsJsonAsync("/api/conversations/messages",
+            new { mensaje = "hola", imagenes });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Complete_SinTexto_Devuelve400()
     {
         var client = _factory.CreateClient();
