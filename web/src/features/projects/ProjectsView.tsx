@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { deleteProject, getProject, getProjects, updateProject, uploadProject } from '../../shared/api/client';
+import {
+  appendProjectDocument,
+  createEmptyProject,
+  deleteProject,
+  getProject,
+  getProjects,
+  updateProject,
+  uploadProject,
+} from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import type { ProjectSummary } from '../../shared/types';
 
@@ -17,7 +25,9 @@ export function ProjectsView() {
   const [savedContent, setSavedContent] = useState('');
   const [busy, setBusy] = useState(false);
   const [newName, setNewName] = useState('');
+  const [useCaseCount, setUseCaseCount] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -42,6 +52,7 @@ export function ProjectsView() {
       setSelected(detail.nombre);
       setContent(detail.contenido);
       setSavedContent(detail.contenido);
+      setUseCaseCount(detail.casosDeUso ?? 0);
       setError(undefined);
     } catch (e) {
       setError(message(e, 'No se pudo abrir el proyecto.'));
@@ -59,6 +70,36 @@ export function ProjectsView() {
       await open(nombre);
     } catch (e) {
       setError(message(e, 'No se pudo subir el proyecto.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createEmpty() {
+    const nombre = newName.trim();
+    if (!nombre) return;
+    setBusy(true);
+    try {
+      await createEmptyProject(nombre);
+      setNewName('');
+      await load();
+      await open(nombre);
+    } catch (e) {
+      setError(message(e, 'No se pudo crear el proyecto.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function appendDocument(file: File) {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await appendProjectDocument(selected, file);
+      await open(selected);
+      await load();
+    } catch (e) {
+      setError(message(e, 'No se pudo anexar el documento.'));
     } finally {
       setBusy(false);
     }
@@ -100,17 +141,26 @@ export function ProjectsView() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Nuevo proyecto</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Suba un archivo .md con la descripción del sistema existente (módulos, roles, reglas). Si ya existe uno con
-            ese nombre, se reemplaza.
+            Suba un archivo .md con la descripción del sistema existente (módulos, roles, reglas), o cree un proyecto
+            vacío para un sistema nuevo: su contexto se irá construyendo con los casos de uso que genere.
           </p>
           <input
             className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-            placeholder="Nombre (opcional; por defecto el del archivo)"
+            placeholder="Nombre (opcional con .md; obligatorio para proyecto vacío)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
           />
           <BrandButton className="mt-3 w-full" loading={busy} onClick={() => fileRef.current?.click()}>
             Subir contexto .md
+          </BrandButton>
+          <BrandButton
+            variant="secondary"
+            className="mt-2 w-full"
+            loading={busy}
+            disabled={!newName.trim()}
+            onClick={() => void createEmpty()}
+          >
+            Crear proyecto vacío
           </BrandButton>
           <input
             ref={fileRef}
@@ -162,14 +212,38 @@ export function ProjectsView() {
         )}
         {selected && (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
               <div>
                 <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">{selected}</h2>
-                <p className="text-xs text-slate-400">{content.length} caracteres</p>
+                <p className="text-xs text-slate-400">
+                  {content.length} caracteres · {useCaseCount} caso{useCaseCount === 1 ? '' : 's'} de uso asociado
+                  {useCaseCount === 1 ? '' : 's'}
+                </p>
               </div>
-              <BrandButton loading={busy} disabled={!dirty} onClick={() => void save()}>
-                Guardar cambios
-              </BrandButton>
+              <div className="flex gap-2">
+                <input
+                  ref={docRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void appendDocument(file);
+                    e.target.value = '';
+                  }}
+                />
+                <BrandButton
+                  variant="secondary"
+                  className="!px-4 !py-2 !text-xs"
+                  loading={busy}
+                  onClick={() => docRef.current?.click()}
+                >
+                  Anexar documento
+                </BrandButton>
+                <BrandButton loading={busy} disabled={!dirty} onClick={() => void save()}>
+                  Guardar cambios
+                </BrandButton>
+              </div>
             </div>
             <textarea
               className="min-h-[24rem] flex-1 resize-none p-4 font-mono text-sm text-slate-700 focus:outline-none"

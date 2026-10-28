@@ -27,4 +27,15 @@ public sealed class MongoAnalysisRepository : IAnalysisRepository
             .SortByDescending(d => d.CreatedAt).ToListAsync(cancellationToken);
         return documents.Select(d => d.ToDomain()).ToArray();
     }
+
+    public async Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken cancellationToken = default)
+    {
+        // Comparación sin distinguir mayúsculas: el nombre llega tal como lo escribió el usuario.
+        FilterDefinition<AnalysisDocument> filter = Builders<AnalysisDocument>.Filter.Regex(
+            d => d.ProjectName,
+            new MongoDB.Bson.BsonRegularExpression($"^{System.Text.RegularExpressions.Regex.Escape(projectName)}$", "i"));
+        List<AnalysisDocument> documents = await _collection.Find(filter)
+            .SortBy(d => d.CreatedAt).ToListAsync(cancellationToken);
+        return documents.Select(d => d.ToDomain()).ToArray();
+    }
 }

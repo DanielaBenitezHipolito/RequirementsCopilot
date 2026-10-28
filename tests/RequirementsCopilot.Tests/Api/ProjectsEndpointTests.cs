@@ -57,22 +57,106 @@ public class ProjectsEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal("version 2", detail.GetProperty("contenido").GetString());
     }
 
-    [Theory]
-    [InlineData("spec.txt", "contenido")]
-    [InlineData("vacio.md", "   ")]
-    public async Task Upload_Invalido_Devuelve400(string fileName, string content)
+    [Fact]
+    public async Task Upload_ExtensionInvalida_Devuelve400()
     {
         var client = _factory.CreateClient();
-        var response = await client.PostAsync("/api/projects", MdForm(fileName, content));
+        var response = await client.PostAsync("/api/projects", MdForm("spec.txt", "contenido"));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task Upload_SinArchivo_Devuelve400()
+    public async Task Upload_MdVacio_CreaProyectoSinContenido()
+    {
+        // ADR-0009: un proyecto nuevo puede arrancar vacío; su contexto se construye con los casos de uso.
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/projects", MdForm("vacio.md", "   ", nombre: "Vacio"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/Vacio");
+        Assert.Equal(string.Empty, detail.GetProperty("contenido").GetString());
+    }
+
+    [Fact]
+    public async Task Upload_SinArchivoNiNombre_Devuelve400()
     {
         var client = _factory.CreateClient();
         var response = await client.PostAsync("/api/projects", new MultipartFormDataContent());
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Upload_SoloNombre_CreaProyectoVacio()
+    {
+        // Proyecto nuevo (ADR-0009): se crea sin .md; el contexto se construye con sus casos de uso.
+        var client = _factory.CreateClient();
+        var form = new MultipartFormDataContent { { new StringContent("Proyecto Nuevo"), "nombre" } };
+
+        var response = await client.PostAsync("/api/projects", form);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/Proyecto Nuevo");
+        Assert.Equal(string.Empty, detail.GetProperty("contenido").GetString());
+    }
+
+    private static MultipartFormDataContent TxtForm(string fileName, string content)
+    {
+        var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes(content)), "file", fileName);
+        return form;
+    }
+
+    [Fact]
+    public async Task AgregarDocumento_AnexaElTextoAlContenido()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("base.md", "Descripción base.", nombre: "ConDocs"));
+
+        var response = await client.PostAsync("/api/projects/ConDocs/documents",
+            TxtForm("casos-existentes.txt", "CU-01: El usuario inicia sesión."));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/ConDocs");
+        string contenido = detail.GetProperty("contenido").GetString()!;
+        Assert.Contains("Descripción base.", contenido);
+        Assert.Contains("casos-existentes.txt", contenido);
+        Assert.Contains("CU-01: El usuario inicia sesión.", contenido);
+    }
+
+    [Fact]
+    public async Task AgregarDocumento_ProyectoInexistente_Devuelve404()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/projects/NoExiste/documents", TxtForm("x.txt", "contenido"));
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AgregarDocumento_Imagen_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("p.md", "x", nombre: "SoloTexto"));
+        var response = await client.PostAsync("/api/projects/SoloTexto/documents", TxtForm("foto.png", "bytes"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetByName_IncluyeConteoDeCasosDeUsoAsociados()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("ctx.md", "Sistema base.", nombre: "CtxProj"));
+
+        // Análisis del proyecto → REQ-001 queda aprobado (Fake) → generar su caso de uso.
+        var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("El sistema debe registrar pagos.")), "file", "spec.txt");
+        form.Add(new StringContent("CtxProj"), "proyecto");
+        var analyze = await client.PostAsync("/api/analyses", form);
+        string body = await analyze.Content.ReadAsStringAsync();
+        string analysisId = System.Text.RegularExpressions.Regex.Match(body, "\"analysisId\":\"([^\"]+)\"").Groups[1].Value;
+        var stories = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stories", null);
+        Assert.Equal(HttpStatusCode.OK, stories.StatusCode);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/CtxProj");
+        Assert.Equal(1, detail.GetProperty("casosDeUso").GetInt32());
     }
 
     [Fact]
@@ -86,8 +170,9 @@ public class ProjectsEndpointTests : IClassFixture<WebApplicationFactory<Program
         var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/Siniestros");
         Assert.Equal("v2 editada", detail.GetProperty("contenido").GetString());
 
+        // Vaciar el contenido es válido (ADR-0009): el proyecto queda solo con sus casos de uso.
         var empty = await client.PutAsJsonAsync("/api/projects/Siniestros", new { contenido = " " });
-        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
         var missing = await client.PutAsJsonAsync("/api/projects/NoExiste", new { contenido = "x" });
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
 
