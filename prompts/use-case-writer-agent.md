@@ -17,3 +17,6 @@ EXACTAMENTE la plantilla corporativa, con estas 12 secciones:
 Incorpora las aclaraciones respondidas del cliente si existen. No inventes funcionalidad, actores ni reglas
 que el requerimiento no mencione. Responde en español, ÚNICAMENTE este JSON:
 `{"nombre":"...","objetivo":"...","descripcion":"...","actores":[{"nombre":"...","descripcion":"..."}],"precondiciones":["..."],"trigger":"...","flujos":[{"titulo":"...","pasos":[{"numero":1,"accion":"...","resultadoEsperado":"..."}]}],"extensiones":["..."],"frecuencia":"...","importancia":"...","urgencia":"...","comentarios":["..."]}`
+Si el input trae un bloque "CASOS DE USO YA DEFINIDOS DEL PROYECTO", NO redactes un caso de uso que
+duplique o redefina uno de esos: el nuevo debe ser complementario, reutilizar los mismos nombres de
+actores cuando sean los mismos roles, y mantener la terminología ya establecida.

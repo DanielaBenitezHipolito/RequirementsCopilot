@@ -17,6 +17,8 @@ public class AnalysisOrchestratorTests
             => Task.FromResult(Saved?.Id == id ? Saved : null);
         public Task<IReadOnlyList<Analysis>> GetAllAsync(CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
+        public Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
     }
 
     private sealed class StubExtractor : IDocumentTextExtractor
@@ -82,7 +84,7 @@ public class AnalysisOrchestratorTests
         {
             store.SaveAsync(project).Wait();
         }
-        return new ProjectContextLoader(store, new AnalysisOptions());
+        return new ProjectContextLoader(store, new InMemoryAnalysisRepository(), new AnalysisOptions());
     }
 
     private static async Task<List<AnalysisEvent>> Collect(AnalysisOrchestrator orchestrator)

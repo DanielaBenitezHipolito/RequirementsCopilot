@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Projects;
 
 namespace RequirementsCopilot.Api.Controllers;
@@ -15,9 +16,15 @@ public sealed class ProjectsController : ControllerBase
 
     public sealed record UpdateRequest(string? Contenido);
 
-    private readonly IProjectRepository _projects;
+    private static readonly string[] DocumentExtensions = { ".pdf", ".docx", ".txt", ".md" };
 
-    public ProjectsController(IProjectRepository projects) => _projects = projects;
+    private readonly IProjectRepository _projects;
+    private readonly IAnalysisRepository _analyses;
+    private readonly IDocumentTextExtractor _textExtractor;
+
+    public ProjectsController(IProjectRepository projects, IAnalysisRepository analyses,
+        IDocumentTextExtractor textExtractor)
+        => (_projects, _analyses, _textExtractor) = (projects, analyses, textExtractor);
 
     /// <summary>Lista los proyectos disponibles (nombre y fecha de actualización).</summary>
     [HttpGet]
@@ -27,19 +34,24 @@ public sealed class ProjectsController : ControllerBase
         return Ok(projects.Select(p => new { nombre = p.Name, updatedAt = p.UpdatedAt }));
     }
 
-    /// <summary>Devuelve el contenido Markdown de un proyecto.</summary>
+    /// <summary>Devuelve el contenido Markdown de un proyecto y cuántos casos de uso generados tiene asociados.</summary>
     [HttpGet("{nombre}")]
     public async Task<IActionResult> GetByName(string nombre, CancellationToken cancellationToken)
     {
         Project? project = await _projects.GetByNameAsync(nombre, cancellationToken);
-        return project is null
-            ? NotFound(new { mensaje = "Proyecto no encontrado." })
-            : Ok(new { nombre = project.Name, contenido = project.Content, updatedAt = project.UpdatedAt });
+        if (project is null)
+        {
+            return NotFound(new { mensaje = "Proyecto no encontrado." });
+        }
+        int casosDeUso = (await _analyses.GetByProjectAsync(project.Name, cancellationToken))
+            .SelectMany(a => a.Requirements).Count(r => r.UseCase is not null);
+        return Ok(new { nombre = project.Name, contenido = project.Content, updatedAt = project.UpdatedAt, casosDeUso });
     }
 
     /// <summary>
     /// Sube (o reemplaza) el .md de un proyecto. El nombre es el campo <c>nombre</c> o, si falta,
-    /// el nombre del archivo sin extensión.
+    /// el nombre del archivo sin extensión. Sin archivo y con <c>nombre</c>, crea un proyecto vacío
+    /// (ADR-0009): su contexto se construye con los casos de uso que genere.
     /// </summary>
     [HttpPost]
     [RequestSizeLimit(MaxFileBytes + 1024)]
@@ -47,7 +59,13 @@ public sealed class ProjectsController : ControllerBase
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { mensaje = "Debe adjuntar un archivo .md." });
+            if (string.IsNullOrWhiteSpace(nombre))
+            {
+                return BadRequest(new { mensaje = "Debe adjuntar un archivo .md o indicar un nombre de proyecto." });
+            }
+            Project emptyProject = Project.Create(nombre, string.Empty);
+            await _projects.SaveAsync(emptyProject, cancellationToken);
+            return Ok(new { nombre = emptyProject.Name, updatedAt = emptyProject.UpdatedAt });
         }
         if (file.Length > MaxFileBytes)
         {
@@ -74,6 +92,52 @@ public sealed class ProjectsController : ControllerBase
 
         await _projects.SaveAsync(project, cancellationToken);
         return Ok(new { nombre = project.Name, updatedAt = project.UpdatedAt });
+    }
+
+    /// <summary>
+    /// Anexa al contenido del proyecto el texto extraído de un documento (casos de uso existentes
+    /// en Word/PDF/texto): queda como parte del contexto que reciben los agentes (ADR-0009).
+    /// </summary>
+    [HttpPost("{nombre}/documents")]
+    [RequestSizeLimit(10 * 1024 * 1024 + 1024)]
+    public async Task<IActionResult> AppendDocument(string nombre, IFormFile? file, CancellationToken cancellationToken)
+    {
+        Project? project = await _projects.GetByNameAsync(nombre, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { mensaje = "Proyecto no encontrado." });
+        }
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Debe adjuntar un documento." });
+        }
+        string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!DocumentExtensions.Contains(extension))
+        {
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT o MD." });
+        }
+
+        await using Stream content = file.OpenReadStream();
+        string texto;
+        try
+        {
+            texto = (await _textExtractor.ExtractAsync(content, file.FileName, cancellationToken)).Text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return BadRequest(new { mensaje = $"No se pudo leer el documento: {ex.Message}" });
+        }
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return BadRequest(new { mensaje = "El documento no contiene texto legible para anexar al proyecto." });
+        }
+
+        string updated = string.IsNullOrWhiteSpace(project.Content)
+            ? $"## Importado de «{file.FileName}»\n\n{texto.Trim()}"
+            : $"{project.Content}\n\n## Importado de «{file.FileName}»\n\n{texto.Trim()}";
+        Project saved = Project.Create(project.Name, updated);
+        await _projects.SaveAsync(saved, cancellationToken);
+        return Ok(new { nombre = saved.Name, updatedAt = saved.UpdatedAt, caracteres = saved.Content.Length });
     }
 
     /// <summary>Reemplaza el contenido Markdown de un proyecto existente (edición en pantalla).</summary>

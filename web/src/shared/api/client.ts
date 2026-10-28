@@ -135,6 +135,23 @@ export async function uploadProject(file: File, nombre?: string): Promise<{ nomb
   return readOrThrow(response);
 }
 
+export async function createEmptyProject(nombre: string): Promise<{ nombre: string }> {
+  const form = new FormData();
+  form.append('nombre', nombre);
+  const response = await fetch(`${API_BASE}/api/projects`, { method: 'POST', body: form });
+  return readOrThrow(response);
+}
+
+export async function appendProjectDocument(nombre: string, file: File): Promise<{ nombre: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}/documents`, {
+    method: 'POST',
+    body: form,
+  });
+  return readOrThrow(response);
+}
+
 export async function getProject(nombre: string): Promise<ProjectDetail> {
   const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}`);
   return readOrThrow(response);

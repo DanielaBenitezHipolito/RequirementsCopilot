@@ -19,4 +19,9 @@ public sealed class InMemoryAnalysisRepository : IAnalysisRepository
 
     public Task<IReadOnlyList<Analysis>> GetAllAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Analysis>>(_store.Values.OrderByDescending(a => a.CreatedAt).ToArray());
+
+    public Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<Analysis>>(_store.Values
+            .Where(a => string.Equals(a.ProjectName, projectName, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(a => a.CreatedAt).ToArray());
 }

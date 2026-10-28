@@ -6,17 +6,16 @@ namespace RequirementsCopilot.Application.Projects;
 /// </summary>
 public sealed record Project(string Name, string Content, DateTime UpdatedAt)
 {
-    /// <summary>Crea un proyecto validando nombre y contenido.</summary>
-    public static Project Create(string name, string content)
+    /// <summary>
+    /// Crea un proyecto validando el nombre. El contenido puede estar vacío: un proyecto nuevo
+    /// arranca sin descripción y su contexto se construye con los casos de uso que genere (ADR-0009).
+    /// </summary>
+    public static Project Create(string name, string? content)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("El proyecto requiere nombre.", nameof(name));
         }
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            throw new ArgumentException("El archivo del proyecto está vacío.", nameof(content));
-        }
-        return new Project(name.Trim(), content.Trim(), DateTime.UtcNow);
+        return new Project(name.Trim(), content?.Trim() ?? string.Empty, DateTime.UtcNow);
     }
 }
