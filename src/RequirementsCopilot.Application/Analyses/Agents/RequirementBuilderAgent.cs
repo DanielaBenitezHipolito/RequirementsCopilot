@@ -22,13 +22,15 @@ public sealed class RequirementBuilderAgent
     /// <summary>
     /// Un turno del entrevistador. <paramref name="projectContext"/> se antepone solo al primer turno
     /// (sin <paramref name="previousResponseId"/>): el hilo lo conserva en los siguientes.
+    /// <paramref name="images"/> adjunta capturas/mockups del usuario al turno (entrada multimodal).
     /// </summary>
     public async Task<BuilderTurn> ChatAsync(string userMessage, string? previousResponseId,
-        string? projectContext = null, CancellationToken cancellationToken = default)
+        string? projectContext = null, IReadOnlyList<ImageAttachment>? images = null,
+        CancellationToken cancellationToken = default)
     {
         string input = previousResponseId is null ? $"{projectContext}{userMessage}" : userMessage;
         ChatResult result = await _chat.CompleteAsync(
-            new ChatPrompt(AgentName, input, previousResponseId), cancellationToken);
+            new ChatPrompt(AgentName, input, previousResponseId, images), cancellationToken);
 
         // Respuesta larga truncada (max_output_tokens) o sin el contrato JSON: no se tumba el turno,
         // se muestra el texto tal cual y el chat continúa (listo=false hasta que llegue JSON válido).

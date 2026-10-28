@@ -7,12 +7,14 @@ namespace RequirementsCopilot.Infrastructure.Documents;
 
 public sealed class DocxTextExtractor : IDocumentTextExtractor
 {
-    public Task<string> ExtractAsync(Stream content, string fileName, CancellationToken cancellationToken = default)
+    public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken cancellationToken = default)
     {
         var builder = new StringBuilder();
+        var images = new List<ImageAttachment>();
         using (var document = WordprocessingDocument.Open(content, isEditable: false))
         {
-            Body? body = document.MainDocumentPart?.Document.Body;
+            MainDocumentPart? main = document.MainDocumentPart;
+            Body? body = main?.Document.Body;
             if (body is not null)
             {
                 foreach (Paragraph paragraph in body.Descendants<Paragraph>())
@@ -21,7 +23,19 @@ public sealed class DocxTextExtractor : IDocumentTextExtractor
                     builder.AppendLine(paragraph.InnerText);
                 }
             }
+            // ponytail: solo imágenes del cuerpo principal; headers/footers casi nunca traen mockups.
+            foreach (ImagePart part in main?.ImageParts ?? Enumerable.Empty<ImagePart>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!ImageFileExtractor.MimeTypesByExtension.Values.Contains(part.ContentType))
+                {
+                    continue; // formatos que la visión del modelo no acepta (emf, wmf, tiff…)
+                }
+                using var imageStream = new MemoryStream();
+                part.GetStream().CopyTo(imageStream);
+                images.Add(ImageAttachment.FromBytes(part.ContentType, imageStream.ToArray()));
+            }
         }
-        return Task.FromResult(builder.ToString());
+        return Task.FromResult(new DocumentContent(builder.ToString(), images));
     }
 }

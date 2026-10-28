@@ -49,6 +49,12 @@ public sealed class FoundryChatCompletion : IChatCompletion
             agentReference["version"] = agent.Version;
         }
 
+        List<object> content = new() { new { type = "input_text", text = prompt.Input } };
+        foreach (ImageAttachment image in prompt.Images ?? Array.Empty<ImageAttachment>())
+        {
+            content.Add(new { type = "input_image", image_url = image.ToDataUrl() });
+        }
+
         Dictionary<string, object> payload = new()
         {
             ["model"] = model,
@@ -58,7 +64,7 @@ public sealed class FoundryChatCompletion : IChatCompletion
                 {
                     role = "user",
                     type = "message",
-                    content = new[] { new { type = "input_text", text = prompt.Input } },
+                    content,
                 },
             },
             ["agent_reference"] = agentReference,

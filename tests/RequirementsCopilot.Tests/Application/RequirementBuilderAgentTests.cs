@@ -1,3 +1,4 @@
+using RequirementsCopilot.Application.Analyses;
 using RequirementsCopilot.Application.Analyses.Agents;
 
 namespace RequirementsCopilot.Tests.Application;
@@ -89,5 +90,21 @@ public class RequirementBuilderAgentTests
         var chat = new StubChatCompletion { Reply = _ => "  " };
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => new RequirementBuilderAgent(chat).ChatAsync("idea", null));
+    }
+
+    [Fact]
+    public async Task ChatAsync_ConImagenes_LasAdjuntaAlPrompt()
+    {
+        var chat = new StubChatCompletion
+        {
+            Reply = _ => "{\"listo\":false,\"mensaje\":\"Veo la pantalla, ¿qué hace el botón?\",\"requerimiento\":null}",
+        };
+        var agent = new RequirementBuilderAgent(chat);
+        var imagen = new ImageAttachment("image/png", "AAAA");
+
+        await agent.ChatAsync("mira esta pantalla", null, null, new[] { imagen });
+
+        ChatPrompt prompt = Assert.Single(chat.Prompts);
+        Assert.Same(imagen, Assert.Single(prompt.Images!));
     }
 }

@@ -65,6 +65,7 @@ export async function sendConversationMessage(
   previousResponseId?: string,
   conversationId?: string,
   proyecto?: string,
+  imagenes?: string[],
 ): Promise<Response> {
   const response = await fetch(`${API_BASE}/api/conversations/messages`, {
     method: 'POST',
@@ -74,6 +75,7 @@ export async function sendConversationMessage(
       previousResponseId: previousResponseId ?? null,
       conversationId: conversationId ?? null,
       proyecto: proyecto ?? null,
+      imagenes: imagenes && imagenes.length > 0 ? imagenes : null,
     }),
   });
   if (!response.ok) {

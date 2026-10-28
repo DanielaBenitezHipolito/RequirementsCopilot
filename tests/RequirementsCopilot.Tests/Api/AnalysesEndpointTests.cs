@@ -148,6 +148,40 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task Post_ArchivoPng_SeAnalizaComoImagen()
+    {
+        var client = _factory.CreateClient();
+        var form = new MultipartFormDataContent();
+        byte[] png = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        form.Add(new ByteArrayContent(png), "file", "mockup.png");
+
+        var response = await client.PostAsync("/api/analyses", form);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("event: requirement", body);
+        Assert.Contains("event: done", body);
+    }
+
+    [Fact]
+    public async Task ExtractText_ArchivoPng_DevuelveConteoDeImagenes()
+    {
+        var client = _factory.CreateClient();
+        var form = new MultipartFormDataContent();
+        byte[] png = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        form.Add(new ByteArrayContent(png), "file", "mockup.png");
+
+        var response = await client.PostAsync("/api/documents/extract", form);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(string.Empty, payload.GetProperty("texto").GetString());
+        Assert.Equal(1, payload.GetProperty("imagenes").GetInt32());
+    }
+
+    [Fact]
     public async Task Post_ExtensionInvalida_Devuelve400ConMensaje()
     {
         var client = _factory.CreateClient();

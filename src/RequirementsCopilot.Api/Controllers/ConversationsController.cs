@@ -19,7 +19,11 @@ namespace RequirementsCopilot.Api.Controllers;
 [Route("api/conversations")]
 public sealed class ConversationsController : ControllerBase
 {
-    public sealed record MessageRequest(string? Mensaje, string? PreviousResponseId, Guid? ConversationId, string? Proyecto);
+    public sealed record MessageRequest(string? Mensaje, string? PreviousResponseId, Guid? ConversationId,
+        string? Proyecto, List<string>? Imagenes = null);
+
+    /// <summary>Tope de imágenes por mensaje (control de costos y de tamaño del payload).</summary>
+    private const int MaxImagesPerMessage = 4;
 
     public sealed record CompleteRequest(string? Texto, string? Area, Guid? ConversationId, string? Proyecto);
 
@@ -40,16 +44,41 @@ public sealed class ConversationsController : ControllerBase
     [HttpPost("messages")]
     public async Task<IActionResult> SendMessage([FromBody] MessageRequest? request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request?.Mensaje))
+        bool hasImages = request?.Imagenes is { Count: > 0 };
+        if (string.IsNullOrWhiteSpace(request?.Mensaje) && !hasImages)
         {
             return BadRequest(new { mensaje = "El mensaje no puede estar vacío." });
         }
+        if (request!.Imagenes is { Count: > MaxImagesPerMessage })
+        {
+            return BadRequest(new { mensaje = $"Máximo {MaxImagesPerMessage} imágenes por mensaje." });
+        }
+
+        IReadOnlyList<ImageAttachment>? images = null;
+        if (hasImages)
+        {
+            try
+            {
+                images = request.Imagenes!.Select(ImageAttachment.FromDataUrl).ToArray();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { mensaje = ex.Message });
+            }
+        }
+
+        string userMessage = string.IsNullOrWhiteSpace(request.Mensaje)
+            ? "(Analiza la imagen adjunta.)"
+            : request.Mensaje!;
 
         ConversationRecord? conversation = request.ConversationId is Guid id
             ? await _conversations.GetByIdAsync(id, cancellationToken)
             : null;
         conversation ??= ConversationRecord.Create(request.Proyecto);
-        conversation.Append("user", request.Mensaje);
+        // El historial persiste solo texto; la imagen queda referenciada con un marcador.
+        conversation.Append("user", hasImages
+            ? $"{userMessage} [+{images!.Count} imagen(es)]"
+            : userMessage);
 
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -60,7 +89,7 @@ public sealed class ConversationsController : ControllerBase
             string projectContext = request.PreviousResponseId is null
                 ? await _projectContext.LoadAsync(conversation.ProjectName, cancellationToken)
                 : string.Empty;
-            BuilderTurn turn = await _builder.ChatAsync(request.Mensaje, request.PreviousResponseId, projectContext, cancellationToken);
+            BuilderTurn turn = await _builder.ChatAsync(userMessage, request.PreviousResponseId, projectContext, images, cancellationToken);
 
             conversation.Append("agent", turn.Mensaje);
             conversation.SetLastResponseId(turn.ResponseId);

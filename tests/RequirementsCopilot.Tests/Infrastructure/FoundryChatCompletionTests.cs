@@ -100,6 +100,38 @@ public class FoundryChatCompletionTests
     }
 
     [Fact]
+    public async Task CompleteAsync_ConImagenes_EmiteInputImageJuntoAlTexto()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+        var imagen = new ImageAttachment("image/png", "AAAA");
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada", null, new[] { imagen }));
+
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        JsonElement content = body.RootElement.GetProperty("input")[0].GetProperty("content");
+        Assert.Equal(2, content.GetArrayLength());
+        Assert.Equal("input_text", content[0].GetProperty("type").GetString());
+        Assert.Equal("entrada", content[0].GetProperty("text").GetString());
+        Assert.Equal("input_image", content[1].GetProperty("type").GetString());
+        Assert.Equal("data:image/png;base64,AAAA", content[1].GetProperty("image_url").GetString());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_SinImagenes_MantienePayloadSoloTexto()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options());
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+
+        using var body = JsonDocument.Parse(handler.RequestBody!);
+        JsonElement content = body.RootElement.GetProperty("input")[0].GetProperty("content");
+        Assert.Equal(1, content.GetArrayLength());
+        Assert.Equal("input_text", content[0].GetProperty("type").GetString());
+    }
+
+    [Fact]
     public async Task CompleteAsync_RespuestaSinOutput_DevuelveVacio()
     {
         var handler = new RecordingHandler { ResponseBody = "{}" };

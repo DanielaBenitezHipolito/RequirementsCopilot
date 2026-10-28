@@ -25,3 +25,12 @@
 ```json
 { "requerimientos": [ { "codigo": "REQ-001", "texto": "...", "area": "Pagos" } ] }
 ```
+
+## Imágenes adjuntas (ADR-0007)
+
+Desde 2026-10-28 el turno puede incluir imágenes (`input_image`): mockups, capturas o diagramas
+embebidos en el documento, o el documento mismo si es una imagen/escaneo. El prompt publicado en
+Foundry debe agregar la instrucción (y el agente usar un modelo con visión):
+
+> Si el turno incluye imágenes adjuntas, analízalas como parte del documento: extrae también los
+> requerimientos que se desprendan de pantallas, mockups, diagramas o texto visible en ellas.

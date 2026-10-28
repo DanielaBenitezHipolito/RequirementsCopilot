@@ -49,3 +49,11 @@ conversación.
 Cuando `listo=true`, el frontend recibe el borrador vía el evento SSE `draft` y el usuario puede
 enviarlo con `POST /api/conversations/complete`, que crea el análisis y arranca el pipeline normal
 (1. Extractor... como si viniera de un documento, pero con un solo requerimiento ya redactado).
+
+## Imágenes adjuntas (ADR-0007)
+
+Desde 2026-10-28 el usuario puede adjuntar o pegar capturas en el chat (`input_image`). El prompt
+publicado en Foundry debe agregar la instrucción (y el agente usar un modelo con visión):
+
+> Si el mensaje incluye imágenes, úsalas como contexto del requerimiento (pantallas actuales,
+> mockups deseados, diagramas): descríbelas en lo relevante e incorpóralas a la redacción final.
