@@ -9,3 +9,5 @@ tests/
 docs/
 *.md
 **/appsettings.Development.json
+# Los prompts de los agentes sí viajan al build (excepción al *.md de arriba, ADR-0008).
+!prompts/*.md

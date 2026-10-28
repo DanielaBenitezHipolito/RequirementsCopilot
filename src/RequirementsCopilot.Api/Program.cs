@@ -36,6 +36,9 @@ if (chatProvider == "Foundry")
 {
     var foundryOptions = builder.Configuration.GetSection("Foundry").Get<FoundryOptions>() ?? new FoundryOptions();
     builder.Services.AddSingleton(foundryOptions);
+    // Prompts versionados en el repo (ADR-0008): se copian junto al binario y se cargan al arrancar,
+    // así un prompt faltante tumba el arranque y no una llamada en producción.
+    builder.Services.AddSingleton(new FilePromptCatalog(Path.Combine(AppContext.BaseDirectory, "prompts")));
     builder.Services.AddHttpClient<FoundryChatCompletion>();
     builder.Services.AddScoped<IChatCompletion>(sp => sp.GetRequiredService<FoundryChatCompletion>());
 }

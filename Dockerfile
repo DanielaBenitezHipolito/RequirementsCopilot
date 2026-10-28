@@ -21,6 +21,8 @@ COPY src/RequirementsCopilot.Infrastructure/RequirementsCopilot.Infrastructure.c
 COPY src/RequirementsCopilot.Api/RequirementsCopilot.Api.csproj src/RequirementsCopilot.Api/
 RUN dotnet restore src/RequirementsCopilot.Api/RequirementsCopilot.Api.csproj
 COPY src/ src/
+# Prompts de los agentes (ADR-0008): el csproj del Api los publica junto al binario.
+COPY prompts/ prompts/
 RUN dotnet publish src/RequirementsCopilot.Api/RequirementsCopilot.Api.csproj -c Release -o /app/publish
 # El SPA compilado va a wwwroot para que ASP.NET lo sirva.
 COPY --from=web /web/dist /app/publish/wwwroot

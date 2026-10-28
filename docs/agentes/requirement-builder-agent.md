@@ -52,8 +52,5 @@ enviarlo con `POST /api/conversations/complete`, que crea el análisis y arranca
 
 ## Imágenes adjuntas (ADR-0007)
 
-Desde 2026-10-28 el usuario puede adjuntar o pegar capturas en el chat (`input_image`). El prompt
-publicado en Foundry debe agregar la instrucción (y el agente usar un modelo con visión):
-
-> Si el mensaje incluye imágenes, úsalas como contexto del requerimiento (pantallas actuales,
-> mockups deseados, diagramas): descríbelas en lo relevante e incorpóralas a la redacción final.
+El turno puede incluir imágenes (`input_image`). La instrucción correspondiente ya está en el
+prompt versionado del repo ([`prompts/requirement-builder-agent.md`](../../prompts/requirement-builder-agent.md)).
