@@ -91,15 +91,19 @@ export function ProjectsView() {
     }
   }
 
-  async function appendDocument(file: File) {
+  async function appendDocuments(files: File[]) {
     if (!selected) return;
     setBusy(true);
     try {
-      await appendProjectDocument(selected, file);
+      // Secuencial a propósito: cada anexo parte del contenido ya guardado; en paralelo se pisarían.
+      for (const file of files) {
+        await appendProjectDocument(selected, file);
+      }
       await open(selected);
       await load();
     } catch (e) {
       setError(message(e, 'No se pudo anexar el documento.'));
+      await open(selected);
     } finally {
       setBusy(false);
     }
@@ -225,10 +229,11 @@ export function ProjectsView() {
                   ref={docRef}
                   type="file"
                   accept=".pdf,.docx,.txt,.md"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void appendDocument(file);
+                    const files = Array.from(e.target.files ?? []);
+                    if (files.length) void appendDocuments(files);
                     e.target.value = '';
                   }}
                 />
