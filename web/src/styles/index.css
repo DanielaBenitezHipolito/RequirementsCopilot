@@ -1,1 +1,59 @@
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* --- Viñeta de auditoría del login: un haz dorado recorre el documento y los criterios se marcan. --- */
+
+@keyframes login-scan {
+  0% {
+    top: 8%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  78% {
+    top: 86%;
+    opacity: 1;
+  }
+  92%,
+  100% {
+    top: 86%;
+    opacity: 0;
+  }
+}
+
+@keyframes login-tick {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(2px);
+  }
+  12%,
+  88% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-scan-beam {
+  animation: login-scan 7s ease-in-out infinite;
+}
+
+.login-tick {
+  opacity: 0.25;
+  animation: login-tick 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-scan-beam {
+    animation: none;
+    opacity: 0;
+  }
+  .login-tick {
+    animation: none;
+    opacity: 1;
+  }
+}
