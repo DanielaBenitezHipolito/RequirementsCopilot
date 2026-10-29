@@ -18,6 +18,9 @@ public sealed class Requirement
     /// <summary>Evaluación de calidad más reciente, si ya fue evaluado.</summary>
     public Evaluation? Evaluation { get; private set; }
 
+    /// <summary>Etapa de gestión del requerimiento (borrador → aprobado → en desarrollo → implementado).</summary>
+    public RequirementStage Stage { get; private set; } = RequirementStage.Draft;
+
     /// <summary>Caso de uso generado para este requerimiento, si ya se generó.</summary>
     public UseCase? UseCase { get; private set; }
 
@@ -46,8 +49,21 @@ public sealed class Requirement
         return new Requirement(code.Trim(), text.Trim(), string.IsNullOrWhiteSpace(area) ? "General" : area.Trim());
     }
 
-    /// <summary>Registra la evaluación de calidad del requerimiento.</summary>
-    public void Evaluate(Evaluation evaluation) => Evaluation = evaluation;
+    /// <summary>
+    /// Registra la evaluación de calidad. Si aprueba y el requerimiento sigue en borrador, avanza a
+    /// Aprobado; nunca retrocede una etapa avanzada manualmente (en desarrollo/implementado).
+    /// </summary>
+    public void Evaluate(Evaluation evaluation)
+    {
+        Evaluation = evaluation;
+        if (evaluation.Passed && Stage == RequirementStage.Draft)
+        {
+            Stage = RequirementStage.Approved;
+        }
+    }
+
+    /// <summary>Cambia manualmente la etapa de gestión del requerimiento.</summary>
+    public void SetStage(RequirementStage stage) => Stage = stage;
 
     /// <summary>Asigna el caso de uso generado para este requerimiento.</summary>
     public void SetUseCase(UseCase useCase) => UseCase = useCase;

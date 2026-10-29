@@ -9,7 +9,15 @@ interface Props {
   onGenerateUserStories?: () => Promise<void>;
   onRegenerateUseCase?: () => Promise<void>;
   onEditUseCase?: (caso: CasoDeUso) => Promise<void>;
+  onSetStage?: (etapa: string) => Promise<void>;
 }
+
+const STAGES: { value: string; label: string; classes: string }[] = [
+  { value: 'Draft', label: 'Borrador', classes: 'bg-slate-100 text-slate-600' },
+  { value: 'Approved', label: 'Aprobado', classes: 'bg-emerald-50 text-emerald-700' },
+  { value: 'InDevelopment', label: 'En desarrollo', classes: 'bg-blue-50 text-blue-700' },
+  { value: 'Implemented', label: 'Implementado', classes: 'bg-violet-50 text-violet-700' },
+];
 
 const BRAND = '#1e2a5a';
 
@@ -33,7 +41,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase, onSetStage }: Props) {
   const evaluacion = requirement.evaluacion;
   // El SSE arma requerimientos parciales: nunca asumir que historias viene definida.
   const historias = requirement.historias ?? [];
@@ -45,6 +53,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
+  const stage = STAGES.find((s) => s.value === requirement.etapa);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -62,10 +71,15 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+      {/* div clickeable (no <button>): el header contiene el <select> de etapa y un botón no puede anidar interactivos. */}
+      <div
+        role="button"
+        tabIndex={0}
+        className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left"
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setOpen((o) => !o);
+        }}
       >
         <span
           className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide"
@@ -85,13 +99,33 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
             {evaluacion.pasa ? 'Aprobado' : 'No aprobado'}
           </span>
         )}
+        {stage &&
+          (onSetStage ? (
+            <select
+              className={`rounded-full border-0 px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase ${stage.classes}`}
+              value={stage.value}
+              disabled={busy}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => void run(() => onSetStage(e.target.value))}
+            >
+              {STAGES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase ${stage.classes}`}>
+              {stage.label}
+            </span>
+          ))}
         {evaluacion && (
           <span className="ml-auto text-sm font-bold text-slate-700">
             {evaluacion.promedio.toFixed(2)} / 5 <span className="font-normal text-slate-400">· umbral {evaluacion.umbral.toFixed(2)}</span>
           </span>
         )}
         <ChevronIcon open={open} />
-      </button>
+      </div>
 
       {open && (
         <div className="space-y-4 border-t border-slate-100 px-4 pb-4 pt-3">

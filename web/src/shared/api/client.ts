@@ -61,6 +61,15 @@ export async function generateUserStories(id: string, codigo: string, regenerar 
   return readOrThrow(response);
 }
 
+export async function setRequirementStage(id: string, codigo: string, etapa: string): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stage`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ etapa }),
+  });
+  return readOrThrow(response);
+}
+
 export async function updateUseCase(id: string, codigo: string, caso: unknown): Promise<any> {
   const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/use-case`, {
     method: 'PUT',

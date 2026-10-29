@@ -295,6 +295,21 @@ public sealed class AnalysisOrchestrator
         return AnalysisQueries.MapRequirement(requirement);
     }
 
+    /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>
+    public async Task<RequirementDetailDto> SetStageAsync(Guid analysisId, string requirementCode,
+        string stage, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (!Enum.TryParse(stage, ignoreCase: true, out RequirementStage parsed))
+        {
+            throw new ArgumentException(
+                $"Etapa inválida: «{stage}». Use Draft, Approved, InDevelopment o Implemented.", nameof(stage));
+        }
+        requirement.SetStage(parsed);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
     /// <summary>
     /// Edición manual del caso de uso: reemplaza el caso de uso del requerimiento con el contenido
     /// editado por el usuario (validación de Nombre/Objetivo en el dominio).

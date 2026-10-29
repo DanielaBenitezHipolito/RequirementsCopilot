@@ -218,6 +218,28 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task SetStage_CambiaLaEtapaYSePersiste()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "El sistema debe registrar pagos."));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        // REQ-001 aprueba con el Fake → etapa Approved automática.
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        Assert.Equal("Approved", detail.GetProperty("requerimientos")[0].GetProperty("etapa").GetString());
+
+        var put = await client.PutAsJsonAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stage",
+            new { etapa = "InDevelopment" });
+        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        Assert.Equal("InDevelopment", detail.GetProperty("requerimientos")[0].GetProperty("etapa").GetString());
+
+        var invalid = await client.PutAsJsonAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stage",
+            new { etapa = "Inexistente" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
     public async Task Delete_EliminaElAnalisisYSuContexto()
     {
         var client = _factory.CreateClient();

@@ -44,11 +44,15 @@ public sealed class RequirementDocument
     public UseCaseDocument? UseCase { get; set; }
     public List<UserStoryDocument> UserStories { get; set; } = new();
 
+    // Nullable: documentos previos a las etapas no traen el campo (se deriva de la evaluación).
+    public string? Stage { get; set; }
+
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
         Code = requirement.Code,
         Text = requirement.Text,
         Area = requirement.Area,
+        Stage = requirement.Stage.ToString(),
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
         Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
         {
@@ -76,6 +80,10 @@ public sealed class RequirementDocument
         if (UserStories.Count > 0)
         {
             requirement.SetUserStories(UserStories.Select(h => h.ToDomain()).ToArray());
+        }
+        if (Enum.TryParse(Stage, ignoreCase: true, out RequirementStage stage))
+        {
+            requirement.SetStage(stage);
         }
         return requirement;
     }

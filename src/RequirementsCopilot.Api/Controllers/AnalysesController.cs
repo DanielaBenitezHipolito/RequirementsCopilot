@@ -136,6 +136,14 @@ public sealed class AnalysesController : ControllerBase
             ? Task.FromResult<IActionResult>(new BadRequestObjectResult(new { mensaje = "Debe enviar el caso de uso." }))
             : ExecuteAsync(() => _orchestrator.UpdateUseCaseAsync(id, code, request, cancellationToken));
 
+    public sealed record StageRequest(string? Etapa);
+
+    /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>
+    [HttpPut("{id:guid}/requirements/{code}/stage")]
+    public Task<IActionResult> SetStage(Guid id, string code, [FromBody] StageRequest? request,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.SetStageAsync(id, code, request?.Etapa ?? string.Empty, cancellationToken));
+
     [HttpPost("{id:guid}/requirements/{code}/reevaluate")]
     public Task<IActionResult> Reevaluate(Guid id, string code,
         [FromBody] ClarificationAnswersRequest? request, CancellationToken cancellationToken)
