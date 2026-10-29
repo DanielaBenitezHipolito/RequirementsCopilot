@@ -136,66 +136,74 @@ export default function App() {
 
   const isAdmin = authRequired && user?.rol === 'Admin';
 
-  const tab = (target: View, label: string, icon: React.ReactNode) => (
-    <button
-      key={target}
-      onClick={() => setView(target)}
-      className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold tracking-wide uppercase transition-colors ${
-        view === target ? 'text-white' : 'text-slate-600 hover:bg-slate-50'
-      }`}
-      style={view === target ? { backgroundColor: BRAND } : undefined}
-    >
-      {icon}
-      {label}
-    </button>
-  );
+  // 'detail' pertenece conceptualmente al historial: la pestaña Historial queda activa al verlo.
+  const activeView = view === 'detail' ? 'history' : view;
+
+  const tab = (target: View, label: string, icon: React.ReactNode) => {
+    const active = activeView === target;
+    return (
+      <button
+        key={target}
+        onClick={() => setView(target)}
+        className={`relative flex items-center gap-2 px-1 pb-3 text-[13px] font-bold tracking-wide uppercase transition-colors ${
+          active ? 'text-white' : 'text-white/55 hover:text-white/85'
+        }`}
+      >
+        {icon}
+        {label}
+        {/* El subrayado dorado: el mismo haz del login marcando la pestaña activa. */}
+        <span
+          className={`absolute right-0 -bottom-px left-0 h-0.5 rounded-full transition-opacity ${
+            active ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ backgroundColor: '#f59e0b', boxShadow: '0 0 10px #f59e0b88' }}
+        />
+      </button>
+    );
+  };
 
   return (
     <div className="flex h-screen flex-col bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="flex w-full items-center gap-4 px-6 py-3 lg:px-10">
+      <header
+        className="shrink-0 text-white"
+        style={{ background: `linear-gradient(135deg, #0c1430 0%, ${BRAND} 75%, #27367a 100%)` }}
+      >
+        <div className="flex w-full items-center gap-4 px-6 pt-4 lg:px-10">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-black tracking-tight" style={{ color: BRAND }}>
-              HOWDEN
-            </span>
-            <span className="h-8 w-px bg-slate-200" />
+            <span className="text-2xl font-black tracking-tight text-white">HOWDEN</span>
+            <span className="h-8 w-px bg-white/15" />
             <div className="leading-tight">
-              <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase">AI Requirements</p>
-              <p className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase">Copilot</p>
+              <p className="text-[10px] font-semibold tracking-widest text-white/50 uppercase">AI Requirements</p>
+              <p className="text-[10px] font-semibold tracking-widest text-white/50 uppercase">Copilot</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
+            <div className="hidden items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/70 md:flex">
               <ShieldIcon />
               Ambiente Interno Seguro · Howden
             </div>
             {authRequired && user && (
-              <div className="flex items-center gap-2 text-xs text-slate-600">
+              <div className="flex items-center gap-2 text-xs text-white/80">
                 <span className="font-semibold">{user.nombre}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase">{user.rol}</span>
-                <button type="button" className="text-slate-400 underline hover:text-slate-600" onClick={logout}>
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase">{user.rol}</span>
+                <button type="button" className="text-white/50 underline hover:text-white" onClick={logout}>
                   Salir
                 </button>
               </div>
             )}
           </div>
         </div>
-      </header>
-
-      <main className="flex w-full min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6 lg:px-10">
-        <div
-          className={`mb-6 grid shrink-0 grid-cols-1 gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm ${
-            isAdmin ? 'sm:grid-cols-6' : 'sm:grid-cols-4'
-          }`}
-        >
-          {tab('analyze', 'Auditar Requerimientos', <AuditIcon />)}
-          {tab('interview', 'Copilot Chat de IA', <ChatIcon />)}
-          {tab('history', 'Historial de Auditorías', <HistoryIcon />)}
+        <nav className="mt-4 flex w-full flex-wrap gap-x-7 gap-y-1 border-b border-white/10 px-6 lg:px-10">
+          {tab('analyze', 'Auditar', <AuditIcon />)}
+          {tab('interview', 'Copilot Chat', <ChatIcon />)}
+          {tab('history', 'Historial', <HistoryIcon />)}
           {tab('projects', 'Proyectos', <FolderIcon />)}
           {isAdmin && tab('usuarios', 'Usuarios', <UsersIcon />)}
           {isAdmin && tab('tablero', 'Tablero', <GaugeIcon />)}
-        </div>
+        </nav>
+      </header>
 
+      <main className="flex w-full min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6 lg:px-10">
         <div className="min-h-0 flex-1">
           {view === 'analyze' && (
             <AnalyzeView />
@@ -223,8 +231,8 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-200">
-        <div className="flex w-full flex-col items-center gap-1 px-6 py-3 text-xs text-slate-500 sm:flex-row sm:justify-between lg:px-10">
+      <footer className="shrink-0 border-t border-slate-200 bg-white">
+        <div className="flex w-full flex-col items-center gap-1 px-6 py-2.5 text-[11px] text-slate-400 sm:flex-row sm:justify-between lg:px-10">
           <p>© 2026 Howden Corredores de Seguros SA. Todos los derechos reservados.</p>
           <p className="flex items-center gap-1.5">
             <span className="text-emerald-500">✓</span> Confidencialidad Asegurada

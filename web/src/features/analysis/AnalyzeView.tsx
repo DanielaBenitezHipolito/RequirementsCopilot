@@ -251,7 +251,7 @@ export function AnalyzeView() {
           {!staged && (
           <div
             className={`mt-4 flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
-              dragging ? 'border-slate-400 bg-slate-50' : 'border-slate-300'
+              dragging ? 'border-amber-400 bg-amber-50/60' : 'border-slate-300 hover:border-slate-400'
             }`}
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => {
@@ -266,7 +266,10 @@ export function AnalyzeView() {
               if (file) stage(file);
             }}
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <span
+              className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-md"
+              style={{ backgroundColor: BRAND }}
+            >
               <UploadIcon />
             </span>
             <p className="mt-4 font-semibold text-slate-700">Arrastre su documento de requerimientos aquí</p>
