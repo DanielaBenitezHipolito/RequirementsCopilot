@@ -1,4 +1,10 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using RequirementsCopilot.Api.Auth;
 using RequirementsCopilot.Application.Analyses;
+using RequirementsCopilot.Application.Users;
 using RequirementsCopilot.Application.Analyses.Agents;
 using RequirementsCopilot.Application.Conversations;
 using RequirementsCopilot.Application.Projects;
@@ -69,13 +75,40 @@ if (repositoryProvider == "Mongo")
     builder.Services.AddSingleton<IAnalysisRepository, MongoAnalysisRepository>();
     builder.Services.AddSingleton<IConversationRepository, MongoConversationRepository>();
     builder.Services.AddSingleton<IProjectRepository, MongoProjectRepository>();
+    builder.Services.AddSingleton<IUserRepository, MongoUserRepository>();
 }
 else
 {
     builder.Services.AddSingleton<IAnalysisRepository, InMemoryAnalysisRepository>();
     builder.Services.AddSingleton<IConversationRepository, InMemoryConversationRepository>();
     builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
+    builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
 }
+
+// Autenticación (ADR-0010): se habilita configurando Auth__JwtKey (≥ 32 chars). Sin clave la API
+// queda abierta (demo local / pruebas), y los endpoints [Authorize] responden 401.
+AuthOptions authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new AuthOptions();
+builder.Services.AddSingleton(authOptions);
+builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = true,
+        // Con auth deshabilitado se firma contra una clave aleatoria: ningún token externo valida.
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+            authOptions.Enabled ? authOptions.JwtKey : Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"))),
+        ClockSkew = TimeSpan.FromMinutes(1),
+    });
+builder.Services.AddAuthorization(options =>
+{
+    if (authOptions.Enabled)
+    {
+        // Todo endpoint exige usuario autenticado salvo [AllowAnonymous] (login, status, health).
+        options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    }
+});
 
 builder.Services.AddSingleton(
     builder.Configuration.GetSection("Analysis").Get<AnalysisOptions>() ?? new AnalysisOptions());
@@ -94,6 +127,26 @@ builder.Services.AddScoped<AnalysisQueries>();
 
 var app = builder.Build();
 
+// Siembra del admin inicial: solo con auth habilitado y el repositorio de usuarios vacío.
+if (authOptions.Enabled)
+{
+    using IServiceScope scope = app.Services.CreateScope();
+    IUserRepository users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+    if ((await users.GetAllAsync()).Count == 0)
+    {
+        if (string.IsNullOrWhiteSpace(authOptions.AdminEmail) || string.IsNullOrWhiteSpace(authOptions.AdminPassword))
+        {
+            app.Logger.LogWarning(
+                "Auth habilitado sin usuarios y sin Auth__AdminEmail/Auth__AdminPassword: nadie podrá iniciar sesión.");
+        }
+        else
+        {
+            await users.SaveAsync(UserAccount.Create(authOptions.AdminEmail, "Administrador",
+                UserAccount.AdminRole, PasswordHasher.Hash(authOptions.AdminPassword)));
+        }
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -105,6 +158,8 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 // Rutas que no son /api/* caen al index del SPA (navegación cliente); nunca colisionan con la API.
 app.MapFallbackToFile("index.html");
