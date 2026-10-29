@@ -5,10 +5,13 @@ import {
   deleteProject,
   getProject,
   getProjects,
+  getProjectUseCases,
   updateProject,
   uploadProject,
 } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { mapRequirement } from '../../shared/components/StoriesBanner';
+import { downloadUseCasesDocx, downloadUseCasesPdf } from '../../shared/lib/useCaseDoc';
 import type { ProjectSummary } from '../../shared/types';
 
 function message(e: unknown, fallback: string) {
@@ -104,6 +107,24 @@ export function ProjectsView() {
     } catch (e) {
       setError(message(e, 'No se pudo anexar el documento.'));
       await open(selected);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportProject(format: 'docx' | 'pdf') {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const casos = (await getProjectUseCases(selected)).map(mapRequirement);
+      if (casos.length === 0) {
+        setError('El proyecto todavía no tiene casos de uso generados.');
+        return;
+      }
+      const download = format === 'docx' ? downloadUseCasesDocx : downloadUseCasesPdf;
+      await download(casos, `casos-de-uso-${selected}`);
+    } catch (e) {
+      setError(message(e, 'No se pudo exportar.'));
     } finally {
       setBusy(false);
     }
@@ -245,6 +266,16 @@ export function ProjectsView() {
                 >
                   Anexar documento
                 </BrandButton>
+                {useCaseCount > 0 && (
+                  <>
+                    <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" loading={busy} onClick={() => void exportProject('docx')}>
+                      Word del proyecto
+                    </BrandButton>
+                    <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" loading={busy} onClick={() => void exportProject('pdf')}>
+                      PDF del proyecto
+                    </BrandButton>
+                  </>
+                )}
                 <BrandButton loading={busy} disabled={!dirty} onClick={() => void save()}>
                   Guardar cambios
                 </BrandButton>

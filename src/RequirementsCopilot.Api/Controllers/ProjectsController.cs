@@ -94,6 +94,23 @@ public sealed class ProjectsController : ControllerBase
         return Ok(new { nombre = project.Name, updatedAt = project.UpdatedAt });
     }
 
+    /// <summary>Todos los casos de uso generados del proyecto, para la exportación consolidada (ADR-0009).</summary>
+    [HttpGet("{nombre}/use-cases")]
+    public async Task<IActionResult> GetUseCases(string nombre, CancellationToken cancellationToken)
+    {
+        Project? project = await _projects.GetByNameAsync(nombre, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { mensaje = "Proyecto no encontrado." });
+        }
+        RequirementDetailDto[] casos = (await _analyses.GetByProjectAsync(project.Name, cancellationToken))
+            .SelectMany(a => a.Requirements)
+            .Where(r => r.UseCase is not null)
+            .Select(AnalysisQueries.MapRequirement)
+            .ToArray();
+        return Ok(casos);
+    }
+
     /// <summary>
     /// Anexa al contenido del proyecto el texto extraído de un documento (casos de uso existentes
     /// en Word/PDF/texto): queda como parte del contexto que reciben los agentes (ADR-0009).

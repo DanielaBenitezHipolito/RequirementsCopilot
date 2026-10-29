@@ -152,6 +152,11 @@ export async function appendProjectDocument(nombre: string, file: File): Promise
   return readOrThrow(response);
 }
 
+export async function getProjectUseCases(nombre: string): Promise<any[]> {
+  const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}/use-cases`);
+  return readOrThrow(response);
+}
+
 export async function getProject(nombre: string): Promise<ProjectDetail> {
   const response = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}`);
   return readOrThrow(response);
