@@ -54,6 +54,8 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
   const stage = STAGES.find((s) => s.value === requirement.etapa);
+  // Acento lateral: el veredicto de la evaluación de un vistazo, antes de abrir la tarjeta.
+  const accent = !evaluacion ? '#cbd5e1' : evaluacion.pasa ? '#10b981' : '#f43f5e';
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -70,7 +72,10 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      style={{ borderLeft: `4px solid ${accent}` }}
+    >
       {/* div clickeable (no <button>): el header contiene el <select> de etapa y un botón no puede anidar interactivos. */}
       <div
         role="button"
@@ -90,7 +95,8 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-600 uppercase">
           {requirement.area}
         </span>
-        {evaluacion && (
+        {/* Con etapa visible, el chip de evaluación es redundante (el acento lateral ya da el veredicto). */}
+        {evaluacion && !stage && (
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase ${
               evaluacion.pasa ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
@@ -120,8 +126,11 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
             </span>
           ))}
         {evaluacion && (
-          <span className="ml-auto text-sm font-bold text-slate-700">
-            {evaluacion.promedio.toFixed(2)} / 5 <span className="font-normal text-slate-400">· umbral {evaluacion.umbral.toFixed(2)}</span>
+          <span className="ml-auto flex items-baseline gap-1.5">
+            <span className="text-lg leading-none font-black tracking-tight text-slate-800">
+              {evaluacion.promedio.toFixed(2)}
+            </span>
+            <span className="text-[11px] text-slate-400">/ 5 · umbral {evaluacion.umbral.toFixed(2)}</span>
           </span>
         )}
         <ChevronIcon open={open} />
@@ -236,8 +245,17 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
 
           {requirement.caso && !editing && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase" style={{ color: BRAND }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
+                    </svg>
+                    Caso de uso
+                  </p>
+                  <p className="mt-1 text-base font-black tracking-tight text-slate-900">{requirement.caso.nombre}</p>
+                </div>
                 <div className="flex gap-2">
                   {onEditUseCase && (
                     <BrandButton variant="secondary" className="!px-3 !py-1.5 !text-xs" disabled={busy} onClick={() => setEditing(true)}>

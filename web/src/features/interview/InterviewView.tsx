@@ -38,6 +38,12 @@ function ClipIcon() {
   );
 }
 
+const SUGERENCIAS = [
+  'Necesito controlar los pagos de las reservas',
+  'Quiero un reporte mensual de siniestros por ramo',
+  'El sistema debe gestionar la renovación de pólizas',
+];
+
 const MAX_CHAT_IMAGES = 4;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -201,20 +207,52 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
       </div>
 
       <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
-        <div className="shrink-0 border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Copilot de Requerimientos</h2>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> En línea · Howden AI
-          </p>
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm"
+            style={{ background: `linear-gradient(135deg, #0c1430, ${BRAND})` }}
+          >
+            <BotIcon />
+          </span>
+          <div>
+            <h2 className="text-sm font-bold tracking-wide text-slate-800 uppercase">Copilot de Requerimientos</h2>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> En línea · Howden AI
+            </p>
+          </div>
           {/* El proyecto se fija al iniciar el chat: el contexto viaja en el primer turno. */}
-          <div className="mt-2">
+          <div className="ml-auto">
             <ProjectPicker value={proyecto} onChange={setProyecto} disabled={messages.length > 0} />
           </div>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/70 px-4 py-4">
           {messages.length === 0 && (
-            <p className="text-sm text-slate-400">Cuéntale al agente qué necesitas y lo convertirá en un requerimiento.</p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+              <span
+                className="flex h-14 w-14 items-center justify-center rounded-full shadow-md"
+                style={{ background: `linear-gradient(135deg, #0c1430, ${BRAND})` }}
+              >
+                <BotIcon />
+              </span>
+              <p className="text-base font-black tracking-tight text-slate-800">Cuénteme qué necesita</p>
+              <p className="max-w-sm text-sm text-slate-500">
+                Describa su idea (o pegue una captura con Ctrl+V) y la convierto en un requerimiento claro,
+                completo y verificable.
+              </p>
+              <div className="mt-1 flex flex-wrap justify-center gap-2">
+                {SUGERENCIAS.map((sugerencia) => (
+                  <button
+                    key={sugerencia}
+                    type="button"
+                    className="rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs text-slate-600 shadow-sm transition-colors hover:border-slate-400 hover:text-slate-800"
+                    onClick={() => setText(sugerencia)}
+                  >
+                    {sugerencia}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           {messages.map((m, i) => (
             <div key={i} className={`flex items-start gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -227,12 +265,12 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
                 </span>
               )}
               <div
-                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
+                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
                   m.role === 'user'
-                    ? 'text-white'
-                    : 'border border-slate-200 bg-white text-slate-800'
+                    ? 'rounded-br-md text-white'
+                    : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'
                 }`}
-                style={m.role === 'user' ? { backgroundColor: BRAND } : undefined}
+                style={m.role === 'user' ? { background: `linear-gradient(135deg, ${BRAND}, #27367a)` } : undefined}
               >
                 {m.images && m.images.length > 0 && (
                   <div className="mb-1.5 flex flex-wrap gap-1.5">
@@ -245,20 +283,32 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
               </div>
             </div>
           ))}
-          {status === 'sending' && <p className="text-sm text-slate-400">El agente está escribiendo…</p>}
+          {status === 'sending' && (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="flex gap-1">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0.15s' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0.3s' }} />
+              </span>
+              El agente está escribiendo…
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
         {status === 'error' && <p className="mx-4 mb-3 shrink-0 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
         {draft && (
-          <div className="mx-4 mb-3 shrink-0 space-y-2 rounded-xl border-2 p-4" style={{ borderColor: BRAND }}>
-            <p className="text-[11px] font-bold tracking-wide uppercase" style={{ color: BRAND }}>
-              Borrador de requerimiento
+          <div className="mx-4 mb-3 shrink-0 space-y-2 rounded-xl border-2 border-amber-400/80 bg-amber-50/50 p-4 shadow-sm">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-amber-700 uppercase">
+              <svg viewBox="0 0 24 24" fill="#f59e0b" className="h-3.5 w-3.5">
+                <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+              </svg>
+              Borrador de requerimiento listo
             </p>
             <p className="text-sm text-slate-800">{draft.texto}</p>
             <p className="text-xs text-slate-500">Área: {draft.area}</p>
-            <BrandButton loading={approving} loadingText="Aprobando…" onClick={() => void approve()}>
+            <BrandButton sparkle loading={approving} loadingText="Aprobando…" onClick={() => void approve()}>
               Aprobar y analizar
             </BrandButton>
           </div>
