@@ -38,4 +38,10 @@ public sealed class MongoAnalysisRepository : IAnalysisRepository
             .SortBy(d => d.CreatedAt).ToListAsync(cancellationToken);
         return documents.Select(d => d.ToDomain()).ToArray();
     }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        DeleteResult result = await _collection.DeleteOneAsync(d => d.Id == id, cancellationToken);
+        return result.DeletedCount > 0;
+    }
 }

@@ -152,6 +152,48 @@ public class FoundryChatCompletionTests
         Assert.Equal("input_text", content[0].GetProperty("type").GetString());
     }
 
+    private sealed class RecordingUsage : RequirementsCopilot.Application.Usage.ILlmUsageRepository
+    {
+        public List<RequirementsCopilot.Application.Usage.LlmUsage> Entries { get; } = new();
+        public Task AddAsync(RequirementsCopilot.Application.Usage.LlmUsage usage, CancellationToken ct = default)
+        {
+            Entries.Add(usage);
+            return Task.CompletedTask;
+        }
+        public Task<IReadOnlyList<RequirementsCopilot.Application.Usage.LlmUsage>> GetSinceAsync(
+            DateTime since, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<RequirementsCopilot.Application.Usage.LlmUsage>>(Entries.ToArray());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_RespuestaConUsage_RegistraTokens()
+    {
+        var handler = new RecordingHandler
+        {
+            ResponseBody = "{\"id\":\"resp_1\",\"usage\":{\"input_tokens\":120,\"output_tokens\":45}," +
+                "\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}]}",
+        };
+        var usage = new RecordingUsage();
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog(), usage);
+
+        await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+
+        var entry = Assert.Single(usage.Entries);
+        Assert.Equal("agente-x", entry.Agent);
+        Assert.Equal("gpt-5-mini", entry.Model); // override por agente
+        Assert.Equal(120, entry.InputTokens);
+        Assert.Equal(45, entry.OutputTokens);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_SinRepositorioDeUso_NoFalla()
+    {
+        var handler = new RecordingHandler { ResponseBody = ResponsesReply };
+        var chat = new FoundryChatCompletion(new HttpClient(handler), Options(), Catalog());
+        var result = await chat.CompleteAsync(new ChatPrompt("agente-x", "entrada"));
+        Assert.Equal("{\"ok\":true}", result.Text);
+    }
+
     [Fact]
     public async Task CompleteAsync_RespuestaSinOutput_DevuelveVacio()
     {

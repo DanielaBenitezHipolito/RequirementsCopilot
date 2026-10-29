@@ -19,6 +19,7 @@ public class AnalysisOrchestratorTests
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
         public Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
+        public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default) => Task.FromResult(false);
     }
 
     private sealed class StubExtractor : IDocumentTextExtractor
@@ -75,7 +76,8 @@ public class AnalysisOrchestratorTests
         new ExecutiveSummaryAgent(chat),
         repository,
         new AnalysisOptions(),
-        Projects());
+        Projects(),
+        new OverlapCheckerAgent(chat));
 
     private static ProjectContextLoader Projects(params Project[] projects)
     {
@@ -265,7 +267,8 @@ public class AnalysisOrchestratorTests
         var brokenOrchestrator = new AnalysisOrchestrator(
             new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
             new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
-            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions(), Projects());
+            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions(), Projects(),
+            new OverlapCheckerAgent(chat));
 
         await Assert.ThrowsAsync<LlmException>(
             () => brokenOrchestrator.ReevaluateAsync(repository.Saved!.Id, "REQ-002", new[] { "algo", "algo" }));
@@ -349,7 +352,8 @@ public class AnalysisOrchestratorTests
         new ExecutiveSummaryAgent(chat),
         repository,
         new AnalysisOptions(),
-        Projects());
+        Projects(),
+        new OverlapCheckerAgent(chat));
 
     [Fact]
     public async Task AnalyzeAsync_DocumentoConImagenes_LasAdjuntaAlExtractor()
@@ -391,6 +395,55 @@ public class AnalysisOrchestratorTests
         Assert.Equal(AnalysisStatus.Failed, repository.Saved!.Status);
     }
 
+    [Fact]
+    public async Task AnalyzeAsync_ProyectoConCasosDeUso_DetectaSolapamiento()
+    {
+        var chat = PipelineChat();
+        var baseReply = chat.Reply;
+        chat.Reply = prompt => prompt.Agent == OverlapCheckerAgent.AgentName
+            ? (prompt.Input.Contains("REQ-001")
+                ? "{\"solapado\":true,\"con\":\"Registrar pago\",\"motivo\":\"Ya está cubierto.\"}"
+                : "{\"solapado\":false}")
+            : baseReply(prompt);
+
+        // El proyecto ya tiene un caso de uso: el contexto trae el apéndice y se activa el chequeo.
+        var projectStore = new InMemoryProjectRepository();
+        await projectStore.SaveAsync(Project.Create("P", "Sistema base."));
+        var analysesStore = new InMemoryAnalysisRepository();
+        var previo = Analysis.Create("previo.txt", "P");
+        var reqPrevio = Requirement.Create("REQ-900", "pago previo", "Pagos");
+        reqPrevio.SetUseCase(UseCase.Create("Registrar pago", "Registrar el pago", null, null, null, null, null, null, null, null, null, null));
+        previo.AddRequirement(reqPrevio);
+        await analysesStore.SaveAsync(previo);
+        var loader = new ProjectContextLoader(projectStore, analysesStore, new AnalysisOptions());
+
+        var repository = new StubRepository();
+        var orchestrator = new AnalysisOrchestrator(
+            new StubExtractor(), new RequirementExtractorAgent(chat), new RequirementEvaluatorAgent(chat),
+            new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
+            new ExecutiveSummaryAgent(chat), repository, new AnalysisOptions(), loader,
+            new OverlapCheckerAgent(chat));
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("doc"));
+        var events = new List<AnalysisEvent>();
+        await foreach (var e in orchestrator.AnalyzeAsync(stream, "spec.txt", "P")) events.Add(e);
+
+        Requirement req1 = repository.Saved!.Requirements.First(r => r.Code == "REQ-001");
+        Assert.NotNull(req1.OverlapWarning);
+        Assert.Contains("Registrar pago", req1.OverlapWarning);
+        Assert.Null(repository.Saved.Requirements.First(r => r.Code == "REQ-002").OverlapWarning);
+        Assert.Contains(events, e => e.Kind == AnalysisEventKind.Overlap);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_SinProyecto_NoChequeaSolapamiento()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        await Collect(Orchestrator(chat, repository));
+        Assert.DoesNotContain(chat.Prompts, p => p.Agent == OverlapCheckerAgent.AgentName);
+    }
+
     private sealed class LongTextExtractor : IDocumentTextExtractor
     {
         public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
@@ -411,7 +464,8 @@ public class AnalysisOrchestratorTests
             new ExecutiveSummaryAgent(chat),
             new StubRepository(),
             new AnalysisOptions { MaxInputChars = 100 },
-            Projects());
+            Projects(),
+            new OverlapCheckerAgent(chat));
 
         await Collect(orchestrator);
 
@@ -429,7 +483,8 @@ public class AnalysisOrchestratorTests
             new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             repository, new AnalysisOptions(),
-            Projects(Project.Create("Hotelería", "# Sistema de reservas\nYa existe módulo de pagos.")));
+            Projects(Project.Create("Hotelería", "# Sistema de reservas\nYa existe módulo de pagos.")),
+            new OverlapCheckerAgent(chat));
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes("doc"));
         await foreach (var _ in orchestrator.AnalyzeAsync(stream, "spec.txt", "Hotelería")) { }
@@ -461,7 +516,8 @@ public class AnalysisOrchestratorTests
             new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             repository, new AnalysisOptions(),
-            Projects(Project.Create("Hotelería", "Descripción del sistema.")));
+            Projects(Project.Create("Hotelería", "Descripción del sistema.")),
+            new OverlapCheckerAgent(chat));
 
         Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 El sistema debe registrar pagos", "Pagos", "Hotelería");
         await orchestrator.GenerateStoriesAsync(id, "REQ-001");
@@ -491,7 +547,8 @@ public class AnalysisOrchestratorTests
             new ClarifierAgent(chat), new UseCaseWriterAgent(chat), new UserStoryWriterAgent(chat),
             new ExecutiveSummaryAgent(chat),
             repository, new AnalysisOptions(),
-            Projects(Project.Create("Hotelería", "Ya existe check-in.")));
+            Projects(Project.Create("Hotelería", "Ya existe check-in.")),
+            new OverlapCheckerAgent(chat));
 
         Guid id = await orchestrator.CreateFromRequirementAsync("REQ-001 registrar pagos", "Pagos", "Hotelería");
         var dto = await orchestrator.GenerateUserStoriesAsync(id, "REQ-001");

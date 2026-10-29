@@ -17,12 +17,14 @@ public sealed class AnalysisOrchestrator
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
     private readonly ProjectContextLoader _projectContext;
+    private readonly OverlapCheckerAgent _overlapChecker;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
         RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, UseCaseWriterAgent useCaseWriter,
         UserStoryWriterAgent userStoryWriter, ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
-        AnalysisOptions options, ProjectContextLoader projectContext)
+        AnalysisOptions options, ProjectContextLoader projectContext, OverlapCheckerAgent overlapChecker)
     {
+        _overlapChecker = overlapChecker;
         _userStoryWriter = userStoryWriter;
         _textExtractor = textExtractor;
         _extractor = extractor;
@@ -76,10 +78,31 @@ public sealed class AnalysisOrchestrator
 
         if (error is null)
         {
+            // El chequeo de solapamiento solo aplica si el proyecto ya tiene casos de uso en su contexto.
+            bool checkOverlap = projectContext.Contains("CASOS DE USO YA DEFINIDOS", StringComparison.Ordinal);
             foreach (Requirement requirement in requirements)
             {
                 analysis.AddRequirement(requirement);
                 yield return AnalysisEvent.FromRequirement(requirement);
+
+                if (checkOverlap)
+                {
+                    string? overlap = null;
+                    try
+                    {
+                        overlap = await _overlapChecker.CheckAsync(requirement, projectContext, cancellationToken);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception)
+                    {
+                        // Best effort: un fallo del chequeo no tumba el análisis.
+                    }
+                    if (overlap is not null)
+                    {
+                        requirement.SetOverlapWarning(overlap);
+                        yield return AnalysisEvent.FromOverlap(requirement);
+                    }
+                }
 
                 Evaluation? evaluation = null;
                 try
@@ -192,6 +215,22 @@ public sealed class AnalysisOrchestrator
         try
         {
             string projectContext = await _projectContext.LoadAsync(projectName, cancellationToken);
+            if (projectContext.Contains("CASOS DE USO YA DEFINIDOS", StringComparison.Ordinal))
+            {
+                try
+                {
+                    string? overlap = await _overlapChecker.CheckAsync(requirement, projectContext, cancellationToken);
+                    if (overlap is not null)
+                    {
+                        requirement.SetOverlapWarning(overlap);
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception)
+                {
+                    // Best effort: sin chequeo de solapamiento no se bloquea el flujo del chat.
+                }
+            }
             Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
                 answeredClarifications: null, projectContext, cancellationToken);
             requirement.Evaluate(evaluation);
@@ -243,10 +282,10 @@ public sealed class AnalysisOrchestrator
     /// (aprobado, o con todas sus clarificaciones respondidas).
     /// </summary>
     public async Task<RequirementDetailDto> GenerateStoriesAsync(Guid analysisId, string requirementCode,
-        CancellationToken cancellationToken = default)
+        bool regenerate = false, CancellationToken cancellationToken = default)
     {
         (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
-        if (requirement.UseCase is not null)
+        if (requirement.UseCase is not null && !regenerate)
         {
             throw new InvalidOperationException("El requerimiento ya tiene un caso de uso generado.");
         }
@@ -268,10 +307,10 @@ public sealed class AnalysisOrchestrator
     /// requerimiento listo. Reutiliza aclaraciones, caso de uso y contexto del proyecto.
     /// </summary>
     public async Task<RequirementDetailDto> GenerateUserStoriesAsync(Guid analysisId, string requirementCode,
-        CancellationToken cancellationToken = default)
+        bool regenerate = false, CancellationToken cancellationToken = default)
     {
         (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
-        if (requirement.UserStories.Count > 0)
+        if (requirement.UserStories.Count > 0 && !regenerate)
         {
             throw new InvalidOperationException("El requerimiento ya tiene historias de usuario generadas.");
         }
@@ -291,6 +330,50 @@ public sealed class AnalysisOrchestrator
         catch (InvalidOperationException ex) { throw new LlmException(ex.Message); }
 
         requirement.SetUserStories(stories);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>
+    public async Task<RequirementDetailDto> SetStageAsync(Guid analysisId, string requirementCode,
+        string stage, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (!Enum.TryParse(stage, ignoreCase: true, out RequirementStage parsed))
+        {
+            throw new ArgumentException(
+                $"Etapa inválida: «{stage}». Use Draft, Approved, InDevelopment o Implemented.", nameof(stage));
+        }
+        requirement.SetStage(parsed);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Edición manual del caso de uso: reemplaza el caso de uso del requerimiento con el contenido
+    /// editado por el usuario (validación de Nombre/Objetivo en el dominio).
+    /// </summary>
+    public async Task<RequirementDetailDto> UpdateUseCaseAsync(Guid analysisId, string requirementCode,
+        UseCaseEditDto edit, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        UseCase useCase = UseCase.Create(
+            edit.Nombre ?? string.Empty,
+            edit.Objetivo ?? string.Empty,
+            edit.Descripcion,
+            edit.Actores?.Select(a => new Actor(a.Nombre ?? string.Empty, a.Descripcion ?? string.Empty)).ToArray(),
+            edit.Precondiciones,
+            edit.Trigger,
+            edit.Flujos?.Select(f => new FlujoProceso(f.Titulo ?? string.Empty,
+                (f.Pasos ?? new List<PasoFlujoEditDto>())
+                    .Select(p => new PasoFlujo(p.Numero, p.Accion ?? string.Empty, p.ResultadoEsperado ?? string.Empty))
+                    .ToArray())).ToArray(),
+            edit.Extensiones,
+            edit.Frecuencia,
+            edit.Importancia,
+            edit.Urgencia,
+            edit.Comentarios);
+        requirement.SetUseCase(useCase);
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);
     }

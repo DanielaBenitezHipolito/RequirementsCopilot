@@ -17,11 +17,14 @@ git push -u origin feature/requirements-copilot-mvp
 1. [render.com](https://render.com) → New → **Web Service** → conecta el repo de GitHub.
 2. Render detecta `render.yaml` (Blueprint). Si lo configuras a mano:
    - Runtime: **Docker**, Dockerfile: `./Dockerfile`, Branch: `feature/requirements-copilot-mvp`, Plan: Free.
-   - Health Check Path: `/api/analyses`.
+   - Health Check Path: `/api/health` (anónimo; funciona con la autenticación habilitada).
 3. Variables de entorno:
    - **Demo sin credenciales (recomendado para presentar):** `Providers__Chat=Fake`, `Providers__AnalysisRepository=InMemory`. Nada más.
    - **IA real:** `Providers__Chat=Foundry`, `Foundry__Endpoint=…`, `Foundry__ApiKey=…`, `Foundry__Chat__Model=gpt-5-mini`; `Providers__AnalysisRepository=Mongo`, `Mongo__ConnectionString=…`, `Mongo__Database=…`. Los prompts de los agentes viven en `/prompts` del repo y se despliegan con la app (ADR-0008): cambiar un prompt = commit + deploy, sin tocar el portal Foundry. Las variables `Foundry__Chat__Agents__<agente>__Name/__Version` quedaron obsoletas (pueden borrarse del dashboard); el override opcional `Foundry__Chat__Agents__<agente>__Model` sigue vigente.
-4. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
+4. **Autenticación (ADR-0010, recomendado):** `Auth__JwtKey` (secreto de ≥ 32 caracteres),
+   `Auth__AdminEmail` y `Auth__AdminPassword` (admin inicial). Sin estas variables la API queda
+   ABIERTA. Los usuarios adicionales se crean desde la pestaña Usuarios (rol Admin).
+5. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
 
 ## Notas
 - **Plan free:** el servicio duerme tras ~15 min de inactividad; el primer request tarda ~30-60s en despertar. Despiértalo con un request un minuto antes de presentar.

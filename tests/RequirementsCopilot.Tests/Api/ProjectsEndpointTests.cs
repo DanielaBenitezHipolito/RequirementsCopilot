@@ -140,6 +140,35 @@ public class ProjectsEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task GetUseCases_DevuelveLosCasosDeUsoDelProyecto()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("exp.md", "Sistema base.", nombre: "ExportProj"));
+
+        var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("El sistema debe registrar pagos.")), "file", "spec.txt");
+        form.Add(new StringContent("ExportProj"), "proyecto");
+        var analyze = await client.PostAsync("/api/analyses", form);
+        string body = await analyze.Content.ReadAsStringAsync();
+        string analysisId = System.Text.RegularExpressions.Regex.Match(body, "\"analysisId\":\"([^\"]+)\"").Groups[1].Value;
+        await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stories", null);
+
+        var casos = await client.GetFromJsonAsync<JsonElement>("/api/projects/ExportProj/use-cases");
+
+        Assert.Equal(1, casos.GetArrayLength());
+        Assert.Equal("REQ-001", casos[0].GetProperty("codigo").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(casos[0].GetProperty("caso").GetProperty("nombre").GetString()));
+    }
+
+    [Fact]
+    public async Task GetUseCases_ProyectoInexistente_Devuelve404()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.GetAsync("/api/projects/NoExiste/use-cases");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetByName_IncluyeConteoDeCasosDeUsoAsociados()
     {
         var client = _factory.CreateClient();

@@ -24,4 +24,7 @@ public sealed class InMemoryAnalysisRepository : IAnalysisRepository
         => Task.FromResult<IReadOnlyList<Analysis>>(_store.Values
             .Where(a => string.Equals(a.ProjectName, projectName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(a => a.CreatedAt).ToArray());
+
+    public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(_store.TryRemove(id, out _));
 }

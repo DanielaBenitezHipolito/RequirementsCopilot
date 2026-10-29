@@ -22,10 +22,11 @@ public sealed class AnalysesController : ControllerBase
     private readonly AnalysisOrchestrator _orchestrator;
     private readonly AnalysisQueries _queries;
     private readonly IDocumentTextExtractor _textExtractor;
+    private readonly IAnalysisRepository _repository;
 
     public AnalysesController(AnalysisOrchestrator orchestrator, AnalysisQueries queries,
-        IDocumentTextExtractor textExtractor)
-        => (_orchestrator, _queries, _textExtractor) = (orchestrator, queries, textExtractor);
+        IDocumentTextExtractor textExtractor, IAnalysisRepository repository)
+        => (_orchestrator, _queries, _textExtractor, _repository) = (orchestrator, queries, textExtractor, repository);
 
     [HttpPost]
     [RequestSizeLimit(MaxFileBytes + 1024)]
@@ -98,6 +99,16 @@ public sealed class AnalysesController : ControllerBase
         return detail is null ? NotFound(new { mensaje = "Análisis no encontrado." }) : Ok(detail);
     }
 
+    /// <summary>
+    /// Elimina un análisis completo. Sus casos de uso dejan de alimentar el contexto del proyecto
+    /// (la memoria es derivada, ADR-0009).
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+        => await _repository.DeleteAsync(id, cancellationToken)
+            ? NoContent()
+            : NotFound(new { mensaje = "Análisis no encontrado." });
+
     public sealed record ClarificationAnswersRequest(List<string?>? Respuestas);
 
     [HttpPut("{id:guid}/requirements/{code}/clarifications")]
@@ -107,13 +118,31 @@ public sealed class AnalysesController : ControllerBase
             id, code, request?.Respuestas ?? new List<string?>(), cancellationToken));
 
     [HttpPost("{id:guid}/requirements/{code}/stories")]
-    public Task<IActionResult> GenerateStories(Guid id, string code, CancellationToken cancellationToken)
-        => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, cancellationToken));
+    public Task<IActionResult> GenerateStories(Guid id, string code, [FromQuery] bool regenerar,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, regenerar, cancellationToken));
 
     /// <summary>Genera el backlog de historias de usuario (ADR-0006) para un requerimiento listo.</summary>
     [HttpPost("{id:guid}/requirements/{code}/user-stories")]
-    public Task<IActionResult> GenerateUserStories(Guid id, string code, CancellationToken cancellationToken)
-        => ExecuteAsync(() => _orchestrator.GenerateUserStoriesAsync(id, code, cancellationToken));
+    public Task<IActionResult> GenerateUserStories(Guid id, string code, [FromQuery] bool regenerar,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateUserStoriesAsync(id, code, regenerar, cancellationToken));
+
+    /// <summary>Reemplaza el caso de uso de un requerimiento con una edición manual.</summary>
+    [HttpPut("{id:guid}/requirements/{code}/use-case")]
+    public Task<IActionResult> EditUseCase(Guid id, string code, [FromBody] UseCaseEditDto? request,
+        CancellationToken cancellationToken)
+        => request is null
+            ? Task.FromResult<IActionResult>(new BadRequestObjectResult(new { mensaje = "Debe enviar el caso de uso." }))
+            : ExecuteAsync(() => _orchestrator.UpdateUseCaseAsync(id, code, request, cancellationToken));
+
+    public sealed record StageRequest(string? Etapa);
+
+    /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>
+    [HttpPut("{id:guid}/requirements/{code}/stage")]
+    public Task<IActionResult> SetStage(Guid id, string code, [FromBody] StageRequest? request,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.SetStageAsync(id, code, request?.Etapa ?? string.Empty, cancellationToken));
 
     [HttpPost("{id:guid}/requirements/{code}/reevaluate")]
     public Task<IActionResult> Reevaluate(Guid id, string code,
@@ -154,6 +183,7 @@ public sealed class AnalysesController : ControllerBase
             AnalysisEventKind.Requirement => new { requerimiento = analysisEvent.Requirement },
             AnalysisEventKind.Evaluation => new { evaluacion = analysisEvent.Evaluation },
             AnalysisEventKind.Clarification => new { aclaracion = analysisEvent.Clarification },
+            AnalysisEventKind.Overlap => new { solapamiento = analysisEvent.Overlap },
             AnalysisEventKind.Summary => new { resumen = analysisEvent.Summary },
             AnalysisEventKind.Done => new { analysisId = analysisEvent.AnalysisId },
             AnalysisEventKind.Error => new { mensaje = analysisEvent.Message },

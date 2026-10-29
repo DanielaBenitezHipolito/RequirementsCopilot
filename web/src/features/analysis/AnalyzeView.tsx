@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { analyzeFile, extractDocumentText, generateUserStories, reevaluateRequirement } from '../../shared/api/client';
+import { analyzeFile, extractDocumentText, generateStories, generateUserStories, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
@@ -506,6 +506,21 @@ export function AnalyzeView() {
                 onGenerateUserStories={
                   analysisId
                     ? async () => updateRequirement(mapRequirement(await generateUserStories(analysisId, r.codigo)))
+                    : undefined
+                }
+                onRegenerateUseCase={
+                  analysisId
+                    ? async () => updateRequirement(mapRequirement(await generateStories(analysisId, r.codigo, true)))
+                    : undefined
+                }
+                onEditUseCase={
+                  analysisId
+                    ? async (caso) => updateRequirement(mapRequirement(await updateUseCase(analysisId, r.codigo, caso)))
+                    : undefined
+                }
+                onSetStage={
+                  analysisId
+                    ? async (etapa) => updateRequirement(mapRequirement(await setRequirementStage(analysisId, r.codigo, etapa)))
                     : undefined
                 }
               />

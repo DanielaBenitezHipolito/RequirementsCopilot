@@ -13,4 +13,7 @@ public interface IAnalysisRepository
     /// ascendente. Alimenta el contexto acumulado de casos de uso del proyecto (ADR-0009).
     /// </summary>
     Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken cancellationToken = default);
+
+    /// <summary>Elimina un análisis; false si no existe. Sus casos de uso salen del contexto del proyecto (memoria derivada).</summary>
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

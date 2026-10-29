@@ -6,7 +6,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
-    healthCheckPath: /api/analyses
+    healthCheckPath: /api/health
     envVars:
       # Demo sin credenciales: agentes con datos de ejemplo, historial en memoria.
       # Para IA real: Providers__Chat=Foundry + Foundry__* ; Providers__AnalysisRepository=Mongo + Mongo__*.

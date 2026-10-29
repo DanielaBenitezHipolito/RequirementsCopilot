@@ -2,7 +2,7 @@ using RequirementsCopilot.Domain.Analyses;
 
 namespace RequirementsCopilot.Application.Analyses;
 
-public enum AnalysisEventKind { Status, Requirement, Evaluation, Clarification, Summary, Done, Error }
+public enum AnalysisEventKind { Status, Requirement, Evaluation, Clarification, Overlap, Summary, Done, Error }
 
 public sealed record CriterionDto(string Nombre, int Score, string Observacion);
 
@@ -12,12 +12,15 @@ public sealed record EvaluationDto(string RequirementCode, IReadOnlyList<Criteri
 
 public sealed record ClarificationEventDto(string RequirementCode, IReadOnlyList<string> Preguntas);
 
+public sealed record OverlapEventDto(string RequirementCode, string Advertencia);
+
 public sealed record AnalysisEvent(AnalysisEventKind Kind)
 {
     public string? Message { get; init; }
     public RequirementDto? Requirement { get; init; }
     public EvaluationDto? Evaluation { get; init; }
     public ClarificationEventDto? Clarification { get; init; }
+    public OverlapEventDto? Overlap { get; init; }
     public string? Summary { get; init; }
     public Guid? AnalysisId { get; init; }
 
@@ -42,6 +45,11 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
     {
         Clarification = new ClarificationEventDto(requirement.Code,
             requirement.Clarifications.Select(c => c.Question).ToArray()),
+    };
+
+    public static AnalysisEvent FromOverlap(Requirement requirement) => new(AnalysisEventKind.Overlap)
+    {
+        Overlap = new OverlapEventDto(requirement.Code, requirement.OverlapWarning!),
     };
 
     public static AnalysisEvent FromSummary(string summary) => new(AnalysisEventKind.Summary) { Summary = summary };
