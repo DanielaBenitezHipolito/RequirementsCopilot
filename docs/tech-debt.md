@@ -19,3 +19,10 @@ con su condición de disparo).
 | --- | --- |
 | El apéndice de casos de uso se **trunca** al tope de contexto conservando los primeros (cronológico); no hay resumen inteligente. | Proyectos con decenas de casos de uso donde el truncado deje fuera información relevante → resumir con un agente. |
 | Los documentos importados al proyecto (`POST /projects/{nombre}/documents`) **ignoran las imágenes** embebidas: solo se anexa el texto. | Si los Word de casos de uso existentes dependen de sus mockups para entenderse. |
+
+## Autenticación (ADR-0010, 2026-10-29)
+
+| Deuda | Disparo para pagarla |
+| --- | --- |
+| Autenticación propia (JWT + usuarios en Mongo) en lugar de **Entra ID/SSO corporativo**. | Cuando TI habilite el registro de la aplicación en el tenant de Howden. |
+| Sin expiración forzada de sesión ni refresh tokens: el JWT dura 12 h y el logout es local. | Si se requiere revocación inmediata de accesos. |

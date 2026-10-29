@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using RequirementsCopilot.Application.Analyses;
+using RequirementsCopilot.Application.Usage;
 
 namespace RequirementsCopilot.Infrastructure.Chat;
 
@@ -18,9 +19,12 @@ public sealed class FoundryChatCompletion : IChatCompletion
     private readonly HttpClient _httpClient;
     private readonly FoundryOptions _options;
     private readonly FilePromptCatalog _prompts;
+    private readonly ILlmUsageRepository? _usage;
 
-    public FoundryChatCompletion(HttpClient httpClient, FoundryOptions options, FilePromptCatalog prompts)
+    public FoundryChatCompletion(HttpClient httpClient, FoundryOptions options, FilePromptCatalog prompts,
+        ILlmUsageRepository? usage = null)
     {
+        _usage = usage;
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(prompts);
@@ -79,7 +83,7 @@ public sealed class FoundryChatCompletion : IChatCompletion
         {
             try
             {
-                return await SendAsync(url, payload, cancellationToken);
+                return await SendAsync(url, payload, prompt.Agent, model, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -96,7 +100,8 @@ public sealed class FoundryChatCompletion : IChatCompletion
         }
     }
 
-    private async Task<ChatResult> SendAsync(Uri url, Dictionary<string, object> payload, CancellationToken cancellationToken)
+    private async Task<ChatResult> SendAsync(Uri url, Dictionary<string, object> payload, string agent, string model,
+        CancellationToken cancellationToken)
     {
         HttpResponseMessage response = await _httpClient.PostAsJsonAsync(url, payload, JsonOptions, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -105,9 +110,33 @@ public sealed class FoundryChatCompletion : IChatCompletion
         using JsonDocument document = JsonDocument.Parse(body);
         JsonElement root = document.RootElement;
 
+        await RecordUsageAsync(root, agent, model, cancellationToken);
+
         string text = ExtractText(root);
         string? responseId = root.TryGetProperty("id", out JsonElement idElement) ? idElement.GetString() : null;
         return new ChatResult(text, responseId);
+    }
+
+    /// <summary>Registra los tokens reportados por la API (best effort: nunca tumba la llamada).</summary>
+    private async Task RecordUsageAsync(JsonElement root, string agent, string model, CancellationToken cancellationToken)
+    {
+        if (_usage is null ||
+            !root.TryGetProperty("usage", out JsonElement usage) ||
+            !usage.TryGetProperty("input_tokens", out JsonElement input) ||
+            !usage.TryGetProperty("output_tokens", out JsonElement output))
+        {
+            return;
+        }
+        try
+        {
+            await _usage.AddAsync(new LlmUsage(DateTime.UtcNow, agent, model, input.GetInt32(), output.GetInt32()),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception)
+        {
+            // El tablero es informativo: un fallo al registrar no afecta la respuesta al usuario.
+        }
     }
 
     /// <summary>Mensaje del error incluyendo las causas internas (DNS, timeout, TLS…).</summary>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using RequirementsCopilot.Api.Auth;
 using RequirementsCopilot.Application.Analyses;
+using RequirementsCopilot.Application.Usage;
 using RequirementsCopilot.Application.Users;
 using RequirementsCopilot.Application.Analyses.Agents;
 using RequirementsCopilot.Application.Conversations;
@@ -76,6 +77,7 @@ if (repositoryProvider == "Mongo")
     builder.Services.AddSingleton<IConversationRepository, MongoConversationRepository>();
     builder.Services.AddSingleton<IProjectRepository, MongoProjectRepository>();
     builder.Services.AddSingleton<IUserRepository, MongoUserRepository>();
+    builder.Services.AddSingleton<ILlmUsageRepository, MongoLlmUsageRepository>();
 }
 else
 {
@@ -83,6 +85,7 @@ else
     builder.Services.AddSingleton<IConversationRepository, InMemoryConversationRepository>();
     builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
     builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+    builder.Services.AddSingleton<ILlmUsageRepository, InMemoryLlmUsageRepository>();
 }
 
 // Autenticación (ADR-0010): se habilita configurando Auth__JwtKey (≥ 32 chars). Sin clave la API
