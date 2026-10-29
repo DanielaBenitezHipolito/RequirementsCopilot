@@ -22,10 +22,11 @@ public sealed class AnalysesController : ControllerBase
     private readonly AnalysisOrchestrator _orchestrator;
     private readonly AnalysisQueries _queries;
     private readonly IDocumentTextExtractor _textExtractor;
+    private readonly IAnalysisRepository _repository;
 
     public AnalysesController(AnalysisOrchestrator orchestrator, AnalysisQueries queries,
-        IDocumentTextExtractor textExtractor)
-        => (_orchestrator, _queries, _textExtractor) = (orchestrator, queries, textExtractor);
+        IDocumentTextExtractor textExtractor, IAnalysisRepository repository)
+        => (_orchestrator, _queries, _textExtractor, _repository) = (orchestrator, queries, textExtractor, repository);
 
     [HttpPost]
     [RequestSizeLimit(MaxFileBytes + 1024)]
@@ -97,6 +98,16 @@ public sealed class AnalysesController : ControllerBase
         AnalysisDetailDto? detail = await _queries.GetByIdAsync(id, cancellationToken);
         return detail is null ? NotFound(new { mensaje = "Análisis no encontrado." }) : Ok(detail);
     }
+
+    /// <summary>
+    /// Elimina un análisis completo. Sus casos de uso dejan de alimentar el contexto del proyecto
+    /// (la memoria es derivada, ADR-0009).
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+        => await _repository.DeleteAsync(id, cancellationToken)
+            ? NoContent()
+            : NotFound(new { mensaje = "Análisis no encontrado." });
 
     public sealed record ClarificationAnswersRequest(List<string?>? Respuestas);
 

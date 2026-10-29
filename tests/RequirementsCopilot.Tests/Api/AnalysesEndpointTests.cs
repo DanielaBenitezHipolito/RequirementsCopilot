@@ -218,6 +218,19 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task Delete_EliminaElAnalisisYSuContexto()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "El sistema debe registrar pagos."));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        var delete = await client.DeleteAsync($"/api/analyses/{analysisId}");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/analyses/{analysisId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/analyses/{analysisId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task GenerateStories_AnalisisInexistente_Devuelve404()
     {
         var client = _factory.CreateClient();

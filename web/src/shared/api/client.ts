@@ -26,6 +26,14 @@ export async function getAnalysis(id: string): Promise<any> {
   return response.json();
 }
 
+export async function deleteAnalysis(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
+}
+
 async function readOrThrow(response: Response): Promise<any> {
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(body?.mensaje ?? `Error ${response.status}`);

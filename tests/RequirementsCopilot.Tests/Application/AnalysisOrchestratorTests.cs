@@ -19,6 +19,7 @@ public class AnalysisOrchestratorTests
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
         public Task<IReadOnlyList<Analysis>> GetByProjectAsync(string projectName, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<Analysis>>(Array.Empty<Analysis>());
+        public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default) => Task.FromResult(false);
     }
 
     private sealed class StubExtractor : IDocumentTextExtractor

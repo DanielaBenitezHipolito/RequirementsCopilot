@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAnalyses } from '../../shared/api/client';
+import { deleteAnalysis, getAnalyses } from '../../shared/api/client';
 import { Loading } from '../../shared/components/Loading';
 import type { AnalysisSummary } from '../../shared/types';
 
@@ -40,6 +40,18 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  async function remove(a: AnalysisSummary) {
+    if (!confirm(`¿Eliminar el análisis «${a.fileName}»? Sus casos de uso dejarán de alimentar el contexto del proyecto.`)) {
+      return;
+    }
+    try {
+      await deleteAnalysis(a.id);
+      setItems((prev) => prev.filter((x) => x.id !== a.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo eliminar.');
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -116,7 +128,20 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
                       {a.aprobados} / {total}
                     </td>
                     <td>
-                      <ChevronRightIcon />
+                      <span className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label={`Eliminar ${a.fileName}`}
+                          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-rose-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void remove(a);
+                          }}
+                        >
+                          ✕
+                        </button>
+                        <ChevronRightIcon />
+                      </span>
                     </td>
                   </tr>
                 );
