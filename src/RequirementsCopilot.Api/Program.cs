@@ -165,7 +165,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 // Rutas que no son /api/* caen al index del SPA (navegación cliente); nunca colisionan con la API.
-app.MapFallbackToFile("index.html");
+// AllowAnonymous: el cascarón del SPA es público (la pantalla de login vive ahí); los datos están
+// detrás de la API autenticada. Sin esto, la FallbackPolicy devuelve 401 en la raíz del sitio.
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();
 

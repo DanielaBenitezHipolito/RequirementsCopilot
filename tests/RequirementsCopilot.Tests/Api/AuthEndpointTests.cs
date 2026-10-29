@@ -84,6 +84,15 @@ public class AuthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task RaizDelSpa_SinToken_NoDevuelve401()
+    {
+        // El cascarón del SPA (fallback a index.html) debe ser público: ahí vive la pantalla de login.
+        var client = AuthFactory().CreateClient();
+        var response = await client.GetAsync("/");
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Health_SinToken_Responde200()
     {
         var client = AuthFactory().CreateClient();
