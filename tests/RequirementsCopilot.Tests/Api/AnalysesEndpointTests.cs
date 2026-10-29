@@ -139,6 +139,84 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
     }
 
+    private async Task<string> AnalyzeAndGenerateUseCaseAsync(HttpClient client)
+    {
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "El sistema debe registrar pagos."));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+        var stories = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stories", null);
+        Assert.Equal(HttpStatusCode.OK, stories.StatusCode);
+        return analysisId;
+    }
+
+    [Fact]
+    public async Task GenerateStories_YaGenerado_409PeroRegenerarLoReemplaza()
+    {
+        var client = _factory.CreateClient();
+        string analysisId = await AnalyzeAndGenerateUseCaseAsync(client);
+
+        var repeat = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/stories", null);
+        Assert.Equal(HttpStatusCode.Conflict, repeat.StatusCode);
+
+        var regenerate = await client.PostAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/stories?regenerar=true", null);
+        Assert.Equal(HttpStatusCode.OK, regenerate.StatusCode);
+        var detail = await regenerate.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(detail.GetProperty("caso").GetProperty("nombre").GetString()));
+    }
+
+    [Fact]
+    public async Task EditUseCase_ReemplazaElCasoDeUso()
+    {
+        var client = _factory.CreateClient();
+        string analysisId = await AnalyzeAndGenerateUseCaseAsync(client);
+
+        var edit = await client.PutAsJsonAsync($"/api/analyses/{analysisId}/requirements/REQ-001/use-case", new
+        {
+            nombre = "Caso editado a mano",
+            objetivo = "Objetivo corregido",
+            descripcion = "Descripción corregida",
+            actores = new[] { new { nombre = "Cajero", descripcion = "Cobra" } },
+            precondiciones = new[] { "Caja abierta" },
+            trigger = "El cliente paga",
+            flujos = new[] { new { titulo = "Principal", pasos = new[] { new { numero = 1, accion = "Cobrar", resultadoEsperado = "Pagado" } } } },
+            extensiones = new string[0],
+            frecuencia = "Diaria",
+            importancia = "Alta",
+            urgencia = "Alta",
+            comentarios = new string[0],
+        });
+
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var caso = detail.GetProperty("requerimientos")[0].GetProperty("caso");
+        Assert.Equal("Caso editado a mano", caso.GetProperty("nombre").GetString());
+        Assert.Equal("Cajero", caso.GetProperty("actores")[0].GetProperty("nombre").GetString());
+    }
+
+    [Fact]
+    public async Task EditUseCase_SinObjetivo_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        string analysisId = await AnalyzeAndGenerateUseCaseAsync(client);
+        var edit = await client.PutAsJsonAsync($"/api/analyses/{analysisId}/requirements/REQ-001/use-case",
+            new { nombre = "X", objetivo = "" });
+        Assert.Equal(HttpStatusCode.BadRequest, edit.StatusCode);
+    }
+
+    [Fact]
+    public async Task GenerateUserStories_ConRegenerar_Reemplaza()
+    {
+        var client = _factory.CreateClient();
+        string analysisId = await AnalyzeAndGenerateUseCaseAsync(client);
+        await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/user-stories", null);
+
+        var repeat = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/user-stories", null);
+        Assert.Equal(HttpStatusCode.Conflict, repeat.StatusCode);
+        var regenerate = await client.PostAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/user-stories?regenerar=true", null);
+        Assert.Equal(HttpStatusCode.OK, regenerate.StatusCode);
+    }
+
     [Fact]
     public async Task GenerateStories_AnalisisInexistente_Devuelve404()
     {

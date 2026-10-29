@@ -243,10 +243,10 @@ public sealed class AnalysisOrchestrator
     /// (aprobado, o con todas sus clarificaciones respondidas).
     /// </summary>
     public async Task<RequirementDetailDto> GenerateStoriesAsync(Guid analysisId, string requirementCode,
-        CancellationToken cancellationToken = default)
+        bool regenerate = false, CancellationToken cancellationToken = default)
     {
         (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
-        if (requirement.UseCase is not null)
+        if (requirement.UseCase is not null && !regenerate)
         {
             throw new InvalidOperationException("El requerimiento ya tiene un caso de uso generado.");
         }
@@ -268,10 +268,10 @@ public sealed class AnalysisOrchestrator
     /// requerimiento listo. Reutiliza aclaraciones, caso de uso y contexto del proyecto.
     /// </summary>
     public async Task<RequirementDetailDto> GenerateUserStoriesAsync(Guid analysisId, string requirementCode,
-        CancellationToken cancellationToken = default)
+        bool regenerate = false, CancellationToken cancellationToken = default)
     {
         (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
-        if (requirement.UserStories.Count > 0)
+        if (requirement.UserStories.Count > 0 && !regenerate)
         {
             throw new InvalidOperationException("El requerimiento ya tiene historias de usuario generadas.");
         }
@@ -291,6 +291,35 @@ public sealed class AnalysisOrchestrator
         catch (InvalidOperationException ex) { throw new LlmException(ex.Message); }
 
         requirement.SetUserStories(stories);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>
+    /// Edición manual del caso de uso: reemplaza el caso de uso del requerimiento con el contenido
+    /// editado por el usuario (validación de Nombre/Objetivo en el dominio).
+    /// </summary>
+    public async Task<RequirementDetailDto> UpdateUseCaseAsync(Guid analysisId, string requirementCode,
+        UseCaseEditDto edit, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        UseCase useCase = UseCase.Create(
+            edit.Nombre ?? string.Empty,
+            edit.Objetivo ?? string.Empty,
+            edit.Descripcion,
+            edit.Actores?.Select(a => new Actor(a.Nombre ?? string.Empty, a.Descripcion ?? string.Empty)).ToArray(),
+            edit.Precondiciones,
+            edit.Trigger,
+            edit.Flujos?.Select(f => new FlujoProceso(f.Titulo ?? string.Empty,
+                (f.Pasos ?? new List<PasoFlujoEditDto>())
+                    .Select(p => new PasoFlujo(p.Numero, p.Accion ?? string.Empty, p.ResultadoEsperado ?? string.Empty))
+                    .ToArray())).ToArray(),
+            edit.Extensiones,
+            edit.Frecuencia,
+            edit.Importancia,
+            edit.Urgencia,
+            edit.Comentarios);
+        requirement.SetUseCase(useCase);
         await _repository.SaveAsync(analysis, cancellationToken);
         return AnalysisQueries.MapRequirement(requirement);
     }

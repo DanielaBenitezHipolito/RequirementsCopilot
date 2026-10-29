@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import type { RequirementView } from '../../shared/types';
+import type { CasoDeUso, RequirementView } from '../../shared/types';
 import { BrandButton } from '../../shared/components/BrandButton';
+import { UseCaseEditor } from './UseCaseEditor';
 
 interface Props {
   requirement: RequirementView;
   onReevaluate?: (respuestas: string[]) => Promise<void>;
   onGenerateUserStories?: () => Promise<void>;
+  onRegenerateUseCase?: () => Promise<void>;
+  onEditUseCase?: (caso: CasoDeUso) => Promise<void>;
 }
 
 const BRAND = '#1e2a5a';
@@ -30,7 +33,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase }: Props) {
   const evaluacion = requirement.evaluacion;
   // El SSE arma requerimientos parciales: nunca asumir que historias viene definida.
   const historias = requirement.historias ?? [];
@@ -38,6 +41,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [open, setOpen] = useState(true);
+  const [editing, setEditing] = useState(false);
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
@@ -179,9 +183,44 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
 
           {error && <p className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
 
-          {requirement.caso && (
+          {requirement.caso && editing && onEditUseCase && (
+            <UseCaseEditor
+              caso={requirement.caso}
+              onCancel={() => setEditing(false)}
+              onSave={async (caso) => {
+                await onEditUseCase(caso);
+                setEditing(false);
+              }}
+            />
+          )}
+
+          {requirement.caso && !editing && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold text-slate-800">CASO DE USO — {requirement.caso.nombre}</p>
+                <div className="flex gap-2">
+                  {onEditUseCase && (
+                    <BrandButton variant="secondary" className="!px-3 !py-1.5 !text-xs" disabled={busy} onClick={() => setEditing(true)}>
+                      ✏️ Editar
+                    </BrandButton>
+                  )}
+                  {onRegenerateUseCase && (
+                    <BrandButton
+                      variant="secondary"
+                      className="!px-3 !py-1.5 !text-xs"
+                      loading={busy}
+                      loadingText="Regenerando…"
+                      onClick={() => {
+                        if (confirm('¿Regenerar el caso de uso? El actual se reemplaza por uno nuevo de la IA.')) {
+                          void run(onRegenerateUseCase);
+                        }
+                      }}
+                    >
+                      ↻ Regenerar
+                    </BrandButton>
+                  )}
+                </div>
+              </div>
 
               <div className="mt-3 space-y-3">
                 <div>

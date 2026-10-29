@@ -41,13 +41,24 @@ export async function answerClarifications(id: string, codigo: string, respuesta
   return readOrThrow(response);
 }
 
-export async function generateStories(id: string, codigo: string): Promise<any> {
-  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stories`, { method: 'POST' });
+export async function generateStories(id: string, codigo: string, regenerar = false): Promise<any> {
+  const query = regenerar ? '?regenerar=true' : '';
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stories${query}`, { method: 'POST' });
   return readOrThrow(response);
 }
 
-export async function generateUserStories(id: string, codigo: string): Promise<any> {
-  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/user-stories`, { method: 'POST' });
+export async function generateUserStories(id: string, codigo: string, regenerar = false): Promise<any> {
+  const query = regenerar ? '?regenerar=true' : '';
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/user-stories${query}`, { method: 'POST' });
+  return readOrThrow(response);
+}
+
+export async function updateUseCase(id: string, codigo: string, caso: unknown): Promise<any> {
+  const response = await fetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/use-case`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(caso),
+  });
   return readOrThrow(response);
 }
 

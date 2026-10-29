@@ -107,13 +107,23 @@ public sealed class AnalysesController : ControllerBase
             id, code, request?.Respuestas ?? new List<string?>(), cancellationToken));
 
     [HttpPost("{id:guid}/requirements/{code}/stories")]
-    public Task<IActionResult> GenerateStories(Guid id, string code, CancellationToken cancellationToken)
-        => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, cancellationToken));
+    public Task<IActionResult> GenerateStories(Guid id, string code, [FromQuery] bool regenerar,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateStoriesAsync(id, code, regenerar, cancellationToken));
 
     /// <summary>Genera el backlog de historias de usuario (ADR-0006) para un requerimiento listo.</summary>
     [HttpPost("{id:guid}/requirements/{code}/user-stories")]
-    public Task<IActionResult> GenerateUserStories(Guid id, string code, CancellationToken cancellationToken)
-        => ExecuteAsync(() => _orchestrator.GenerateUserStoriesAsync(id, code, cancellationToken));
+    public Task<IActionResult> GenerateUserStories(Guid id, string code, [FromQuery] bool regenerar,
+        CancellationToken cancellationToken)
+        => ExecuteAsync(() => _orchestrator.GenerateUserStoriesAsync(id, code, regenerar, cancellationToken));
+
+    /// <summary>Reemplaza el caso de uso de un requerimiento con una edición manual.</summary>
+    [HttpPut("{id:guid}/requirements/{code}/use-case")]
+    public Task<IActionResult> EditUseCase(Guid id, string code, [FromBody] UseCaseEditDto? request,
+        CancellationToken cancellationToken)
+        => request is null
+            ? Task.FromResult<IActionResult>(new BadRequestObjectResult(new { mensaje = "Debe enviar el caso de uso." }))
+            : ExecuteAsync(() => _orchestrator.UpdateUseCaseAsync(id, code, request, cancellationToken));
 
     [HttpPost("{id:guid}/requirements/{code}/reevaluate")]
     public Task<IActionResult> Reevaluate(Guid id, string code,

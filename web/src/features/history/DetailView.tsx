@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { generateUserStories, getAnalysis, reevaluateRequirement } from '../../shared/api/client';
+import { generateStories, generateUserStories, getAnalysis, reevaluateRequirement, updateUseCase } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
@@ -95,6 +95,8 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 requirement={r}
                 onReevaluate={async (respuestas) => replace(await reevaluateRequirement(id, r.codigo, respuestas))}
                 onGenerateUserStories={async () => replace(await generateUserStories(id, r.codigo))}
+                onRegenerateUseCase={async () => replace(await generateStories(id, r.codigo, true))}
+                onEditUseCase={async (caso) => replace(await updateUseCase(id, r.codigo, caso))}
               />
             ))}
           </div>
