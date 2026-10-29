@@ -21,6 +21,9 @@ public sealed class Requirement
     /// <summary>Etapa de gestión del requerimiento (borrador → aprobado → en desarrollo → implementado).</summary>
     public RequirementStage Stage { get; private set; } = RequirementStage.Draft;
 
+    /// <summary>Advertencia de posible solapamiento con un caso de uso existente del proyecto, si se detectó.</summary>
+    public string? OverlapWarning { get; private set; }
+
     /// <summary>Caso de uso generado para este requerimiento, si ya se generó.</summary>
     public UseCase? UseCase { get; private set; }
 
@@ -64,6 +67,9 @@ public sealed class Requirement
 
     /// <summary>Cambia manualmente la etapa de gestión del requerimiento.</summary>
     public void SetStage(RequirementStage stage) => Stage = stage;
+
+    /// <summary>Registra la advertencia de solapamiento con un caso de uso existente del proyecto.</summary>
+    public void SetOverlapWarning(string warning) => OverlapWarning = warning;
 
     /// <summary>Asigna el caso de uso generado para este requerimiento.</summary>
     public void SetUseCase(UseCase useCase) => UseCase = useCase;

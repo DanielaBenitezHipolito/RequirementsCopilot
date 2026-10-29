@@ -129,6 +129,12 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
 
       {open && (
         <div className="space-y-4 border-t border-slate-100 px-4 pb-4 pt-3">
+          {requirement.solapamiento && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              ⚠️ {requirement.solapamiento}
+            </p>
+          )}
+
           <div>
             <p className="mb-1 text-[11px] font-bold tracking-wide text-slate-400 uppercase">
               Enunciado / Descripción

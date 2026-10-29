@@ -47,12 +47,15 @@ public sealed class RequirementDocument
     // Nullable: documentos previos a las etapas no traen el campo (se deriva de la evaluación).
     public string? Stage { get; set; }
 
+    public string? OverlapWarning { get; set; }
+
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
         Code = requirement.Code,
         Text = requirement.Text,
         Area = requirement.Area,
         Stage = requirement.Stage.ToString(),
+        OverlapWarning = requirement.OverlapWarning,
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
         Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
         {
@@ -84,6 +87,10 @@ public sealed class RequirementDocument
         if (Enum.TryParse(Stage, ignoreCase: true, out RequirementStage stage))
         {
             requirement.SetStage(stage);
+        }
+        if (!string.IsNullOrWhiteSpace(OverlapWarning))
+        {
+            requirement.SetOverlapWarning(OverlapWarning);
         }
         return requirement;
     }

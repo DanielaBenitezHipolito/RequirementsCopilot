@@ -54,6 +54,14 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
                 : r,
             ),
           };
+        case 'overlap':
+          return {
+            requirements: state.requirements.map((r) =>
+              r.codigo === evt.data.solapamiento.requirementCode
+                ? { ...r, solapamiento: evt.data.solapamiento.advertencia }
+                : r,
+            ),
+          };
         case 'summary':
           return { resumen: evt.data.resumen ?? undefined };
         case 'done':

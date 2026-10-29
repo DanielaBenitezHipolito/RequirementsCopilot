@@ -19,6 +19,7 @@ export interface RequirementView {
   codigo: string; texto: string; area: string; evaluacion?: Evaluacion;
   aclaraciones: Aclaracion[]; listoParaHistorias?: boolean; caso?: CasoDeUso; historias: UserStory[];
   etapa?: string;
+  solapamiento?: string;
 }
 export interface AnalysisSummary {
   id: string; fileName: string; createdAt: string; status: string;

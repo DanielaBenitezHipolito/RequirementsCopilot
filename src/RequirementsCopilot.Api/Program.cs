@@ -81,6 +81,7 @@ builder.Services.AddSingleton(
     builder.Configuration.GetSection("Analysis").Get<AnalysisOptions>() ?? new AnalysisOptions());
 builder.Services.AddSingleton<IDocumentTextExtractor, CompositeTextExtractor>();
 builder.Services.AddScoped<RequirementExtractorAgent>();
+builder.Services.AddScoped<OverlapCheckerAgent>();
 builder.Services.AddScoped<RequirementEvaluatorAgent>();
 builder.Services.AddScoped<ClarifierAgent>();
 builder.Services.AddScoped<UseCaseWriterAgent>();

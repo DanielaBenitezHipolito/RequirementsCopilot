@@ -81,6 +81,7 @@ public sealed class FakeChatCompletion : IChatCompletion
         string text = prompt.Agent switch
         {
             RequirementExtractorAgent.AgentName => ExtractorReply,
+            OverlapCheckerAgent.AgentName => "{\"solapado\":false}",
             RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("Aclaraciones respondidas")
                 ? HighRubric
                 : IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,

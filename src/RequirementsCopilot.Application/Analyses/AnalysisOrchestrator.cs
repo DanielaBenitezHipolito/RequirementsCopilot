@@ -17,12 +17,14 @@ public sealed class AnalysisOrchestrator
     private readonly IAnalysisRepository _repository;
     private readonly AnalysisOptions _options;
     private readonly ProjectContextLoader _projectContext;
+    private readonly OverlapCheckerAgent _overlapChecker;
 
     public AnalysisOrchestrator(IDocumentTextExtractor textExtractor, RequirementExtractorAgent extractor,
         RequirementEvaluatorAgent evaluator, ClarifierAgent clarifier, UseCaseWriterAgent useCaseWriter,
         UserStoryWriterAgent userStoryWriter, ExecutiveSummaryAgent summaryAgent, IAnalysisRepository repository,
-        AnalysisOptions options, ProjectContextLoader projectContext)
+        AnalysisOptions options, ProjectContextLoader projectContext, OverlapCheckerAgent overlapChecker)
     {
+        _overlapChecker = overlapChecker;
         _userStoryWriter = userStoryWriter;
         _textExtractor = textExtractor;
         _extractor = extractor;
@@ -76,10 +78,31 @@ public sealed class AnalysisOrchestrator
 
         if (error is null)
         {
+            // El chequeo de solapamiento solo aplica si el proyecto ya tiene casos de uso en su contexto.
+            bool checkOverlap = projectContext.Contains("CASOS DE USO YA DEFINIDOS", StringComparison.Ordinal);
             foreach (Requirement requirement in requirements)
             {
                 analysis.AddRequirement(requirement);
                 yield return AnalysisEvent.FromRequirement(requirement);
+
+                if (checkOverlap)
+                {
+                    string? overlap = null;
+                    try
+                    {
+                        overlap = await _overlapChecker.CheckAsync(requirement, projectContext, cancellationToken);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception)
+                    {
+                        // Best effort: un fallo del chequeo no tumba el análisis.
+                    }
+                    if (overlap is not null)
+                    {
+                        requirement.SetOverlapWarning(overlap);
+                        yield return AnalysisEvent.FromOverlap(requirement);
+                    }
+                }
 
                 Evaluation? evaluation = null;
                 try
@@ -192,6 +215,22 @@ public sealed class AnalysisOrchestrator
         try
         {
             string projectContext = await _projectContext.LoadAsync(projectName, cancellationToken);
+            if (projectContext.Contains("CASOS DE USO YA DEFINIDOS", StringComparison.Ordinal))
+            {
+                try
+                {
+                    string? overlap = await _overlapChecker.CheckAsync(requirement, projectContext, cancellationToken);
+                    if (overlap is not null)
+                    {
+                        requirement.SetOverlapWarning(overlap);
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception)
+                {
+                    // Best effort: sin chequeo de solapamiento no se bloquea el flujo del chat.
+                }
+            }
             Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
                 answeredClarifications: null, projectContext, cancellationToken);
             requirement.Evaluate(evaluation);
