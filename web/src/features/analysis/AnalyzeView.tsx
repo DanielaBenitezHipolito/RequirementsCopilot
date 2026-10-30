@@ -508,7 +508,13 @@ export function AnalyzeView() {
                 }
                 onGenerateUserStories={
                   analysisId
-                    ? async () => updateRequirement(mapRequirement(await generateUserStories(analysisId, r.codigo)))
+                    ? async () => {
+                        // Entregables unificados: primero el caso de uso si falta, luego el backlog.
+                        if (!r.caso) {
+                          updateRequirement(mapRequirement(await generateStories(analysisId, r.codigo)));
+                        }
+                        updateRequirement(mapRequirement(await generateUserStories(analysisId, r.codigo)));
+                      }
                     : undefined
                 }
                 onRegenerateUseCase={

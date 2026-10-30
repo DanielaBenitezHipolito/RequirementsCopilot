@@ -59,7 +59,7 @@ public sealed class RequirementDocument
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
         Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
         {
-            Question = c.Question, Answer = c.Answer,
+            Question = c.Question, Answer = c.Answer, Options = c.Options.ToList(),
         }).ToList(),
         UseCase = requirement.UseCase is null ? null : UseCaseDocument.FromDomain(requirement.UseCase),
         UserStories = requirement.UserStories.Select(UserStoryDocument.FromDomain).ToList(),
@@ -74,7 +74,8 @@ public sealed class RequirementDocument
         }
         foreach (ClarificationDocument clarification in Clarifications)
         {
-            requirement.AddClarification(Domain.Analyses.Clarification.Rehydrate(clarification.Question, clarification.Answer));
+            requirement.AddClarification(Domain.Analyses.Clarification.Rehydrate(
+                clarification.Question, clarification.Answer, clarification.Options));
         }
         if (UseCase is not null)
         {
@@ -127,6 +128,7 @@ public sealed class ClarificationDocument
 {
     public string Question { get; set; } = string.Empty;
     public string? Answer { get; set; }
+    public List<string> Options { get; set; } = new();
 }
 
 [BsonIgnoreExtraElements]

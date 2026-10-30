@@ -218,6 +218,20 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task Post_AclaracionesConOpciones_LlegaronAlDetalle()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var req002 = detail.GetProperty("requerimientos").EnumerateArray()
+            .First(r => r.GetProperty("codigo").GetString() == "REQ-002");
+        var primera = req002.GetProperty("aclaraciones")[0];
+        Assert.True(primera.GetProperty("opciones").GetArrayLength() >= 2);
+    }
+
+    [Fact]
     public async Task SetStage_CambiaLaEtapaYSePersiste()
     {
         var client = _factory.CreateClient();

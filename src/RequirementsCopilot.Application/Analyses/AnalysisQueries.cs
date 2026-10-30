@@ -13,7 +13,7 @@ public sealed record UseCaseDto(string Nombre, string Objetivo, string Descripci
     IReadOnlyList<string> Extensiones, string Frecuencia, string Importancia, string Urgencia,
     IReadOnlyList<string> Comentarios);
 
-public sealed record ClarificationDto(string Pregunta, string? Respuesta);
+public sealed record ClarificationDto(string Pregunta, string? Respuesta, IReadOnlyList<string> Opciones);
 
 public sealed record UserStoryDto(string Titulo, string Como, string Quiero, string Para,
     IReadOnlyList<string> CriteriosAceptacion, int Puntos, IReadOnlyList<string> Dependencias);
@@ -62,7 +62,7 @@ public sealed class AnalysisQueries
             r.Code,
             r.Evaluation.Scores.Select(s => new CriterionDto(s.Criterion, s.Score, s.Observation)).ToArray(),
             Math.Round(r.Evaluation.Average, 2), r.Evaluation.Threshold, r.Evaluation.Passed),
-        r.Clarifications.Select(c => new ClarificationDto(c.Question, c.Answer)).ToArray(),
+        r.Clarifications.Select(c => new ClarificationDto(c.Question, c.Answer, c.Options)).ToArray(),
         r.ReadyForStories,
         r.UseCase is null ? null : new UseCaseDto(
             r.UseCase.Nombre, r.UseCase.Objetivo, r.UseCase.Descripcion,

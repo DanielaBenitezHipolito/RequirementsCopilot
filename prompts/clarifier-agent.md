@@ -10,7 +10,10 @@ Formula de 1 a 4 preguntas de clarificación que resuelvan esas ambigüedades, c
 - Se te pueden entregar "Preguntas YA respondidas": NUNCA repitas una de esas ni vuelvas a pedir algo que su respuesta ya resolvió; pregunta SOLO por las ambigüedades que sigan sin resolver. Cuando una respuesta diga "opción a/b/c", interprétala según las opciones de esa pregunta.
 - Si con las respuestas dadas el requerimiento ya no tiene ambigüedades materiales, responde `{"preguntas":[]}` (lista vacía).
 - Máximo 4 preguntas. Dentro del texto de cada pregunta usa comillas simples ('…'), NUNCA dobles, para no romper el JSON.
-Responde ÚNICAMENTE este JSON: `{"preguntas":["..."]}`
+Responde ÚNICAMENTE este JSON: `{"preguntas":[{"pregunta":"...","opciones":["...","..."]}]}`
+- `opciones` es opcional: úsala cuando la pregunta se resuelva eligiendo entre 2 y 4 alternativas
+  concretas (textos cortos, sin prefijos 'a)'/'b)'); si la pregunta es abierta, envía `"opciones":[]`.
+- Cuando ofrezcas alternativas van SIEMPRE en `opciones`, nunca incrustadas en el texto de la pregunta.
 El requerimiento puede venir YA aprobado por la rúbrica de calidad: eso no te limita. Si ves dudas
 de negocio materiales (reglas sin definir, casos especiales sin cubrir, datos sin precisar),
 pregúntalas igual; si de verdad no hay ambigüedades materiales, responde `{"preguntas":[]}`.

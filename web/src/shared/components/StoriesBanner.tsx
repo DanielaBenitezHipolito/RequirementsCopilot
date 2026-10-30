@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateStories } from '../api/client';
+import { generateStories, generateUserStories } from '../api/client';
 import type { RequirementView } from '../types';
 import { BrandButton } from './BrandButton';
 
@@ -39,7 +39,9 @@ export function StoriesBanner({ analysisId, requirements, onUpdate }: Props) {
   const [progress, setProgress] = useState({ i: 0, total: 0 });
   const [error, setError] = useState<string>();
 
-  const pendientes = requirements.filter((r) => r.evaluacion?.pasa && !r.caso);
+  const pendientes = requirements.filter(
+    (r) => r.evaluacion?.pasa && (!r.caso || (r.historias?.length ?? 0) === 0),
+  );
   const show = requirements.length > 0 && requirements.every((r) => r.evaluacion?.pasa === true) && pendientes.length > 0;
 
   if (!show) return null;
@@ -50,8 +52,13 @@ export function StoriesBanner({ analysisId, requirements, onUpdate }: Props) {
     setProgress({ i: 0, total: pendientes.length });
     for (let i = 0; i < pendientes.length; i++) {
       try {
-        const updated = await generateStories(analysisId, pendientes[i].codigo);
-        onUpdate(mapRequirement(updated));
+        const r = pendientes[i];
+        if (!r.caso) {
+          onUpdate(mapRequirement(await generateStories(analysisId, r.codigo)));
+        }
+        if ((r.historias?.length ?? 0) === 0) {
+          onUpdate(mapRequirement(await generateUserStories(analysisId, r.codigo)));
+        }
         setProgress({ i: i + 1, total: pendientes.length });
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Error inesperado');
@@ -67,18 +74,18 @@ export function StoriesBanner({ analysisId, requirements, onUpdate }: Props) {
       <div className="flex-1">
         <p className="font-bold text-slate-800">¡Todos los requerimientos cumplen con los estándares de calidad!</p>
         <p className="mt-0.5 text-sm text-emerald-700">
-          La especificación cumple totalmente con el umbral de aprobación. Ahora puede autogenerar la especificación
-          formal de Historias de Usuario para los desarrolladores.
+          La especificación cumple el umbral de aprobación. Genere en un solo paso el caso de uso formal y el
+          backlog de historias de usuario de cada requerimiento.
         </p>
         {error && <p className="mt-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
       </div>
       <BrandButton
         sparkle
         loading={busy}
-        loadingText={`Generando historias… (${progress.i}/${progress.total})`}
+        loadingText={`Generando entregables… (${progress.i}/${progress.total})`}
         onClick={() => void generateAll()}
       >
-        📖 Generar Historias de Usuario
+        📖 Generar casos de uso e historias
       </BrandButton>
     </div>
   );

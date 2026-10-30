@@ -29,7 +29,8 @@ public sealed class FakeChatCompletion : IChatCompletion
 
     private const string ClarifierReply =
         "{\"preguntas\":[" +
-        "\"¿Qué tiempo de respuesta máximo, en segundos, se considera aceptable?\"," +
+        "{\"pregunta\":\"¿Qué tiempo de respuesta máximo se considera aceptable?\"," +
+        "\"opciones\":[\"Menos de 2 segundos\",\"Menos de 5 segundos\",\"No es crítico\"]}," +
         "\"¿Qué tareas concretas debe poder completar el usuario sin capacitación?\"]}";
 
     private const string UseCaseReply =

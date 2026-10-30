@@ -2,7 +2,7 @@ export interface Criterion { nombre: string; score: number; observacion: string 
 export interface Evaluacion {
   requirementCode: string; criterios: Criterion[]; promedio: number; umbral: number; pasa: boolean;
 }
-export interface Aclaracion { pregunta: string; respuesta?: string }
+export interface Aclaracion { pregunta: string; respuesta?: string; opciones?: string[] }
 export interface Actor { nombre: string; descripcion: string }
 export interface PasoFlujo { numero: number; accion: string; resultadoEsperado: string }
 export interface Flujo { titulo: string; pasos: PasoFlujo[] }

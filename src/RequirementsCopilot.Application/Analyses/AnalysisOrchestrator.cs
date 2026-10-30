@@ -123,7 +123,7 @@ public sealed class AnalysisOrchestrator
 
                 // El clarificador corre SIEMPRE: aprobar el umbral no silencia dudas materiales
                 // (el agente responde lista vacía cuando no las hay).
-                IReadOnlyList<string> questions = Array.Empty<string>();
+                IReadOnlyList<ClarifierQuestion> questions = Array.Empty<ClarifierQuestion>();
                 try
                 {
                     questions = await _clarifier.AskAsync(requirement, projectContext, cancellationToken);
@@ -135,9 +135,9 @@ public sealed class AnalysisOrchestrator
                     break;
                 }
 
-                foreach (string question in questions)
+                foreach (ClarifierQuestion question in questions)
                 {
-                    requirement.AddClarification(Clarification.Create(question));
+                    requirement.AddClarification(Clarification.Create(question.Text, question.Options));
                 }
                 if (requirement.Clarifications.Count > 0)
                 {
@@ -233,9 +233,9 @@ public sealed class AnalysisOrchestrator
                 answeredClarifications: null, projectContext, cancellationToken);
             requirement.Evaluate(evaluation);
             // Siempre se consulta al clarificador: si no hay dudas materiales devuelve lista vacía.
-            foreach (string question in await _clarifier.AskAsync(requirement, projectContext, cancellationToken))
+            foreach (ClarifierQuestion question in await _clarifier.AskAsync(requirement, projectContext, cancellationToken))
             {
-                requirement.AddClarification(Clarification.Create(question));
+                requirement.AddClarification(Clarification.Create(question.Text, question.Options));
             }
         }
         catch (OperationCanceledException) { throw; }
@@ -416,7 +416,7 @@ public sealed class AnalysisOrchestrator
 
         if (NeedsClarification(evaluation))
         {
-            IReadOnlyList<string> questions;
+            IReadOnlyList<ClarifierQuestion> questions;
             try
             {
                 questions = await _clarifier.AskAsync(requirement, projectContext, cancellationToken);
@@ -424,9 +424,9 @@ public sealed class AnalysisOrchestrator
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { throw new LlmException(ex.Message); }
 
-            foreach (string question in questions)
+            foreach (ClarifierQuestion question in questions)
             {
-                requirement.AddClarification(Clarification.Create(question));
+                requirement.AddClarification(Clarification.Create(question.Text, question.Options));
             }
         }
 

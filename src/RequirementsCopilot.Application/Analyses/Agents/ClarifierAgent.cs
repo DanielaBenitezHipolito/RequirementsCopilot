@@ -14,7 +14,7 @@ public sealed class ClarifierAgent
     public ClarifierAgent(IChatCompletion chat) => _chat = chat;
 
     /// <summary>Genera preguntas; <paramref name="projectContext"/> evita preguntar por lo ya documentado.</summary>
-    public async Task<IReadOnlyList<string>> AskAsync(Requirement requirement, string? projectContext = null,
+    public async Task<IReadOnlyList<ClarifierQuestion>> AskAsync(Requirement requirement, string? projectContext = null,
         CancellationToken cancellationToken = default)
     {
         string observations = requirement.Evaluation is null
@@ -35,14 +35,44 @@ public sealed class ClarifierAgent
                 $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente clarificador no devolvió JSON válido.");
-        ClarifierReply reply = JsonSerializer.Deserialize<ClarifierReply>(json, JsonOptions)
-            ?? throw new InvalidOperationException("El agente clarificador devolvió una respuesta vacía.");
-
-        return (reply.Preguntas ?? new List<string>())
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => p.Trim())
-            .ToArray();
+        return Parse(json);
     }
 
-    private sealed record ClarifierReply(List<string>? Preguntas);
+    /// <summary>
+    /// Acepta ambos contratos del agente: preguntas como textos planos (formato legado) o como
+    /// objetos <c>{pregunta, opciones}</c>; los elementos irreconocibles se omiten.
+    /// </summary>
+    private static IReadOnlyList<ClarifierQuestion> Parse(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("preguntas", out JsonElement preguntas) ||
+            preguntas.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<ClarifierQuestion>();
+        }
+
+        List<ClarifierQuestion> questions = new();
+        foreach (JsonElement item in preguntas.EnumerateArray())
+        {
+            string? text = item.ValueKind switch
+            {
+                JsonValueKind.String => item.GetString(),
+                JsonValueKind.Object when item.TryGetProperty("pregunta", out JsonElement p) => p.GetString(),
+                _ => null,
+            };
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+            string[] options = item.ValueKind == JsonValueKind.Object &&
+                item.TryGetProperty("opciones", out JsonElement ops) && ops.ValueKind == JsonValueKind.Array
+                    ? ops.EnumerateArray()
+                        .Where(o => o.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(o.GetString()))
+                        .Select(o => o.GetString()!.Trim())
+                        .ToArray()
+                    : Array.Empty<string>();
+            questions.Add(new ClarifierQuestion(text.Trim(), options));
+        }
+        return questions;
+    }
 }

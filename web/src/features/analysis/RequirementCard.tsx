@@ -200,13 +200,42 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
                       <span style={{ color: BRAND }}>Q{i + 1}:</span> {a.pregunta}
                     </p>
                     {onReevaluate ? (
-                      <input
-                        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                        placeholder="Escriba su respuesta aclarando este requerimiento…"
-                        value={drafts[i] ?? ''}
-                        onChange={(e) => setDrafts({ ...drafts, [i]: e.target.value })}
-                        disabled={busy}
-                      />
+                      <>
+                        {(a.opciones?.length ?? 0) > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {a.opciones!.map((opcion) => {
+                              const selected = (drafts[i] ?? '') === opcion;
+                              return (
+                                <button
+                                  key={opcion}
+                                  type="button"
+                                  disabled={busy}
+                                  className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                                    selected
+                                      ? 'border-transparent text-white'
+                                      : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
+                                  }`}
+                                  style={selected ? { backgroundColor: BRAND } : undefined}
+                                  onClick={() => setDrafts({ ...drafts, [i]: selected ? '' : opcion })}
+                                >
+                                  {opcion}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <input
+                          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+                          placeholder={
+                            (a.opciones?.length ?? 0) > 0
+                              ? 'Elija una opción o escriba su propia respuesta…'
+                              : 'Escriba su respuesta aclarando este requerimiento…'
+                          }
+                          value={drafts[i] ?? ''}
+                          onChange={(e) => setDrafts({ ...drafts, [i]: e.target.value })}
+                          disabled={busy}
+                        />
+                      </>
                     ) : (
                       <p className="mt-1 text-xs italic text-slate-500">Pendiente de respuesta (ver Detalle)</p>
                     )}
@@ -424,17 +453,18 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
             </div>
           )}
 
-          {onGenerateUserStories && requirement.listoParaHistorias && historias.length === 0 && (
+          {/* Acción unificada: produce el caso de uso Y el backlog de historias en un solo paso. */}
+          {onGenerateUserStories && requirement.listoParaHistorias && (!requirement.caso || historias.length === 0) && (
             <div className="flex justify-end">
               <BrandButton
                 sparkle
                 variant="secondary"
                 className="!px-4 !py-2 !text-xs"
                 loading={busy}
-                loadingText="Generando historias…"
+                loadingText="Generando entregables…"
                 onClick={() => run(onGenerateUserStories)}
               >
-                📋 Generar Historias de Usuario (backlog)
+                📋 Generar caso de uso + historias
               </BrandButton>
             </div>
           )}

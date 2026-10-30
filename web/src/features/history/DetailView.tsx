@@ -94,7 +94,11 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 key={r.codigo}
                 requirement={r}
                 onReevaluate={async (respuestas) => replace(await reevaluateRequirement(id, r.codigo, respuestas))}
-                onGenerateUserStories={async () => replace(await generateUserStories(id, r.codigo))}
+                onGenerateUserStories={async () => {
+                  // Entregables unificados: primero el caso de uso si falta, luego el backlog.
+                  if (!r.caso) replace(await generateStories(id, r.codigo));
+                  replace(await generateUserStories(id, r.codigo));
+                }}
                 onRegenerateUseCase={async () => replace(await generateStories(id, r.codigo, true))}
                 onEditUseCase={async (caso) => replace(await updateUseCase(id, r.codigo, caso))}
                 onSetStage={async (etapa) => replace(await setRequirementStage(id, r.codigo, etapa))}

@@ -50,7 +50,12 @@ export const useAnalysisStore = create<AnalysisState>((set) => ({
           return {
             requirements: state.requirements.map((r) =>
               r.codigo === evt.data.aclaracion.requirementCode
-                ? { ...r, aclaraciones: evt.data.aclaracion.preguntas.map((pregunta: string) => ({ pregunta })) }
+                ? {
+                    ...r,
+                    aclaraciones: evt.data.aclaracion.preguntas.map((p: any) =>
+                      typeof p === 'string' ? { pregunta: p } : { pregunta: p.pregunta, opciones: p.opciones },
+                    ),
+                  }
                 : r,
             ),
           };

@@ -10,7 +10,9 @@ public sealed record RequirementDto(string Codigo, string Texto, string Area);
 
 public sealed record EvaluationDto(string RequirementCode, IReadOnlyList<CriterionDto> Criterios, double Promedio, double Umbral, bool Pasa);
 
-public sealed record ClarificationEventDto(string RequirementCode, IReadOnlyList<string> Preguntas);
+public sealed record ClarificationQuestionDto(string Pregunta, IReadOnlyList<string> Opciones);
+
+public sealed record ClarificationEventDto(string RequirementCode, IReadOnlyList<ClarificationQuestionDto> Preguntas);
 
 public sealed record OverlapEventDto(string RequirementCode, string Advertencia);
 
@@ -44,7 +46,7 @@ public sealed record AnalysisEvent(AnalysisEventKind Kind)
     public static AnalysisEvent FromClarifications(Requirement requirement) => new(AnalysisEventKind.Clarification)
     {
         Clarification = new ClarificationEventDto(requirement.Code,
-            requirement.Clarifications.Select(c => c.Question).ToArray()),
+            requirement.Clarifications.Select(c => new ClarificationQuestionDto(c.Question, c.Options)).ToArray()),
     };
 
     public static AnalysisEvent FromOverlap(Requirement requirement) => new(AnalysisEventKind.Overlap)

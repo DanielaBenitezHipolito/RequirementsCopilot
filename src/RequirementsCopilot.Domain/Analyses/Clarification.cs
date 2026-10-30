@@ -5,18 +5,27 @@ public sealed class Clarification
     public string Question { get; }
     public string? Answer { get; private set; }
 
-    private Clarification(string question, string? answer) => (Question, Answer) = (question, answer);
+    /// <summary>Opciones sugeridas de respuesta (vacío si la pregunta es abierta).</summary>
+    public IReadOnlyList<string> Options { get; }
 
-    public static Clarification Create(string question)
+    private Clarification(string question, string? answer, IReadOnlyList<string> options)
+        => (Question, Answer, Options) = (question, answer, options);
+
+    public static Clarification Create(string question, IReadOnlyList<string>? options = null)
     {
         if (string.IsNullOrWhiteSpace(question))
         {
             throw new ArgumentException("La pregunta de clarificación no puede estar vacía.", nameof(question));
         }
-        return new Clarification(question.Trim(), null);
+        return new Clarification(question.Trim(), null, Normalize(options));
     }
 
-    public static Clarification Rehydrate(string question, string? answer) => new(question, answer);
+    public static Clarification Rehydrate(string question, string? answer, IReadOnlyList<string>? options = null)
+        => new(question, answer, Normalize(options));
+
+    private static IReadOnlyList<string> Normalize(IReadOnlyList<string>? options)
+        => options?.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray()
+           ?? Array.Empty<string>();
 
     public bool IsAnswered => !string.IsNullOrWhiteSpace(Answer);
 
