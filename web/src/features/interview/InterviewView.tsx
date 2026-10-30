@@ -265,7 +265,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
                 </span>
               )}
               <div
-                className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
+                className={`max-w-[80%] break-words whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${
                   m.role === 'user'
                     ? 'rounded-br-md text-white'
                     : 'rounded-bl-md border border-slate-200 bg-white text-slate-800'

@@ -91,7 +91,7 @@ function MarkdownPreview({ text }: { text: string }) {
   });
   flushBullets(lines.length);
 
-  return <div className="space-y-2">{blocks}</div>;
+  return <div className="min-w-0 space-y-2 break-words">{blocks}</div>;
 }
 
 function message(e: unknown, fallback: string) {
@@ -339,7 +339,7 @@ export function ProjectsView() {
         </div>
       </div>
 
-      <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
         {error && <p className="m-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         {!selected && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
@@ -462,7 +462,7 @@ export function ProjectsView() {
                 onChange={(e) => setContent(e.target.value)}
               />
             ) : (
-              <div className="min-h-[24rem] flex-1 overflow-y-auto p-5">
+              <div className="min-h-[24rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-5 break-words">
                 {content.trim() === '' ? (
                   <p className="text-sm text-slate-400">
                     Sin contenido todavía: edite el contexto o anexe documentos.

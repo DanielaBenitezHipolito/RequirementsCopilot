@@ -169,7 +169,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
             <p className="mb-1 text-[11px] font-bold tracking-wide text-slate-400 uppercase">
               Enunciado / Descripción
             </p>
-            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{requirement.texto}</div>
+            <div className="rounded-lg bg-slate-50 p-3 text-sm break-words text-slate-700">{requirement.texto}</div>
           </div>
 
           {(onAddReference || (requirement.referencias?.length ?? 0) > 0) && (
