@@ -6,6 +6,7 @@ interface UsageAgent {
   llamadas: number;
   entrada: number;
   salida: number;
+  costoUsd?: number | null;
 }
 
 interface UsageDay {
@@ -13,17 +14,22 @@ interface UsageDay {
   llamadas: number;
   entrada: number;
   salida: number;
+  costoUsd?: number | null;
 }
 
 interface Usage {
   llamadas: number;
   tokensEntrada: number;
   tokensSalida: number;
+  preciosConfigurados: boolean;
+  costoUsd?: number | null;
   porAgente: UsageAgent[];
   porDia: UsageDay[];
 }
 
 const fmt = (n: number) => n.toLocaleString('es-CO');
+const usd = (n: number) =>
+  n.toLocaleString('es-CO', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
 /** Tablero de control (solo Admin): consumo de tokens del LLM. */
 export function AdminView() {
@@ -58,7 +64,7 @@ export function AdminView() {
 
       {usage && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className={`grid grid-cols-1 gap-4 ${usage.preciosConfigurados ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
             <div
               className="rounded-2xl p-5 text-white shadow-sm"
               style={{ background: 'linear-gradient(135deg, #0c1430, #1e2a5a 75%, #27367a)' }}
@@ -79,7 +85,23 @@ export function AdminView() {
               <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Tokens de salida</p>
               <p className="mt-1 text-3xl font-black text-slate-800">{fmt(usage.tokensSalida)}</p>
             </div>
+            {usage.preciosConfigurados && usage.costoUsd != null && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-5 shadow-sm">
+                <p className="text-[11px] font-bold tracking-wide text-amber-700 uppercase">Costo estimado</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">{usd(usage.costoUsd)}</p>
+                <p className="mt-1 text-[10px] text-amber-700/70">Según los precios configurados · sin impuestos</p>
+              </div>
+            )}
           </div>
+
+          {!usage.preciosConfigurados && (
+            <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+              Para ver el costo en dinero, configure el precio de su contrato:{' '}
+              <code className="rounded bg-slate-100 px-1 font-mono">Pricing__&lt;modelo&gt;__InputPer1M</code> y{' '}
+              <code className="rounded bg-slate-100 px-1 font-mono">Pricing__&lt;modelo&gt;__OutputPer1M</code> (USD por
+              millón de tokens) en las variables de entorno.
+            </p>
+          )}
 
           {usage.llamadas === 0 && (
             <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
@@ -99,6 +121,7 @@ export function AdminView() {
                       <th className="text-right">Llamadas</th>
                       <th className="text-right">Entrada</th>
                       <th className="text-right">Salida</th>
+                      {usage.preciosConfigurados && <th className="text-right">USD</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -119,6 +142,11 @@ export function AdminView() {
                           <td className="text-right text-slate-600">{fmt(a.llamadas)}</td>
                           <td className="text-right font-mono text-slate-600">{fmt(a.entrada)}</td>
                           <td className="text-right font-mono text-slate-600">{fmt(a.salida)}</td>
+                          {usage.preciosConfigurados && (
+                            <td className="text-right font-mono font-semibold text-slate-700">
+                              {a.costoUsd != null ? usd(a.costoUsd) : '—'}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -139,6 +167,7 @@ export function AdminView() {
                       <th className="text-right">Llamadas</th>
                       <th className="text-right">Entrada</th>
                       <th className="text-right">Salida</th>
+                      {usage.preciosConfigurados && <th className="text-right">USD</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -148,6 +177,11 @@ export function AdminView() {
                         <td className="text-right text-slate-600">{fmt(d.llamadas)}</td>
                         <td className="text-right font-mono text-slate-600">{fmt(d.entrada)}</td>
                         <td className="text-right font-mono text-slate-600">{fmt(d.salida)}</td>
+                        {usage.preciosConfigurados && (
+                          <td className="text-right font-mono font-semibold text-slate-700">
+                            {d.costoUsd != null ? usd(d.costoUsd) : '—'}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

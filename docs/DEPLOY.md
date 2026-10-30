@@ -24,7 +24,11 @@ git push -u origin feature/requirements-copilot-mvp
 4. **Autenticación (ADR-0010, recomendado):** `Auth__JwtKey` (secreto de ≥ 32 caracteres),
    `Auth__AdminEmail` y `Auth__AdminPassword` (admin inicial). Sin estas variables la API queda
    ABIERTA. Los usuarios adicionales se crean desde la pestaña Usuarios (rol Admin).
-5. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
+5. **Costos en el tablero (opcional):** `Pricing__<modelo>__InputPer1M` y
+   `Pricing__<modelo>__OutputPer1M` en USD por millón de tokens, con el precio de SU contrato
+   Azure (p. ej. `Pricing__gpt-5-mini__InputPer1M=0.25`). Sin estas variables el tablero muestra
+   solo tokens — las cifras de dinero no se inventan.
+6. Deploy. La URL pública (ej. `https://requirements-copilot.onrender.com`) sirve **todo**: abre la raíz y ya está el front; el front llama a `/api/...` en el mismo dominio.
 
 ## Notas
 - **Plan free:** el servicio duerme tras ~15 min de inactividad; el primer request tarda ~30-60s en despertar. Despiértalo con un request un minuto antes de presentar.

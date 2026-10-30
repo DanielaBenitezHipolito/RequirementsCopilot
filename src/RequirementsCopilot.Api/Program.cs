@@ -115,6 +115,12 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddSingleton(
     builder.Configuration.GetSection("Analysis").Get<AnalysisOptions>() ?? new AnalysisOptions());
+// Precios contratados por modelo (USD/1M tokens) para el tablero; sin configurar = solo tokens.
+builder.Services.AddSingleton<IReadOnlyDictionary<string, ModelPrice>>(
+    new Dictionary<string, ModelPrice>(
+        builder.Configuration.GetSection("Pricing").Get<Dictionary<string, ModelPrice>>()
+            ?? new Dictionary<string, ModelPrice>(),
+        StringComparer.OrdinalIgnoreCase));
 builder.Services.AddSingleton<IDocumentTextExtractor, CompositeTextExtractor>();
 builder.Services.AddScoped<RequirementExtractorAgent>();
 builder.Services.AddScoped<OverlapCheckerAgent>();

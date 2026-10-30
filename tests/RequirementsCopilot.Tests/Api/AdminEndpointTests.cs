@@ -46,6 +46,37 @@ public class AdminEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Usage_ConPreciosConfigurados_IncluyeCostoEnUsd()
+    {
+        var factory = AuthFactory().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Pricing:gpt-5-mini:InputPer1M", "0.25");
+            builder.UseSetting("Pricing:gpt-5-mini:OutputPer1M", "2.00");
+        });
+        var client = factory.CreateClient();
+        string token = await LoginAsync(client, "admin@test.local", "Admin#2026!");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var body = await (await client.GetAsync("/api/admin/usage")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.True(body.GetProperty("preciosConfigurados").GetBoolean());
+        Assert.Equal(0, body.GetProperty("costoUsd").GetDecimal()); // sin consumo registrado aún
+    }
+
+    [Fact]
+    public async Task Usage_SinPrecios_CostoEsNull()
+    {
+        var client = AuthFactory().CreateClient();
+        string token = await LoginAsync(client, "admin@test.local", "Admin#2026!");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var body = await (await client.GetAsync("/api/admin/usage")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.False(body.GetProperty("preciosConfigurados").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("costoUsd").ValueKind);
+    }
+
+    [Fact]
     public async Task Usage_Analista_Devuelve403()
     {
         var client = AuthFactory().CreateClient();

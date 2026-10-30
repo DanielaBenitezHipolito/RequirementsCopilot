@@ -12,9 +12,11 @@ namespace RequirementsCopilot.Api.Controllers;
 public sealed class AdminController : ControllerBase
 {
     private readonly ILlmUsageRepository _usage;
+    private readonly IReadOnlyDictionary<string, ModelPrice> _prices;
 
-    /// <summary>Crea el controlador sobre el repositorio de consumo.</summary>
-    public AdminController(ILlmUsageRepository usage) => _usage = usage;
+    /// <summary>Crea el controlador sobre el repositorio de consumo y los precios contratados.</summary>
+    public AdminController(ILlmUsageRepository usage, IReadOnlyDictionary<string, ModelPrice> prices)
+        => (_usage, _prices) = (usage, prices);
 
     /// <summary>Agregados de consumo de los últimos <paramref name="dias"/> días (default 30).</summary>
     [HttpGet("usage")]
@@ -22,12 +24,18 @@ public sealed class AdminController : ControllerBase
     {
         DateTime since = DateTime.UtcNow.AddDays(-Math.Clamp(dias, 1, 365));
         IReadOnlyList<LlmUsage> entries = await _usage.GetSinceAsync(since, cancellationToken);
+        decimal? Cost(IEnumerable<LlmUsage> group) => UsageCost.Calculate(group, _prices) is decimal c
+            ? Math.Round(c, 4)
+            : null;
+
         return Ok(new
         {
             desde = since,
             llamadas = entries.Count,
             tokensEntrada = entries.Sum(e => (long)e.InputTokens),
             tokensSalida = entries.Sum(e => (long)e.OutputTokens),
+            preciosConfigurados = _prices.Count > 0,
+            costoUsd = Cost(entries),
             porAgente = entries.GroupBy(e => e.Agent)
                 .Select(g => new
                 {
@@ -35,6 +43,7 @@ public sealed class AdminController : ControllerBase
                     llamadas = g.Count(),
                     entrada = g.Sum(e => (long)e.InputTokens),
                     salida = g.Sum(e => (long)e.OutputTokens),
+                    costoUsd = Cost(g),
                 })
                 .OrderByDescending(a => a.entrada + a.salida),
             porDia = entries.GroupBy(e => e.Timestamp.Date)
@@ -44,6 +53,7 @@ public sealed class AdminController : ControllerBase
                     llamadas = g.Count(),
                     entrada = g.Sum(e => (long)e.InputTokens),
                     salida = g.Sum(e => (long)e.OutputTokens),
+                    costoUsd = Cost(g),
                 })
                 .OrderBy(d => d.fecha),
         });
