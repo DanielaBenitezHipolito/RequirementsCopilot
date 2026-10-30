@@ -27,7 +27,7 @@ public sealed class UseCaseWriterAgent
               string.Join("\n", answered.Select(c => $"- P: {c.Question} R: {c.Answer}"));
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{ReferenceContext.For(requirement)}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente de casos de uso no devolvió JSON válido.");
         UseCaseReply reply = JsonSerializer.Deserialize<UseCaseReply>(json, JsonOptions)

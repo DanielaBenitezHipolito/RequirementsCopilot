@@ -14,6 +14,7 @@ export function mapRequirement(r: any): RequirementView {
     caso: r.caso ?? undefined,
     etapa: r.etapa,
     solapamiento: r.solapamiento ?? undefined,
+    referencias: r.referencias ?? [],
     historias: r.historias ?? [],
   };
 }

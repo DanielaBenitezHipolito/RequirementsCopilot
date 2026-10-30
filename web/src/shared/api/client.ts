@@ -123,6 +123,27 @@ export async function generateUserStories(id: string, codigo: string, regenerar 
   return readOrThrow(response);
 }
 
+export async function addRequirementReference(id: string, codigo: string, file: File): Promise<any> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await apiFetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/references`, {
+    method: 'POST',
+    body: form,
+  });
+  return readOrThrow(response);
+}
+
+export async function deleteRequirementReference(id: string, codigo: string, nombre: string): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE}/api/analyses/${id}/requirements/${codigo}/references/${encodeURIComponent(nombre)}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
+}
+
 export async function setRequirementStage(id: string, codigo: string, etapa: string): Promise<any> {
   const response = await apiFetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stage`, {
     method: 'PUT',

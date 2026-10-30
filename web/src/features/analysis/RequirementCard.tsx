@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CasoDeUso, RequirementView } from '../../shared/types';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { UseCaseEditor } from './UseCaseEditor';
@@ -10,6 +10,8 @@ interface Props {
   onRegenerateUseCase?: () => Promise<void>;
   onEditUseCase?: (caso: CasoDeUso) => Promise<void>;
   onSetStage?: (etapa: string) => Promise<void>;
+  onAddReference?: (file: File) => Promise<void>;
+  onRemoveReference?: (nombre: string) => Promise<void>;
 }
 
 const STAGES: { value: string; label: string; classes: string }[] = [
@@ -59,7 +61,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase, onSetStage }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase, onSetStage, onAddReference, onRemoveReference }: Props) {
   const evaluacion = requirement.evaluacion;
   // El SSE arma requerimientos parciales: nunca asumir que historias viene definida.
   const historias = requirement.historias ?? [];
@@ -68,6 +70,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
   const [error, setError] = useState<string>();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
+  const refInputRef = useRef<HTMLInputElement>(null);
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
@@ -168,6 +171,68 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
             </p>
             <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{requirement.texto}</div>
           </div>
+
+          {(onAddReference || (requirement.referencias?.length ?? 0) > 0) && (
+            <div>
+              <p className="mb-1 text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                Documentos de referencia del entregable
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {(requirement.referencias ?? []).map((d) => (
+                  <span
+                    key={d.nombre}
+                    className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
+                    </svg>
+                    <span className="font-semibold">{d.nombre}</span>
+                    {onRemoveReference && (
+                      <button
+                        type="button"
+                        aria-label={`Quitar referencia ${d.nombre}`}
+                        className="ml-0.5 text-slate-400 hover:text-rose-500"
+                        disabled={busy}
+                        onClick={() => {
+                          if (confirm(`¿Quitar la referencia «${d.nombre}»?`)) void run(() => onRemoveReference(d.nombre));
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {onAddReference && (
+                  <>
+                    <input
+                      ref={refInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void run(() => onAddReference(file));
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                      onClick={() => refInputRef.current?.click()}
+                    >
+                      + Adjuntar referencia (PDF/Word)
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Material de ejemplo del entregable (PDF modelo, correo tipo): lo usan el evaluador y los
+                redactores del caso de uso e historias.
+              </p>
+            </div>
+          )}
 
           {evaluacion && (
             <div>

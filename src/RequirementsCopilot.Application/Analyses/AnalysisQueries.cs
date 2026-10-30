@@ -15,12 +15,15 @@ public sealed record UseCaseDto(string Nombre, string Objetivo, string Descripci
 
 public sealed record ClarificationDto(string Pregunta, string? Respuesta, IReadOnlyList<string> Opciones);
 
+public sealed record ReferenceDto(string Nombre, int Caracteres);
+
 public sealed record UserStoryDto(string Titulo, string Como, string Quiero, string Para,
     IReadOnlyList<string> CriteriosAceptacion, int Puntos, IReadOnlyList<string> Dependencias);
 
 public sealed record RequirementDetailDto(string Codigo, string Texto, string Area, EvaluationDto? Evaluacion,
     IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso,
-    IReadOnlyList<UserStoryDto> Historias, string Etapa, string? Solapamiento);
+    IReadOnlyList<UserStoryDto> Historias, string Etapa, string? Solapamiento,
+    IReadOnlyList<ReferenceDto> Referencias);
 
 public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime CreatedAt, string Status,
     int TotalRequerimientos, int Aprobados, string? Proyecto);
@@ -80,5 +83,6 @@ public sealed class AnalysisQueries
         r.UserStories.Select(h => new UserStoryDto(h.Titulo, h.Como, h.Quiero, h.Para,
             h.CriteriosAceptacion, h.Puntos, h.Dependencias)).ToArray(),
         r.Stage.ToString(),
-        r.OverlapWarning);
+        r.OverlapWarning,
+        r.References.Select(d => new ReferenceDto(d.Name, d.Content.Length)).ToArray());
 }

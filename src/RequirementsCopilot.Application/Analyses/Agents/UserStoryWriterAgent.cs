@@ -38,7 +38,7 @@ public sealed class UserStoryWriterAgent
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
                 $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n" +
-                $"{requirement.Text}{clarifications}{useCase}"),
+                $"{requirement.Text}{clarifications}{useCase}{ReferenceContext.For(requirement)}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente de historias no devolvió JSON válido.");
         StoriesReply reply = JsonSerializer.Deserialize<StoriesReply>(json, JsonOptions)

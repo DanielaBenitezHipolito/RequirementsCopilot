@@ -36,7 +36,7 @@ public sealed class RequirementEvaluatorAgent
 
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{previous}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{clarifications}{previous}{ReferenceContext.For(requirement)}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente evaluador no devolvió JSON válido.");
         EvaluatorReply reply = JsonSerializer.Deserialize<EvaluatorReply>(json, JsonOptions)

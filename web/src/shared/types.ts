@@ -15,11 +15,13 @@ export interface UserStory {
   titulo: string; como: string; quiero: string; para: string;
   criteriosAceptacion: string[]; puntos: number; dependencias: string[];
 }
+export interface RequirementReferenceView { nombre: string; caracteres: number }
 export interface RequirementView {
   codigo: string; texto: string; area: string; evaluacion?: Evaluacion;
   aclaraciones: Aclaracion[]; listoParaHistorias?: boolean; caso?: CasoDeUso; historias: UserStory[];
   etapa?: string;
   solapamiento?: string;
+  referencias?: RequirementReferenceView[];
 }
 export interface AnalysisSummary {
   id: string; fileName: string; createdAt: string; status: string;

@@ -136,6 +136,62 @@ public sealed class AnalysesController : ControllerBase
             ? Task.FromResult<IActionResult>(new BadRequestObjectResult(new { mensaje = "Debe enviar el caso de uso." }))
             : ExecuteAsync(() => _orchestrator.UpdateUseCaseAsync(id, code, request, cancellationToken));
 
+    /// <summary>
+    /// Adjunta un documento de referencia (PDF/DOCX/TXT/MD) al requerimiento: material de solo
+    /// lectura del entregable esperado que reciben todos los agentes de ese requerimiento.
+    /// </summary>
+    [HttpPost("{id:guid}/requirements/{code}/references")]
+    [RequestSizeLimit(MaxFileBytes + 1024)]
+    public async Task<IActionResult> AddReference(Guid id, string code, IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Debe adjuntar un documento." });
+        }
+        if (file.Length > MaxFileBytes)
+        {
+            return BadRequest(new { mensaje = "El archivo supera el máximo de 10 MB." });
+        }
+        string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension is not (".pdf" or ".docx" or ".txt" or ".md"))
+        {
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PDF, DOCX, TXT o MD." });
+        }
+
+        await using Stream content = file.OpenReadStream();
+        string texto;
+        try
+        {
+            texto = (await _textExtractor.ExtractAsync(content, file.FileName, cancellationToken)).Text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return BadRequest(new { mensaje = $"No se pudo leer el documento: {ex.Message}" });
+        }
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return BadRequest(new { mensaje = "El documento no contiene texto legible para usar como referencia." });
+        }
+        return await ExecuteAsync(() => _orchestrator.AddReferenceAsync(id, code, file.FileName, texto, cancellationToken));
+    }
+
+    /// <summary>Quita un documento de referencia del requerimiento.</summary>
+    [HttpDelete("{id:guid}/requirements/{code}/references/{documento}")]
+    public async Task<IActionResult> RemoveReference(Guid id, string code, string documento,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _orchestrator.RemoveReferenceAsync(id, code, documento, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
+
     public sealed record StageRequest(string? Etapa);
 
     /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>

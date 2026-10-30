@@ -62,7 +62,9 @@ function toSections(requirements: RequirementView[]): Seccion[] {
             ['Requerimiento', r.texto],
           ] as [string, string][],
           flujos: [],
-          meta2: [] as [string, string][],
+          meta2: (r.referencias?.length
+            ? [['Documentos de referencia', r.referencias.map((d) => `• ${d.nombre}`).join('\n')]]
+            : []) as [string, string][],
           historias: r.historias,
         };
       }
@@ -87,6 +89,12 @@ function toSections(requirements: RequirementView[]): Seccion[] {
           ['Importancia', c.importancia],
           ['Urgencia', c.urgencia],
           ['Comentarios', joinList(c.comentarios)],
+          ...(r.referencias?.length
+            ? ([['Documentos de referencia', r.referencias.map((d) => `• ${d.nombre}`).join('\n')]] as [
+                string,
+                string,
+              ][])
+            : []),
         ] as [string, string][],
         historias: r.historias,
       };

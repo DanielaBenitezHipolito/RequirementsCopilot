@@ -330,6 +330,29 @@ public sealed class AnalysisOrchestrator
         return AnalysisQueries.MapRequirement(requirement);
     }
 
+    /// <summary>Adjunta un documento de referencia al requerimiento (reemplaza si el nombre ya existe).</summary>
+    public async Task<RequirementDetailDto> AddReferenceAsync(Guid analysisId, string requirementCode,
+        string fileName, string content, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        requirement.AddReference(fileName, content);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>Quita un documento de referencia del requerimiento.</summary>
+    public async Task<RequirementDetailDto> RemoveReferenceAsync(Guid analysisId, string requirementCode,
+        string referenceName, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (!requirement.RemoveReference(referenceName))
+        {
+            throw new KeyNotFoundException("Documento de referencia no encontrado.");
+        }
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
     /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>
     public async Task<RequirementDetailDto> SetStageAsync(Guid analysisId, string requirementCode,
         string stage, CancellationToken cancellationToken = default)

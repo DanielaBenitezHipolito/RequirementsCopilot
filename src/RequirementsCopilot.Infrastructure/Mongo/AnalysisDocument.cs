@@ -49,6 +49,8 @@ public sealed class RequirementDocument
 
     public string? OverlapWarning { get; set; }
 
+    public List<ReferenceDocument> References { get; set; } = new();
+
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
         Code = requirement.Code,
@@ -56,6 +58,8 @@ public sealed class RequirementDocument
         Area = requirement.Area,
         Stage = requirement.Stage.ToString(),
         OverlapWarning = requirement.OverlapWarning,
+        References = requirement.References
+            .Select(d => new ReferenceDocument { Name = d.Name, Content = d.Content }).ToList(),
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
         Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
         {
@@ -93,6 +97,10 @@ public sealed class RequirementDocument
         {
             requirement.SetOverlapWarning(OverlapWarning);
         }
+        foreach (ReferenceDocument reference in References)
+        {
+            requirement.AddReference(reference.Name, reference.Content);
+        }
         return requirement;
     }
 }
@@ -121,6 +129,14 @@ public sealed class UserStoryDocument
 
     public UserStory ToDomain()
         => UserStory.Create(Titulo, Como, Quiero, Para, CriteriosAceptacion, Puntos, Dependencias);
+}
+
+/// <summary>Documento Mongo de una referencia adjunta a un requerimiento.</summary>
+[BsonIgnoreExtraElements]
+public sealed class ReferenceDocument
+{
+    public string Name { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
 }
 
 [BsonIgnoreExtraElements]

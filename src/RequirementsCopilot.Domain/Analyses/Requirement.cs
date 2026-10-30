@@ -5,6 +5,7 @@ public sealed class Requirement
 {
     private readonly List<Clarification> _clarifications = new();
     private readonly List<UserStory> _userStories = new();
+    private readonly List<RequirementReference> _references = new();
 
     /// <summary>Código secuencial del requerimiento (ej. REQ-001).</summary>
     public string Code { get; }
@@ -32,6 +33,9 @@ public sealed class Requirement
 
     /// <summary>Historias de usuario generadas, si ya se generaron.</summary>
     public IReadOnlyList<UserStory> UserStories => _userStories;
+
+    /// <summary>Documentos de referencia del entregable esperado (solo lectura).</summary>
+    public IReadOnlyList<RequirementReference> References => _references;
 
     /// <summary>Aprobado directo, o con todas sus preguntas de clarificación respondidas.</summary>
     public bool ReadyForStories => Evaluation is not null &&
@@ -70,6 +74,21 @@ public sealed class Requirement
 
     /// <summary>Registra la advertencia de solapamiento con un caso de uso existente del proyecto.</summary>
     public void SetOverlapWarning(string warning) => OverlapWarning = warning;
+
+    /// <summary>Adjunta (o reemplaza por nombre) un documento de referencia del requerimiento.</summary>
+    public void AddReference(string name, string content)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(content))
+        {
+            throw new ArgumentException("La referencia requiere nombre y contenido.", nameof(name));
+        }
+        _references.RemoveAll(r => string.Equals(r.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+        _references.Add(new RequirementReference(name.Trim(), content.Trim()));
+    }
+
+    /// <summary>Quita un documento de referencia por nombre; false si no existe.</summary>
+    public bool RemoveReference(string name)
+        => _references.RemoveAll(r => string.Equals(r.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) > 0;
 
     /// <summary>Asigna el caso de uso generado para este requerimiento.</summary>
     public void SetUseCase(UseCase useCase) => UseCase = useCase;

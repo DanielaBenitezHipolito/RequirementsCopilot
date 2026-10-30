@@ -73,4 +73,24 @@ public class UseCaseWriterAgentTests
         Assert.Contains("Aclaraciones del cliente", chat.Prompts[0].Input);
         Assert.Contains("Menos de 2 segundos", chat.Prompts[0].Input);
     }
+
+    [Fact]
+    public async Task WriteAsync_ConReferencias_LasIncluyeEnElPrompt()
+    {
+        var chat = new StubChatCompletion
+        {
+            Reply = _ => "{\"nombre\":\"Caso\",\"objetivo\":\"Obj\",\"descripcion\":\"\",\"actores\":[],\"precondiciones\":[]," +
+                "\"trigger\":\"\",\"flujos\":[],\"extensiones\":[],\"frecuencia\":\"\",\"importancia\":\"\",\"urgencia\":\"\",\"comentarios\":[]}",
+        };
+        var agent = new UseCaseWriterAgent(chat);
+        var requirement = RequirementsCopilot.Domain.Analyses.Requirement.Create("REQ-001", "Formulario con correo", "General");
+        requirement.Evaluate(RequirementsCopilot.Domain.Analyses.Evaluation.Create(
+            new[] { RequirementsCopilot.Domain.Analyses.CriterionScore.Create("Claridad", 5, "ok") }, 3.5));
+        requirement.AddReference("pdf-modelo.pdf", "Contenido del PDF modelo para el cliente");
+
+        await agent.WriteAsync(requirement);
+
+        Assert.Contains("pdf-modelo.pdf", chat.Prompts[0].Input);
+        Assert.Contains("Contenido del PDF modelo para el cliente", chat.Prompts[0].Input);
+    }
 }

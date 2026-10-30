@@ -32,7 +32,7 @@ public sealed class ClarifierAgent
 
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName,
-                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}"),
+                $"{projectContext}Requerimiento {requirement.Code} (área {requirement.Area}):\n{requirement.Text}{observations}{answeredBlock}{ReferenceContext.For(requirement)}"),
             cancellationToken)
             ?? throw new InvalidOperationException("El agente clarificador no devolvió JSON válido.");
         return Parse(json);

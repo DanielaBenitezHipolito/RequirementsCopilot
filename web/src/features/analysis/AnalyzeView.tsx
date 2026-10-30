@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { analyzeFile, extractDocumentText, generateStories, generateUserStories, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
+import { addRequirementReference, analyzeFile, deleteRequirementReference, extractDocumentText, generateStories, generateUserStories, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
@@ -530,6 +530,19 @@ export function AnalyzeView() {
                 onSetStage={
                   analysisId
                     ? async (etapa) => updateRequirement(mapRequirement(await setRequirementStage(analysisId, r.codigo, etapa)))
+                    : undefined
+                }
+                onAddReference={
+                  analysisId
+                    ? async (file) => updateRequirement(mapRequirement(await addRequirementReference(analysisId, r.codigo, file)))
+                    : undefined
+                }
+                onRemoveReference={
+                  analysisId
+                    ? async (nombre) => {
+                        await deleteRequirementReference(analysisId, r.codigo, nombre);
+                        updateRequirement({ ...r, referencias: (r.referencias ?? []).filter((d) => d.nombre !== nombre) });
+                      }
                     : undefined
                 }
               />

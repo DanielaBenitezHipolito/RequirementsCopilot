@@ -254,6 +254,42 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task References_AdjuntarListarYEliminar()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        var form = File("pdf-modelo.txt", "Estimado cliente: adjunto el formulario diligenciado.");
+        var attach = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/references", form);
+        Assert.Equal(HttpStatusCode.OK, attach.StatusCode);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var req = detail.GetProperty("requerimientos").EnumerateArray()
+            .First(r => r.GetProperty("codigo").GetString() == "REQ-001");
+        var referencia = Assert.Single(req.GetProperty("referencias").EnumerateArray().ToArray());
+        Assert.Equal("pdf-modelo.txt", referencia.GetProperty("nombre").GetString());
+        Assert.True(referencia.GetProperty("caracteres").GetInt32() > 0);
+
+        var delete = await client.DeleteAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/references/pdf-modelo.txt");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/references/pdf-modelo.txt")).StatusCode);
+    }
+
+    [Fact]
+    public async Task References_FormatoImagen_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+        var attach = await client.PostAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/references", File("foto.png", "bytes"));
+        Assert.Equal(HttpStatusCode.BadRequest, attach.StatusCode);
+    }
+
+    [Fact]
     public async Task Delete_EliminaElAnalisisYSuContexto()
     {
         var client = _factory.CreateClient();
