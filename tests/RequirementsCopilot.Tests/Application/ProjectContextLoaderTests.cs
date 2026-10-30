@@ -80,6 +80,33 @@ public class ProjectContextLoaderTests
     }
 
     [Fact]
+    public async Task LoadAsync_ProyectoConEjemplos_IncluyeElBloqueDeSoloLectura()
+    {
+        var projects = new InMemoryProjectRepository();
+        Project project = Project.Create("P", "Descripción.")
+            .AddExample("respuesta-final-cliente.pdf", "Estimado cliente: adjunto la propuesta…");
+        await projects.SaveAsync(project);
+        var loader = Loader(projects, new InMemoryAnalysisRepository());
+
+        string context = await loader.LoadAsync("P");
+
+        Assert.Contains("DOCUMENTOS DE EJEMPLO DEL PROYECTO «P»", context);
+        Assert.Contains("respuesta-final-cliente.pdf", context);
+        Assert.Contains("Estimado cliente: adjunto la propuesta…", context);
+        Assert.Contains("solo lectura", context);
+        Assert.Contains("NO extraigas requerimientos", context);
+    }
+
+    [Fact]
+    public async Task LoadAsync_SinEjemplos_NoIncluyeElBloque()
+    {
+        var projects = new InMemoryProjectRepository();
+        await projects.SaveAsync(Project.Create("P", "Descripción."));
+        var loader = Loader(projects, new InMemoryAnalysisRepository());
+        Assert.DoesNotContain("DOCUMENTOS DE EJEMPLO", await loader.LoadAsync("P"));
+    }
+
+    [Fact]
     public async Task LoadAsync_CasosDeUsoDeOtroProyecto_NoSeIncluyen()
     {
         var projects = new InMemoryProjectRepository();

@@ -45,7 +45,14 @@ public sealed class ProjectsController : ControllerBase
         }
         int casosDeUso = (await _analyses.GetByProjectAsync(project.Name, cancellationToken))
             .SelectMany(a => a.Requirements).Count(r => r.UseCase is not null);
-        return Ok(new { nombre = project.Name, contenido = project.Content, updatedAt = project.UpdatedAt, casosDeUso });
+        return Ok(new
+        {
+            nombre = project.Name,
+            contenido = project.Content,
+            updatedAt = project.UpdatedAt,
+            casosDeUso,
+            ejemplos = project.Examples.Select(e => new { nombre = e.Name, caracteres = e.Content.Length }),
+        });
     }
 
     /// <summary>
@@ -84,6 +91,12 @@ public sealed class ProjectsController : ControllerBase
         try
         {
             project = Project.Create(name, content);
+            Project? existing = await _projects.GetByNameAsync(project.Name, cancellationToken);
+            if (existing is not null)
+            {
+                // Reemplazar el .md no borra los documentos de ejemplo ya anexados.
+                project = project with { Examples = existing.Examples };
+            }
         }
         catch (ArgumentException ex)
         {
@@ -117,7 +130,8 @@ public sealed class ProjectsController : ControllerBase
     /// </summary>
     [HttpPost("{nombre}/documents")]
     [RequestSizeLimit(10 * 1024 * 1024 + 1024)]
-    public async Task<IActionResult> AppendDocument(string nombre, IFormFile? file, CancellationToken cancellationToken)
+    public async Task<IActionResult> AppendDocument(string nombre, IFormFile? file, [FromForm] bool esEjemplo,
+        CancellationToken cancellationToken)
     {
         Project? project = await _projects.GetByNameAsync(nombre, cancellationToken);
         if (project is null)
@@ -149,12 +163,39 @@ public sealed class ProjectsController : ControllerBase
             return BadRequest(new { mensaje = "El documento no contiene texto legible para anexar al proyecto." });
         }
 
-        string updated = string.IsNullOrWhiteSpace(project.Content)
-            ? $"## Importado de «{file.FileName}»\n\n{texto.Trim()}"
-            : $"{project.Content}\n\n## Importado de «{file.FileName}»\n\n{texto.Trim()}";
-        Project saved = Project.Create(project.Name, updated);
+        Project saved;
+        if (esEjemplo)
+        {
+            // Documento de ejemplo: va aparte, de solo lectura; el contenido editable no se toca.
+            saved = project.AddExample(file.FileName, texto);
+        }
+        else
+        {
+            string updated = string.IsNullOrWhiteSpace(project.Content)
+                ? $"## Importado de «{file.FileName}»\n\n{texto.Trim()}"
+                : $"{project.Content}\n\n## Importado de «{file.FileName}»\n\n{texto.Trim()}";
+            saved = Project.Create(project.Name, updated) with { Examples = project.Examples };
+        }
         await _projects.SaveAsync(saved, cancellationToken);
         return Ok(new { nombre = saved.Name, updatedAt = saved.UpdatedAt, caracteres = saved.Content.Length });
+    }
+
+    /// <summary>Elimina un documento de ejemplo del proyecto.</summary>
+    [HttpDelete("{nombre}/documents/{documento}")]
+    public async Task<IActionResult> DeleteExample(string nombre, string documento, CancellationToken cancellationToken)
+    {
+        Project? project = await _projects.GetByNameAsync(nombre, cancellationToken);
+        if (project is null)
+        {
+            return NotFound(new { mensaje = "Proyecto no encontrado." });
+        }
+        Project? updated = project.RemoveExample(documento);
+        if (updated is null)
+        {
+            return NotFound(new { mensaje = "Documento de ejemplo no encontrado." });
+        }
+        await _projects.SaveAsync(updated, cancellationToken);
+        return NoContent();
     }
 
     /// <summary>Reemplaza el contenido Markdown de un proyecto existente (edición en pantalla).</summary>
@@ -169,7 +210,9 @@ public sealed class ProjectsController : ControllerBase
         Project project;
         try
         {
-            project = Project.Create(existing.Name, request?.Contenido ?? string.Empty);
+            // La edición del contenido no toca los documentos de ejemplo.
+            project = Project.Create(existing.Name, request?.Contenido ?? string.Empty)
+                with { Examples = existing.Examples };
         }
         catch (ArgumentException ex)
         {

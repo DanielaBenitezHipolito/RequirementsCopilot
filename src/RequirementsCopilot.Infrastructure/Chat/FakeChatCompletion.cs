@@ -85,7 +85,8 @@ public sealed class FakeChatCompletion : IChatCompletion
             RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("Aclaraciones respondidas")
                 ? HighRubric
                 : IsOddRequirement(prompt.Input) ? HighRubric : LowRubric,
-            ClarifierAgent.AgentName => ClarifierReply,
+            // REQ-001 es claro (no genera dudas); los ambiguos sí reciben preguntas.
+            ClarifierAgent.AgentName => prompt.Input.Contains("REQ-001") ? "{\"preguntas\":[]}" : ClarifierReply,
             UseCaseWriterAgent.AgentName => UseCaseReply,
             UserStoryWriterAgent.AgentName => UserStoriesReply,
             // ponytail: guion fijo — 1a llamada pregunta, con hilo previo redacta. Suficiente para demo sin credenciales.

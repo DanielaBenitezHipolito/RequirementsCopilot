@@ -55,8 +55,10 @@ public class AnalysisOrchestratorTests
                 "{\"requerimientos\":[{\"codigo\":\"REQ-001\",\"texto\":\"El sistema debe registrar pagos\",\"area\":\"Pagos\"}," +
                 "{\"codigo\":\"REQ-002\",\"texto\":\"El sistema debe ser rápido\",\"area\":\"General\"}]}",
             RequirementEvaluatorAgent.AgentName => prompt.Input.Contains("REQ-001") ? HighRubric() : LowRubric(),
-            ClarifierAgent.AgentName =>
-                "{\"preguntas\":[\"¿Qué significa rápido en segundos?\",\"¿Para qué operaciones aplica?\"]}",
+            // El requerimiento de pagos es claro (sin dudas); el ambiguo ("rápido") sí recibe preguntas.
+            ClarifierAgent.AgentName => prompt.Input.Contains("registrar pagos")
+                ? "{\"preguntas\":[]}"
+                : "{\"preguntas\":[\"¿Qué significa rápido en segundos?\",\"¿Para qué operaciones aplica?\"]}",
             UseCaseWriterAgent.AgentName => UseCaseReply,
             UserStoryWriterAgent.AgentName =>
                 "{\"historias\":[{\"titulo\":\"Registrar pago\",\"como\":\"Cajero\",\"quiero\":\"registrar el pago\"," +
@@ -442,6 +444,32 @@ public class AnalysisOrchestratorTests
         var repository = new StubRepository();
         await Collect(Orchestrator(chat, repository));
         Assert.DoesNotContain(chat.Prompts, p => p.Agent == OverlapCheckerAgent.AgentName);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_AprobadoPeroConDudas_EmitePreguntasIgual()
+    {
+        // El clarificador corre SIEMPRE: aprobar el umbral no silencia las dudas materiales.
+        var chat = new StubChatCompletion
+        {
+            Reply = prompt => prompt.Agent switch
+            {
+                RequirementExtractorAgent.AgentName =>
+                    "{\"requerimientos\":[{\"codigo\":\"REQ-001\",\"texto\":\"El sistema debe registrar pagos\",\"area\":\"Pagos\"}]}",
+                RequirementEvaluatorAgent.AgentName => HighRubric(),
+                ClarifierAgent.AgentName => "{\"preguntas\":[\"¿Qué medios de pago acepta?\"]}",
+                ExecutiveSummaryAgent.AgentName => "{\"resumen\":\"ok\"}",
+                _ => "{}",
+            },
+        };
+        var repository = new StubRepository();
+
+        var events = await Collect(Orchestrator(chat, repository));
+
+        Assert.Contains(events, e => e.Kind == AnalysisEventKind.Clarification);
+        Requirement requirement = repository.Saved!.Requirements.Single();
+        Assert.True(requirement.Evaluation!.Passed);
+        Assert.Single(requirement.Clarifications);
     }
 
     private sealed class LongTextExtractor : IDocumentTextExtractor

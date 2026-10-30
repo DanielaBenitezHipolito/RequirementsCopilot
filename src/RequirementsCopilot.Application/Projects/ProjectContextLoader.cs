@@ -32,9 +32,12 @@ public sealed class ProjectContextLoader
         string description = project is null || string.IsNullOrWhiteSpace(project.Content)
             ? string.Empty
             : Format(project, _options.MaxProjectContextChars);
+        string examples = project is null
+            ? string.Empty
+            : FormatExamples(project, _options.MaxProjectContextChars);
         string useCases = FormatUseCases(project?.Name ?? projectName.Trim(),
             await _analyses.GetByProjectAsync(projectName, cancellationToken), _options.MaxProjectContextChars);
-        return description + useCases;
+        return description + examples + useCases;
     }
 
     /// <summary>Formatea el contexto con la instrucción de no preguntar por lo ya documentado.</summary>
@@ -47,6 +50,36 @@ public sealed class ProjectContextLoader
                "funcionalidades, módulos, roles, integraciones o reglas ya descritas aquí: asúmelas como dadas. " +
                "Pregunta y evalúa SOLO lo nuevo que el requerimiento introduce o cambia.\n\n" +
                $"{content}\n\n=== FIN DEL CONTEXTO DEL PROYECTO ===\n\n";
+    }
+
+    /// <summary>
+    /// Documentos de ejemplo del proyecto (plantillas, entregables modelo): material de SOLO lectura
+    /// que guía formato y tono, nunca fuente de requerimientos; vacío si el proyecto no tiene.
+    /// </summary>
+    private static string FormatExamples(Project project, int maxChars)
+    {
+        if (project.Examples.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        StringBuilder builder = new();
+        builder.Append($"DOCUMENTOS DE EJEMPLO DEL PROYECTO «{project.Name}»\n")
+            .Append("Material de referencia de solo lectura (plantillas y entregables modelo): úsalo como guía ")
+            .Append("de formato, tono y nivel de detalle de lo que se espera producir. NO extraigas requerimientos ")
+            .Append("de aquí ni lo trates como funcionalidad existente del sistema.\n");
+        foreach (ProjectExample example in project.Examples)
+        {
+            string entry = $"\n--- Ejemplo «{example.Name}» ---\n{example.Content}\n";
+            if (builder.Length + entry.Length > maxChars)
+            {
+                // Control de costos: con ejemplos muy largos se conservan los primeros completos.
+                break;
+            }
+            builder.Append(entry);
+        }
+        builder.Append("\n=== FIN DE DOCUMENTOS DE EJEMPLO ===\n\n");
+        return builder.ToString();
     }
 
     /// <summary>

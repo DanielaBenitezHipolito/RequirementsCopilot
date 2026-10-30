@@ -11,3 +11,6 @@ Formula de 1 a 4 preguntas de clarificación que resuelvan esas ambigüedades, c
 - Si con las respuestas dadas el requerimiento ya no tiene ambigüedades materiales, responde `{"preguntas":[]}` (lista vacía).
 - Máximo 4 preguntas. Dentro del texto de cada pregunta usa comillas simples ('…'), NUNCA dobles, para no romper el JSON.
 Responde ÚNICAMENTE este JSON: `{"preguntas":["..."]}`
+El requerimiento puede venir YA aprobado por la rúbrica de calidad: eso no te limita. Si ves dudas
+de negocio materiales (reglas sin definir, casos especiales sin cubrir, datos sin precisar),
+pregúntalas igual; si de verdad no hay ambigüedades materiales, responde `{"preguntas":[]}`.

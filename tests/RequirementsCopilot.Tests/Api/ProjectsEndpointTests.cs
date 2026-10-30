@@ -123,6 +123,32 @@ public class ProjectsEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task AgregarDocumento_ComoEjemplo_NoTocaElContenidoYSePuedeEliminar()
+    {
+        var client = _factory.CreateClient();
+        await client.PostAsync("/api/projects", MdForm("base.md", "Descripción base.", nombre: "ConEjemplos"));
+
+        var form = TxtForm("respuesta-final.txt", "Estimado cliente: esta es la respuesta modelo.");
+        form.Add(new StringContent("true"), "esEjemplo");
+        var response = await client.PostAsync("/api/projects/ConEjemplos/documents", form);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/ConEjemplos");
+        // El contenido editable queda intacto; el ejemplo va aparte, de solo lectura.
+        Assert.Equal("Descripción base.", detail.GetProperty("contenido").GetString());
+        var ejemplo = Assert.Single(detail.GetProperty("ejemplos").EnumerateArray().ToArray());
+        Assert.Equal("respuesta-final.txt", ejemplo.GetProperty("nombre").GetString());
+        Assert.True(ejemplo.GetProperty("caracteres").GetInt32() > 0);
+
+        var delete = await client.DeleteAsync("/api/projects/ConEjemplos/documents/respuesta-final.txt");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        detail = await client.GetFromJsonAsync<JsonElement>("/api/projects/ConEjemplos");
+        Assert.Empty(detail.GetProperty("ejemplos").EnumerateArray().ToArray());
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.DeleteAsync("/api/projects/ConEjemplos/documents/respuesta-final.txt")).StatusCode);
+    }
+
+    [Fact]
     public async Task AgregarDocumento_ProyectoInexistente_Devuelve404()
     {
         var client = _factory.CreateClient();

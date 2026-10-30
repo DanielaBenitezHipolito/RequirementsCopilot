@@ -120,11 +120,9 @@ public sealed class AnalysisOrchestrator
                 requirement.Evaluate(evaluation!);
                 yield return AnalysisEvent.FromEvaluation(requirement);
                 await TrySaveAsync(analysis, cancellationToken);
-                if (!NeedsClarification(evaluation!))
-                {
-                    continue;
-                }
 
+                // El clarificador corre SIEMPRE: aprobar el umbral no silencia dudas materiales
+                // (el agente responde lista vacía cuando no las hay).
                 IReadOnlyList<string> questions = Array.Empty<string>();
                 try
                 {
@@ -234,12 +232,10 @@ public sealed class AnalysisOrchestrator
             Evaluation evaluation = await _evaluator.EvaluateAsync(requirement, _options.PassThreshold,
                 answeredClarifications: null, projectContext, cancellationToken);
             requirement.Evaluate(evaluation);
-            if (NeedsClarification(evaluation))
+            // Siempre se consulta al clarificador: si no hay dudas materiales devuelve lista vacía.
+            foreach (string question in await _clarifier.AskAsync(requirement, projectContext, cancellationToken))
             {
-                foreach (string question in await _clarifier.AskAsync(requirement, projectContext, cancellationToken))
-                {
-                    requirement.AddClarification(Clarification.Create(question));
-                }
+                requirement.AddClarification(Clarification.Create(question));
             }
         }
         catch (OperationCanceledException) { throw; }

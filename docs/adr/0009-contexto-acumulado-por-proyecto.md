@@ -46,3 +46,13 @@ siquiera se podía crear el proyecto: el `.md` con contenido era obligatorio.
   práctica, el siguiente paso es el resumen por agente (ver tech-debt).
 - Borrar un análisis (hoy no hay endpoint) sacaría sus casos de uso del contexto: la memoria es
   derivada, no copiada.
+
+## Actualización 2026-10-30
+
+- **Documentos de ejemplo**: `POST /projects/{nombre}/documents` con `esEjemplo=true` guarda el
+  texto extraído como material de referencia de **solo lectura** (`Project.Examples`), separado
+  del contenido editable. El contexto los inyecta en un bloque propio con la instrucción de usarlos
+  como guía de formato/tono y NO extraer requerimientos de ellos. Se administran (listar/eliminar)
+  desde la pestaña Proyectos; editar o reemplazar el `.md` no los toca.
+- **El clarificador corre siempre**: aprobar el umbral de la rúbrica ya no silencia las dudas —
+  el agente decide; sin ambigüedades materiales responde lista vacía y no pasa nada.
