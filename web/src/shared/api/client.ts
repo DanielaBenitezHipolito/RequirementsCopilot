@@ -232,14 +232,26 @@ export async function createEmptyProject(nombre: string): Promise<{ nombre: stri
   return readOrThrow(response);
 }
 
-export async function appendProjectDocument(nombre: string, file: File): Promise<{ nombre: string }> {
+export async function appendProjectDocument(nombre: string, file: File, esEjemplo = false): Promise<{ nombre: string }> {
   const form = new FormData();
   form.append('file', file);
+  if (esEjemplo) form.append('esEjemplo', 'true');
   const response = await apiFetch(`${API_BASE}/api/projects/${encodeURIComponent(nombre)}/documents`, {
     method: 'POST',
     body: form,
   });
   return readOrThrow(response);
+}
+
+export async function deleteProjectExample(nombre: string, documento: string): Promise<void> {
+  const response = await apiFetch(
+    `${API_BASE}/api/projects/${encodeURIComponent(nombre)}/documents/${encodeURIComponent(documento)}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.mensaje ?? `Error ${response.status}`);
+  }
 }
 
 export async function getProjectUseCases(nombre: string): Promise<any[]> {

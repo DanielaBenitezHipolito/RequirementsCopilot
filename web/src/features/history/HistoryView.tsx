@@ -29,6 +29,34 @@ function ChevronRightIcon() {
   );
 }
 
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
+  );
+}
+
+interface Group {
+  proyecto: string | null;
+  items: AnalysisSummary[];
+}
+
+/** Agrupa por proyecto conservando el orden de recencia (los items llegan del más nuevo al más viejo). */
+function groupByProject(items: AnalysisSummary[]): Group[] {
+  const groups: Group[] = [];
+  for (const item of items) {
+    const key = item.proyecto ?? null;
+    let group = groups.find((g) => g.proyecto === key);
+    if (!group) {
+      group = { proyecto: key, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
+}
+
 export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
   const [items, setItems] = useState<AnalysisSummary[]>([]);
   const [error, setError] = useState<string>();
@@ -78,7 +106,6 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
             <thead>
               <tr className="border-b border-slate-200 text-left text-[11px] tracking-wide text-slate-400 uppercase">
                 <th className="py-2">Archivo / Documento</th>
-                <th>Proyecto</th>
                 <th>Fecha</th>
                 <th>Calificación</th>
                 <th>Estatus</th>
@@ -87,7 +114,20 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((a) => {
+              {groupByProject(items).map((group) => [
+                <tr key={`g-${group.proyecto ?? 'sin-proyecto'}`}>
+                  <td colSpan={6} className="pt-4 pb-1.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-widest uppercase"
+                      style={{ backgroundColor: '#1e2a5a12', color: '#1e2a5a' }}
+                    >
+                      <FolderIcon />
+                      {group.proyecto ?? 'Sin proyecto'}
+                      <span className="font-semibold text-slate-400">· {group.items.length}</span>
+                    </span>
+                  </td>
+                </tr>,
+                ...group.items.map((a) => {
                 const total = a.totalRequerimientos;
                 const aprobado = total > 0 && a.aprobados === total;
                 const ratio = total > 0 ? a.aprobados / total : 0;
@@ -104,18 +144,6 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
                         </span>
                         {a.fileName}
                       </span>
-                    </td>
-                    <td>
-                      {a.proyecto ? (
-                        <span
-                          className="rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase"
-                          style={{ backgroundColor: '#1e2a5a14', color: '#1e2a5a' }}
-                        >
-                          {a.proyecto}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
                     </td>
                     <td>
                       <span className="flex items-center gap-1.5 text-slate-600">
@@ -166,7 +194,8 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
                     </td>
                   </tr>
                 );
-              })}
+              }),
+              ])}
             </tbody>
           </table>
         </div>
