@@ -63,7 +63,13 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
       {loading && <Loading text="Cargando historial de auditorías…" />}
       {!loading && error && <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
       {!loading && !error && items.length === 0 && (
-        <p className="mt-4 text-sm text-slate-500">Sin análisis todavía.</p>
+        <div className="mt-6 flex flex-col items-center gap-2 py-10 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <ClockIcon />
+          </span>
+          <p className="text-sm font-semibold text-slate-600">Sin análisis todavía</p>
+          <p className="text-xs text-slate-400">Los documentos auditados aparecerán aquí, con su calificación y proyecto.</p>
+        </div>
       )}
 
       {!loading && !error && items.length > 0 && (
@@ -72,6 +78,7 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
             <thead>
               <tr className="border-b border-slate-200 text-left text-[11px] tracking-wide text-slate-400 uppercase">
                 <th className="py-2">Archivo / Documento</th>
+                <th>Proyecto</th>
                 <th>Fecha</th>
                 <th>Calificación</th>
                 <th>Estatus</th>
@@ -91,10 +98,24 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
                     onClick={() => onSelect(a.id)}
                   >
                     <td className="py-3">
-                      <span className="flex items-center gap-2 font-semibold text-slate-700">
-                        <DocIcon />
+                      <span className="flex items-center gap-2.5 font-semibold text-slate-700">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                          <DocIcon />
+                        </span>
                         {a.fileName}
                       </span>
+                    </td>
+                    <td>
+                      {a.proyecto ? (
+                        <span
+                          className="rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-wide uppercase"
+                          style={{ backgroundColor: '#1e2a5a14', color: '#1e2a5a' }}
+                        >
+                          {a.proyecto}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </td>
                     <td>
                       <span className="flex items-center gap-1.5 text-slate-600">

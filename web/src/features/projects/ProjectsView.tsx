@@ -14,6 +14,16 @@ import { mapRequirement } from '../../shared/components/StoriesBanner';
 import { downloadUseCasesDocx, downloadUseCasesPdf } from '../../shared/lib/useCaseDoc';
 import type { ProjectSummary } from '../../shared/types';
 
+const BRAND = '#1e2a5a';
+
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    </svg>
+  );
+}
+
 function message(e: unknown, fallback: string) {
   return e instanceof Error ? e.message : fallback;
 }
@@ -208,10 +218,19 @@ export function ProjectsView() {
             {projects.map((p) => (
               <div
                 key={p.nombre}
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
-                  selected === p.nombre ? 'border-slate-400 bg-slate-50' : 'border-slate-100 hover:bg-slate-50'
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                  selected === p.nombre ? 'border-slate-300 bg-slate-50' : 'border-slate-100 hover:bg-slate-50'
                 }`}
+                style={selected === p.nombre ? { borderLeft: `3px solid ${BRAND}` } : undefined}
               >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    selected === p.nombre ? 'text-white' : 'bg-slate-100 text-slate-500'
+                  }`}
+                  style={selected === p.nombre ? { backgroundColor: BRAND } : undefined}
+                >
+                  <FolderIcon />
+                </span>
                 <button className="min-w-0 flex-1 text-left" onClick={() => void open(p.nombre)}>
                   <p className="truncate text-sm font-semibold text-slate-700">{p.nombre}</p>
                   <p className="text-xs text-slate-400">{new Date(p.updatedAt).toLocaleString()}</p>
@@ -233,7 +252,15 @@ export function ProjectsView() {
       <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
         {error && <p className="m-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         {!selected && (
-          <p className="p-6 text-sm text-slate-400">Seleccione un proyecto para ver o editar su contexto.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <FolderIcon />
+            </span>
+            <p className="text-sm font-semibold text-slate-600">Seleccione un proyecto</p>
+            <p className="max-w-xs text-xs text-slate-400">
+              Vea y edite su contexto, anexe casos de uso existentes o exporte el documento consolidado.
+            </p>
+          </div>
         )}
         {selected && (
           <>

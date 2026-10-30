@@ -23,7 +23,7 @@ export interface RequirementView {
 }
 export interface AnalysisSummary {
   id: string; fileName: string; createdAt: string; status: string;
-  totalRequerimientos: number; aprobados: number;
+  totalRequerimientos: number; aprobados: number; proyecto?: string;
 }
 export interface SseEvent { event: string; data: any }
 export interface ConversationSummary {

@@ -59,9 +59,17 @@ export function AdminView() {
       {usage && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className={card}>
-              <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Llamadas al LLM</p>
-              <p className="mt-1 text-3xl font-black text-slate-800">{fmt(usage.llamadas)}</p>
+            <div
+              className="rounded-2xl p-5 text-white shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #0c1430, #1e2a5a 75%, #27367a)' }}
+            >
+              <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-white/60 uppercase">
+                <svg viewBox="0 0 24 24" fill="#f59e0b" className="h-3.5 w-3.5">
+                  <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
+                </svg>
+                Llamadas al LLM
+              </p>
+              <p className="mt-1 text-3xl font-black">{fmt(usage.llamadas)}</p>
             </div>
             <div className={card}>
               <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">Tokens de entrada</p>
@@ -94,14 +102,26 @@ export function AdminView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {usage.porAgente.map((a) => (
-                      <tr key={a.agente} className="border-b border-slate-100">
-                        <td className="py-2 font-semibold text-slate-700">{a.agente}</td>
-                        <td className="text-right text-slate-600">{fmt(a.llamadas)}</td>
-                        <td className="text-right font-mono text-slate-600">{fmt(a.entrada)}</td>
-                        <td className="text-right font-mono text-slate-600">{fmt(a.salida)}</td>
-                      </tr>
-                    ))}
+                    {usage.porAgente.map((a) => {
+                      const maxTotal = Math.max(...usage.porAgente.map((x) => x.entrada + x.salida), 1);
+                      const share = (a.entrada + a.salida) / maxTotal;
+                      return (
+                        <tr key={a.agente} className="border-b border-slate-100">
+                          <td className="py-2.5 font-semibold text-slate-700">
+                            {a.agente}
+                            <span className="mt-1.5 block h-1 max-w-56 rounded-full bg-slate-100">
+                              <span
+                                className="block h-1 rounded-full"
+                                style={{ width: `${Math.max(share * 100, 2)}%`, backgroundColor: '#1e2a5a' }}
+                              />
+                            </span>
+                          </td>
+                          <td className="text-right text-slate-600">{fmt(a.llamadas)}</td>
+                          <td className="text-right font-mono text-slate-600">{fmt(a.entrada)}</td>
+                          <td className="text-right font-mono text-slate-600">{fmt(a.salida)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

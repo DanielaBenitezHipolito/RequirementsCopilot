@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react';
 import { deleteUser, getUsers, upsertUser } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 
+const BRAND = '#1e2a5a';
+
+function initials(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]!.toUpperCase())
+    .join('');
+}
+
 interface UserRow {
   email: string;
   nombre: string;
@@ -104,7 +115,17 @@ export function UsersView({ currentEmail }: { currentEmail: string }) {
             <tbody>
               {users.map((u) => (
                 <tr key={u.email} className="border-b border-slate-100">
-                  <td className="py-2.5 font-semibold text-slate-700">{u.email}</td>
+                  <td className="py-2.5">
+                    <span className="flex items-center gap-2.5 font-semibold text-slate-700">
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white"
+                        style={{ background: `linear-gradient(135deg, #0c1430, ${BRAND})` }}
+                      >
+                        {initials(u.nombre) || '?'}
+                      </span>
+                      {u.email}
+                    </span>
+                  </td>
                   <td className="text-slate-600">{u.nombre}</td>
                   <td>
                     <span
