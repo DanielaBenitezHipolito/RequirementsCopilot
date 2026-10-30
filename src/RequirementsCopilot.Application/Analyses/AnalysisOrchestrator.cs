@@ -330,6 +330,20 @@ public sealed class AnalysisOrchestrator
         return AnalysisQueries.MapRequirement(requirement);
     }
 
+    /// <summary>
+    /// Reasigna un análisis a otro proyecto (o lo deja sin proyecto): sus casos de uso pasan a
+    /// alimentar el contexto del proyecto destino (memoria derivada, ADR-0009).
+    /// </summary>
+    public async Task<string?> AssignProjectAsync(Guid analysisId, string? projectName,
+        CancellationToken cancellationToken = default)
+    {
+        Analysis analysis = await _repository.GetByIdAsync(analysisId, cancellationToken)
+            ?? throw new KeyNotFoundException("Análisis no encontrado.");
+        analysis.AssignToProject(projectName);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return analysis.ProjectName;
+    }
+
     /// <summary>Adjunta un documento de referencia al requerimiento (reemplaza si el nombre ya existe).</summary>
     public async Task<RequirementDetailDto> AddReferenceAsync(Guid analysisId, string requirementCode,
         string fileName, string content, CancellationToken cancellationToken = default)

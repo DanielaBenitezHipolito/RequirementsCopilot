@@ -12,7 +12,7 @@ public sealed class Analysis
     public string? Summary { get; private set; }
 
     /// <summary>Proyecto existente al que pertenece (contexto para los agentes); null = proyecto nuevo.</summary>
-    public string? ProjectName { get; }
+    public string? ProjectName { get; private set; }
     public IReadOnlyList<Requirement> Requirements => _requirements;
 
     private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error, string? summary,
@@ -41,6 +41,9 @@ public sealed class Analysis
     }
 
     public void AddRequirement(Requirement requirement) => _requirements.Add(requirement);
+
+    /// <summary>Reasigna el análisis a otro proyecto (o lo deja sin proyecto con vacío/null).</summary>
+    public void AssignToProject(string? projectName) => ProjectName = NormalizeProject(projectName);
 
     public void Complete() => Status = AnalysisStatus.Completed;
 

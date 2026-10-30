@@ -144,6 +144,15 @@ export async function deleteRequirementReference(id: string, codigo: string, nom
   }
 }
 
+export async function assignAnalysisProject(id: string, proyecto?: string): Promise<{ proyecto?: string }> {
+  const response = await apiFetch(`${API_BASE}/api/analyses/${id}/project`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proyecto: proyecto ?? null }),
+  });
+  return readOrThrow(response);
+}
+
 export async function setRequirementStage(id: string, codigo: string, etapa: string): Promise<any> {
   const response = await apiFetch(`${API_BASE}/api/analyses/${id}/requirements/${codigo}/stage`, {
     method: 'PUT',

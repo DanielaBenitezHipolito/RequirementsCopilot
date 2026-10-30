@@ -192,6 +192,24 @@ public sealed class AnalysesController : ControllerBase
         }
     }
 
+    public sealed record AssignProjectRequest(string? Proyecto);
+
+    /// <summary>Reasigna el análisis a un proyecto (vacío = quitarlo). Sus casos de uso alimentan ese contexto.</summary>
+    [HttpPut("{id:guid}/project")]
+    public async Task<IActionResult> AssignProject(Guid id, [FromBody] AssignProjectRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string? proyecto = await _orchestrator.AssignProjectAsync(id, request?.Proyecto, cancellationToken);
+            return Ok(new { proyecto });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
+
     public sealed record StageRequest(string? Etapa);
 
     /// <summary>Cambia la etapa de gestión del requerimiento (Draft/Approved/InDevelopment/Implemented).</summary>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { addRequirementReference, deleteRequirementReference, generateStories, generateUserStories, getAnalysis, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
+import { addRequirementReference, assignAnalysisProject, deleteRequirementReference, generateStories, generateUserStories, getAnalysis, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
+import { ProjectPicker } from '../../shared/components/ProjectPicker';
 import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
 import type { RequirementView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
@@ -11,6 +12,7 @@ const BRAND = '#1e2a5a';
 
 export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const [fileName, setFileName] = useState('');
+  const [proyecto, setProyecto] = useState<string>();
   const [resumen, setResumen] = useState<string>();
   const [requirements, setRequirements] = useState<RequirementView[]>([]);
   const [area, setArea] = useState<string>('Todas');
@@ -22,6 +24,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
     getAnalysis(id)
       .then((detail) => {
         setFileName(detail.fileName);
+        setProyecto(detail.proyecto ?? undefined);
         setResumen(detail.resumen ?? undefined);
         setRequirements(detail.requerimientos.map(mapRequirement));
       })
@@ -30,6 +33,15 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   }, [id]);
 
   useEffect(() => load(), [load]);
+
+  async function reassign(nuevo?: string) {
+    try {
+      const result = await assignAnalysisProject(id, nuevo);
+      setProyecto(result.proyecto ?? undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo reasignar el proyecto.');
+    }
+  }
 
   const replace = (updated: any) =>
     setRequirements((prev) => prev.map((r) => (r.codigo === updated.codigo ? mapRequirement(updated) : r)));
@@ -53,7 +65,11 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
       {!loading && !error && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-lg font-bold text-slate-800">{fileName}</h2>
+              {/* Reasignar proyecto: los casos de uso del análisis alimentan el contexto del destino. */}
+              <ProjectPicker value={proyecto} onChange={(nuevo) => void reassign(nuevo)} />
+            </div>
             {generatedUseCaseCount(requirements) > 0 && (
               <div className="flex gap-2">
                 <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesDocx(requirements, fileName)}>

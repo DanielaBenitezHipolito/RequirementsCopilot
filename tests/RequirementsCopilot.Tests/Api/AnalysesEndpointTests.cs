@@ -290,6 +290,28 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task AssignProject_ReasignaYQuitaProyecto()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        // Asignar un análisis viejo (sin proyecto) a un proyecto.
+        var assign = await client.PutAsJsonAsync($"/api/analyses/{analysisId}/project", new { proyecto = "Hoteleria" });
+        Assert.Equal(HttpStatusCode.OK, assign.StatusCode);
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        Assert.Equal("Hoteleria", detail.GetProperty("proyecto").GetString());
+
+        // Vacío = quitarle el proyecto.
+        await client.PutAsJsonAsync($"/api/analyses/{analysisId}/project", new { proyecto = "" });
+        detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("proyecto").ValueKind);
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.PutAsJsonAsync($"/api/analyses/{Guid.NewGuid()}/project", new { proyecto = "X" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Delete_EliminaElAnalisisYSuContexto()
     {
         var client = _factory.CreateClient();
