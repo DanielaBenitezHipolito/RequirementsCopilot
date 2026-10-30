@@ -21,6 +21,24 @@ const STAGES: { value: string; label: string; classes: string }[] = [
 
 const BRAND = '#1e2a5a';
 
+/**
+ * Preguntas viejas (previas a las opciones estructuradas) traían las alternativas incrustadas:
+ * "¿a) …, b) …, c) …?". Se derivan chips al vuelo; si el patrón no está, no pasa nada.
+ */
+function parseInlineOptions(pregunta: string): string[] | undefined {
+  const markers = [...pregunta.matchAll(/(?:^|[\s¿('])([a-f])\)\s*/g)];
+  if (markers.length < 2 || markers[0][1] !== 'a') return undefined;
+  const letters = markers.map((m) => m[1]);
+  // Deben ser consecutivas (a, b, c…): evita falsos positivos con paréntesis sueltos.
+  if (letters.some((l, i) => l.charCodeAt(0) !== 97 + i)) return undefined;
+  const options = markers.map((m, i) => {
+    const start = m.index! + m[0].length;
+    const end = i + 1 < markers.length ? markers[i + 1].index! : pregunta.length;
+    return pregunta.slice(start, end).replace(/[\s,;.?'"»)]+$/g, '').trim();
+  });
+  return options.every((o) => o.length > 0) ? options : undefined;
+}
+
 function barColor(score: number) {
   if (score >= 4) return 'bg-emerald-500';
   if (score === 3) return 'bg-amber-400';
@@ -201,9 +219,11 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
                     </p>
                     {onReevaluate ? (
                       <>
-                        {(a.opciones?.length ?? 0) > 0 && (
+                        {(() => {
+                          const opciones = a.opciones?.length ? a.opciones : parseInlineOptions(a.pregunta);
+                          return (opciones?.length ?? 0) > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {a.opciones!.map((opcion) => {
+                            {opciones!.map((opcion) => {
                               const selected = (drafts[i] ?? '') === opcion;
                               return (
                                 <button
@@ -223,11 +243,12 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
                               );
                             })}
                           </div>
-                        )}
+                          );
+                        })()}
                         <input
                           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                           placeholder={
-                            (a.opciones?.length ?? 0) > 0
+                            (a.opciones?.length ?? parseInlineOptions(a.pregunta)?.length ?? 0) > 0
                               ? 'Elija una opción o escriba su propia respuesta…'
                               : 'Escriba su respuesta aclarando este requerimiento…'
                           }
