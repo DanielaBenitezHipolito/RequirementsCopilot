@@ -59,6 +59,7 @@ function groupByProject(items: AnalysisSummary[]): Group[] {
 
 export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
   const [items, setItems] = useState<AnalysisSummary[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
 
@@ -68,6 +69,15 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  function toggleGroup(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function remove(a: AnalysisSummary) {
     if (!confirm(`¿Eliminar el análisis «${a.fileName}»? Sus casos de uso dejarán de alimentar el contexto del proyecto.`)) {
@@ -114,20 +124,35 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
               </tr>
             </thead>
             <tbody>
-              {groupByProject(items).map((group) => [
-                <tr key={`g-${group.proyecto ?? 'sin-proyecto'}`}>
+              {groupByProject(items).map((group) => {
+                const key = group.proyecto ?? 'sin-proyecto';
+                const isCollapsed = collapsed.has(key);
+                return [
+                <tr key={`g-${key}`}>
                   <td colSpan={6} className="pt-4 pb-1.5">
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-widest uppercase"
+                    <button
+                      type="button"
+                      aria-expanded={!isCollapsed}
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-widest uppercase transition-colors hover:brightness-95"
                       style={{ backgroundColor: '#1e2a5a12', color: '#1e2a5a' }}
+                      onClick={() => toggleGroup(key)}
                     >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        className={`h-3 w-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                      </svg>
                       <FolderIcon />
                       {group.proyecto ?? 'Sin proyecto'}
                       <span className="font-semibold text-slate-400">· {group.items.length}</span>
-                    </span>
+                    </button>
                   </td>
                 </tr>,
-                ...group.items.map((a) => {
+                ...(isCollapsed ? [] : group.items).map((a) => {
                 const total = a.totalRequerimientos;
                 const aprobado = total > 0 && a.aprobados === total;
                 const ratio = total > 0 ? a.aprobados / total : 0;
@@ -195,7 +220,8 @@ export function HistoryView({ onSelect }: { onSelect: (id: string) => void }) {
                   </tr>
                 );
               }),
-              ])}
+              ];
+              })}
             </tbody>
           </table>
         </div>
