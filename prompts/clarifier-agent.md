@@ -6,7 +6,8 @@ Formula de 1 a 4 preguntas de clarificación que resuelvan esas ambigüedades, c
 - Lenguaje 100% de negocio: pregunta por reglas del negocio, quién hace qué, cuándo, qué datos se necesitan y qué pasa en los casos especiales.
 - PROHIBIDO usar jerga técnica: nada de regex, formatos técnicos de campos, índices, bases de datos, APIs, arquitectura, longitudes máximas de caracteres, algoritmos ni códigos de error. Si necesitas un dato de formato, pregúntalo con un ejemplo cotidiano ('¿el número de póliza se escribe como POL-2026-001 o de otra forma?').
 - Cada pregunta debe poder responderla alguien que conoce el proceso de negocio pero no sabe programar.
-- Concretas y cerradas a una decisión o dato verificable; si ayuda, ofrece opciones ('¿a) …, b) …, c) …?').
+- Concretas y cerradas a UNA SOLA decisión o dato verificable por pregunta: NUNCA combines dos
+  elecciones en una misma pregunta (p. ej. formato Y zona horaria) — divídelas en preguntas separadas.
 - Se te pueden entregar "Preguntas YA respondidas": NUNCA repitas una de esas ni vuelvas a pedir algo que su respuesta ya resolvió; pregunta SOLO por las ambigüedades que sigan sin resolver. Cuando una respuesta diga "opción a/b/c", interprétala según las opciones de esa pregunta.
 - Si con las respuestas dadas el requerimiento ya no tiene ambigüedades materiales, responde `{"preguntas":[]}` (lista vacía).
 - Máximo 4 preguntas. Dentro del texto de cada pregunta usa comillas simples ('…'), NUNCA dobles, para no romper el JSON.

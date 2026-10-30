@@ -24,21 +24,38 @@ const STAGES: { value: string; label: string; classes: string }[] = [
 const BRAND = '#1e2a5a';
 
 /**
- * Preguntas viejas (previas a las opciones estructuradas) traían las alternativas incrustadas:
- * "¿a) …, b) …, c) …?". Se derivan chips al vuelo; si el patrón no está, no pasa nada.
+ * Preguntas con alternativas incrustadas en el texto: "¿a) …, b) …?". Devuelve GRUPOS de opciones
+ * (las letras que reinician en 'a' abren un grupo nuevo: una pregunta que combina dos decisiones
+ * muestra un set de chips por decisión). Si el patrón no está, no pasa nada.
  */
-function parseInlineOptions(pregunta: string): string[] | undefined {
+function parseInlineOptionGroups(pregunta: string): string[][] | undefined {
   const markers = [...pregunta.matchAll(/(?:^|[\s¿('])([a-f])\)\s*/g)];
-  if (markers.length < 2 || markers[0][1] !== 'a') return undefined;
-  const letters = markers.map((m) => m[1]);
-  // Deben ser consecutivas (a, b, c…): evita falsos positivos con paréntesis sueltos.
-  if (letters.some((l, i) => l.charCodeAt(0) !== 97 + i)) return undefined;
-  const options = markers.map((m, i) => {
-    const start = m.index! + m[0].length;
-    const end = i + 1 < markers.length ? markers[i + 1].index! : pregunta.length;
-    return pregunta.slice(start, end).replace(/[\s,;.?'"»)]+$/g, '').trim();
-  });
-  return options.every((o) => o.length > 0) ? options : undefined;
+  if (markers.length < 2) return undefined;
+  const groups: (typeof markers)[] = [];
+  let current: typeof markers | null = null;
+  for (const marker of markers) {
+    if (marker[1] === 'a') {
+      current = [];
+      groups.push(current);
+    } else if (!current || marker[1].charCodeAt(0) !== 97 + current.length) {
+      // Letras no consecutivas: paréntesis sueltos, no es una lista de opciones.
+      return undefined;
+    }
+    if (current) current.push(marker);
+  }
+  if (groups.some((g) => g.length < 2)) return undefined;
+  const options = groups.map((group) =>
+    group.map((marker) => {
+      const i = markers.indexOf(marker);
+      const start = marker.index! + marker[0].length;
+      const end = i + 1 < markers.length ? markers[i + 1].index! : pregunta.length;
+      let text = pregunta.slice(start, end);
+      // Quita la frase conectora hacia el siguiente grupo ("…. Y la zona horaria debe ser:").
+      text = text.replace(/\.\s[^.]*:\s*$/, '');
+      return text.replace(/[\s,.;?]+$/g, '').trim();
+    }),
+  );
+  return options.every((group) => group.every((o) => o.length > 0)) ? options : undefined;
 }
 
 function barColor(score: number) {
@@ -285,36 +302,48 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
                     {onReevaluate ? (
                       <>
                         {(() => {
-                          const opciones = a.opciones?.length ? a.opciones : parseInlineOptions(a.pregunta);
-                          return (opciones?.length ?? 0) > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {opciones!.map((opcion) => {
-                              const selected = (drafts[i] ?? '') === opcion;
-                              return (
-                                <button
-                                  key={opcion}
-                                  type="button"
-                                  disabled={busy}
-                                  className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                                    selected
-                                      ? 'border-transparent text-white'
-                                      : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
-                                  }`}
-                                  style={selected ? { backgroundColor: BRAND } : undefined}
-                                  onClick={() => setDrafts({ ...drafts, [i]: selected ? '' : opcion })}
-                                >
-                                  {opcion}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          const groups = a.opciones?.length ? [a.opciones] : parseInlineOptionGroups(a.pregunta);
+                          if (!groups?.length) return null;
+                          // Respuesta combinada: una opción por grupo, unidas con "; " (editable a mano).
+                          const parts = (drafts[i] ?? '').split('; ').filter(Boolean);
+                          const pick = (grupo: string[], opcion: string) => {
+                            const others = parts.filter((p) => !grupo.includes(p));
+                            const next = parts.includes(opcion) ? others : [...others, opcion];
+                            setDrafts({ ...drafts, [i]: next.join('; ') });
+                          };
+                          return (
+                            <div className="mt-2 space-y-2">
+                              {groups.map((grupo, g) => (
+                                <div key={g} className="flex flex-wrap gap-2">
+                                  {grupo.map((opcion) => {
+                                    const selected = parts.includes(opcion);
+                                    return (
+                                      <button
+                                        key={opcion}
+                                        type="button"
+                                        disabled={busy}
+                                        className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                                          selected
+                                            ? 'border-transparent text-white'
+                                            : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'
+                                        }`}
+                                        style={selected ? { backgroundColor: BRAND } : undefined}
+                                        onClick={() => pick(grupo, opcion)}
+                                      >
+                                        {opcion}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
                           );
                         })()}
                         <input
                           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                           placeholder={
-                            (a.opciones?.length ?? parseInlineOptions(a.pregunta)?.length ?? 0) > 0
-                              ? 'Elija una opción o escriba su propia respuesta…'
+                            (a.opciones?.length ?? parseInlineOptionGroups(a.pregunta)?.length ?? 0) > 0
+                              ? 'Elija una opción (o una por grupo) o escriba su propia respuesta…'
                               : 'Escriba su respuesta aclarando este requerimiento…'
                           }
                           value={drafts[i] ?? ''}
