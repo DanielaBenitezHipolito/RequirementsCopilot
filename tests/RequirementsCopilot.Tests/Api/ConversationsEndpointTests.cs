@@ -103,7 +103,7 @@ public class ConversationsEndpointTests : IClassFixture<WebApplicationFactory<Pr
     public async Task SendMessage_DemasiadasImagenes_Devuelve400()
     {
         var client = _factory.CreateClient();
-        string[] imagenes = Enumerable.Repeat("data:image/png;base64,AAAA", 5).ToArray();
+        string[] imagenes = Enumerable.Repeat("data:image/png;base64,AAAA", 11).ToArray();
         var response = await client.PostAsJsonAsync("/api/conversations/messages",
             new { mensaje = "hola", imagenes });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

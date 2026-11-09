@@ -23,7 +23,7 @@ public sealed class ConversationsController : ControllerBase
         string? Proyecto, List<string>? Imagenes = null);
 
     /// <summary>Tope de imágenes por mensaje (control de costos y de tamaño del payload).</summary>
-    private const int MaxImagesPerMessage = 4;
+    private const int MaxImagesPerMessage = 10;
 
     public sealed record CompleteRequest(string? Texto, string? Area, Guid? ConversationId, string? Proyecto);
 
@@ -42,6 +42,7 @@ public sealed class ConversationsController : ControllerBase
         => (_builder, _orchestrator, _conversations, _projectContext) = (builder, orchestrator, conversations, projectContext);
 
     [HttpPost("messages")]
+    [RequestSizeLimit(64 * 1024 * 1024)] // 10 imágenes de 5 MB viajan en base64 (~67% más grandes)
     public async Task<IActionResult> SendMessage([FromBody] MessageRequest? request, CancellationToken cancellationToken)
     {
         bool hasImages = request?.Imagenes is { Count: > 0 };

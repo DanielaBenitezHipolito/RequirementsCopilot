@@ -44,8 +44,10 @@ const SUGERENCIAS = [
   'El sistema debe gestionar la renovación de pólizas',
 ];
 
-const MAX_CHAT_IMAGES = 4;
+const MAX_CHAT_IMAGES = 10;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Tope combinado del mensaje: en base64 crece ~33% y el proveedor limita el tamaño del request. */
+const MAX_TOTAL_IMAGE_BYTES = 20 * 1024 * 1024;
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -94,6 +96,11 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
       }
       if (file.size > MAX_IMAGE_BYTES) {
         setImageError('Cada imagen debe pesar máximo 5 MB.');
+        return;
+      }
+      const totalBytes = images.reduce((sum, dataUrl) => sum + dataUrl.length * 0.75, 0);
+      if (totalBytes + file.size > MAX_TOTAL_IMAGE_BYTES) {
+        setImageError('Las imágenes del mensaje suman más de 20 MB: quite alguna o use archivos más livianos.');
         return;
       }
       try {
