@@ -353,9 +353,11 @@ export async function downloadUseCasesPdf(
   doc.text('Especificación de Casos de Uso', margin, 50);
   doc.setTextColor(90);
   doc.setFontSize(10);
-  doc.text(`Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, margin, 68);
+  const origen = doc.splitTextToSize(
+    `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, pageWidth - 80);
+  doc.text(origen, margin, 68);
 
-  let y = 90;
+  let y = 68 + origen.length * 12 + 10;
 
   const heading = (text: string, size: number) => {
     if (y > pageHeight - 80) {
@@ -364,8 +366,10 @@ export async function downloadUseCasesPdf(
     }
     doc.setTextColor(...NAVY_RGB);
     doc.setFontSize(size);
-    doc.text(text, margin, y);
-    y += size + 6;
+    // Títulos largos: envueltos al ancho de la página, nunca cortados por el borde.
+    const lines = doc.splitTextToSize(text, pageWidth - 80);
+    doc.text(lines, margin, y);
+    y += lines.length * (size + 3) + 6;
   };
 
   const metaTable = (rows: [string, string][]) => {
