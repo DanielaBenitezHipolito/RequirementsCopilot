@@ -15,6 +15,7 @@ public sealed class AnalysisDocument
     public string? Summary { get; set; }
     public string? ProjectName { get; set; }
     public List<RequirementDocument> Requirements { get; set; } = new();
+    public List<StoredImageDocument> Images { get; set; } = new();
 
     public static AnalysisDocument FromDomain(Analysis analysis) => new()
     {
@@ -26,11 +27,17 @@ public sealed class AnalysisDocument
         Summary = analysis.Summary,
         ProjectName = analysis.ProjectName,
         Requirements = analysis.Requirements.Select(RequirementDocument.FromDomain).ToList(),
+        Images = analysis.Images.Select(StoredImageDocument.FromDomain).ToList(),
     };
 
-    public Analysis ToDomain() => Analysis.Rehydrate(
-        Id, FileName, CreatedAt, Enum.Parse<AnalysisStatus>(Status), Error, Summary,
-        Requirements.Select(r => r.ToDomain()).ToArray(), ProjectName);
+    public Analysis ToDomain()
+    {
+        Analysis analysis = Analysis.Rehydrate(
+            Id, FileName, CreatedAt, Enum.Parse<AnalysisStatus>(Status), Error, Summary,
+            Requirements.Select(r => r.ToDomain()).ToArray(), ProjectName);
+        analysis.SetImages(Images.Select(i => i.ToDomain()).ToArray());
+        return analysis;
+    }
 }
 
 [BsonIgnoreExtraElements]
@@ -50,6 +57,7 @@ public sealed class RequirementDocument
     public string? OverlapWarning { get; set; }
 
     public List<ReferenceDocument> References { get; set; } = new();
+    public List<StoredImageDocument> Images { get; set; } = new();
 
     public static RequirementDocument FromDomain(Requirement requirement) => new()
     {
@@ -60,6 +68,7 @@ public sealed class RequirementDocument
         OverlapWarning = requirement.OverlapWarning,
         References = requirement.References
             .Select(d => new ReferenceDocument { Name = d.Name, Content = d.Content }).ToList(),
+        Images = requirement.Images.Select(StoredImageDocument.FromDomain).ToList(),
         Evaluation = requirement.Evaluation is null ? null : EvaluationDocument.FromDomain(requirement.Evaluation),
         Clarifications = requirement.Clarifications.Select(c => new ClarificationDocument
         {
@@ -101,6 +110,10 @@ public sealed class RequirementDocument
         {
             requirement.AddReference(reference.Name, reference.Content);
         }
+        foreach (StoredImageDocument image in Images)
+        {
+            requirement.AddImage(image.Name, image.MimeType, image.Base64Data);
+        }
         return requirement;
     }
 }
@@ -129,6 +142,22 @@ public sealed class UserStoryDocument
 
     public UserStory ToDomain()
         => UserStory.Create(Titulo, Como, Quiero, Para, CriteriosAceptacion, Puntos, Dependencias);
+}
+
+/// <summary>Documento Mongo de una imagen persistida.</summary>
+[BsonIgnoreExtraElements]
+public sealed class StoredImageDocument
+{
+    public string Name { get; set; } = string.Empty;
+    public string MimeType { get; set; } = string.Empty;
+    public string Base64Data { get; set; } = string.Empty;
+
+    public static StoredImageDocument FromDomain(StoredImage image) => new()
+    {
+        Name = image.Name, MimeType = image.MimeType, Base64Data = image.Base64Data,
+    };
+
+    public StoredImage ToDomain() => new(Name, MimeType, Base64Data);
 }
 
 /// <summary>Documento Mongo de una referencia adjunta a un requerimiento.</summary>

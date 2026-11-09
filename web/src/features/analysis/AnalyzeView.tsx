@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { addRequirementReference, analyzeFile, deleteRequirementReference, extractDocumentText, generateStories, generateUserStories, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
+import { addRequirementImage, addRequirementReference, analyzeFile, deleteRequirementImage, deleteRequirementReference, extractDocumentText, generateStories, generateUserStories, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
@@ -550,6 +550,19 @@ export function AnalyzeView() {
                     ? async (nombre) => {
                         await deleteRequirementReference(analysisId, r.codigo, nombre);
                         updateRequirement({ ...r, referencias: (r.referencias ?? []).filter((d) => d.nombre !== nombre) });
+                      }
+                    : undefined
+                }
+                onAddImage={
+                  analysisId
+                    ? async (file) => updateRequirement(mapRequirement(await addRequirementImage(analysisId, r.codigo, file)))
+                    : undefined
+                }
+                onRemoveImage={
+                  analysisId
+                    ? async (nombre) => {
+                        await deleteRequirementImage(analysisId, r.codigo, nombre);
+                        updateRequirement({ ...r, imagenes: (r.imagenes ?? []).filter((d) => d.nombre !== nombre) });
                       }
                     : undefined
                 }

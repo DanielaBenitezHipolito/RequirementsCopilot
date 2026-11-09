@@ -17,19 +17,22 @@ public sealed record ClarificationDto(string Pregunta, string? Respuesta, IReadO
 
 public sealed record ReferenceDto(string Nombre, int Caracteres);
 
+public sealed record StoredImageDto(string Nombre, string MimeType, string Base64);
+
 public sealed record UserStoryDto(string Titulo, string Como, string Quiero, string Para,
     IReadOnlyList<string> CriteriosAceptacion, int Puntos, IReadOnlyList<string> Dependencias);
 
 public sealed record RequirementDetailDto(string Codigo, string Texto, string Area, EvaluationDto? Evaluacion,
     IReadOnlyList<ClarificationDto> Aclaraciones, bool ListoParaHistorias, UseCaseDto? Caso,
     IReadOnlyList<UserStoryDto> Historias, string Etapa, string? Solapamiento,
-    IReadOnlyList<ReferenceDto> Referencias);
+    IReadOnlyList<ReferenceDto> Referencias, IReadOnlyList<StoredImageDto> Imagenes);
 
 public sealed record AnalysisSummaryDto(Guid Id, string FileName, DateTime CreatedAt, string Status,
     int TotalRequerimientos, int Aprobados, string? Proyecto);
 
 public sealed record AnalysisDetailDto(Guid Id, string FileName, DateTime CreatedAt, string Status, string? Error,
-    string? Resumen, IReadOnlyList<RequirementDetailDto> Requerimientos, string? Proyecto);
+    string? Resumen, IReadOnlyList<RequirementDetailDto> Requerimientos, string? Proyecto,
+    IReadOnlyList<StoredImageDto> Imagenes);
 
 public sealed class AnalysisQueries
 {
@@ -56,7 +59,8 @@ public sealed class AnalysisQueries
 
         return new AnalysisDetailDto(analysis.Id, analysis.FileName, analysis.CreatedAt, analysis.Status.ToString(),
             analysis.Error, analysis.Summary,
-            analysis.Requirements.Select(MapRequirement).ToArray(), analysis.ProjectName);
+            analysis.Requirements.Select(MapRequirement).ToArray(), analysis.ProjectName,
+            analysis.Images.Select(i => new StoredImageDto(i.Name, i.MimeType, i.Base64Data)).ToArray());
     }
 
     public static RequirementDetailDto MapRequirement(Requirement r) => new(
@@ -84,5 +88,6 @@ public sealed class AnalysisQueries
             h.CriteriosAceptacion, h.Puntos, h.Dependencias)).ToArray(),
         r.Stage.ToString(),
         r.OverlapWarning,
-        r.References.Select(d => new ReferenceDto(d.Name, d.Content.Length)).ToArray());
+        r.References.Select(d => new ReferenceDto(d.Name, d.Content.Length)).ToArray(),
+        r.Images.Select(i => new StoredImageDto(i.Name, i.MimeType, i.Base64Data)).ToArray());
 }

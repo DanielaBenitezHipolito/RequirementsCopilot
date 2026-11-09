@@ -65,6 +65,7 @@ public sealed class AnalysisOrchestrator
             IReadOnlyList<ImageAttachment> images = document.Images.Count > _options.MaxImages
                 ? document.Images.Take(_options.MaxImages).ToArray()
                 : document.Images;
+            PersistImages(analysis, document.Images);
             if (string.IsNullOrWhiteSpace(text) && images.Count == 0)
             {
                 // Típico PDF escaneado sin OCR y sin imágenes rescatables: avisar en vez de analizar vacío.
@@ -342,6 +343,50 @@ public sealed class AnalysisOrchestrator
         analysis.AssignToProject(projectName);
         await _repository.SaveAsync(analysis, cancellationToken);
         return analysis.ProjectName;
+    }
+
+    // Mongo limita el documento a 16 MB: se persisten imágenes chicas (ya reducidas) y con tope total.
+    private const int MaxStoredImageChars = 1_400_000;
+    private const int MaxStoredImagesTotalChars = 6_000_000;
+
+    /// <summary>Persiste las imágenes del documento (para la app y los exports), dentro de los topes.</summary>
+    private static void PersistImages(Analysis analysis, IReadOnlyList<ImageAttachment> images)
+    {
+        List<StoredImage> stored = new();
+        int total = 0;
+        foreach (ImageAttachment image in images)
+        {
+            if (image.Base64Data.Length > MaxStoredImageChars || total + image.Base64Data.Length > MaxStoredImagesTotalChars)
+            {
+                continue;
+            }
+            total += image.Base64Data.Length;
+            stored.Add(new StoredImage($"imagen-{stored.Count + 1}", image.MimeType, image.Base64Data));
+        }
+        analysis.SetImages(stored);
+    }
+
+    /// <summary>Adjunta (o reemplaza) una imagen de un requerimiento (pantalla/mockup para el export).</summary>
+    public async Task<RequirementDetailDto> AddRequirementImageAsync(Guid analysisId, string requirementCode,
+        string fileName, string mimeType, string base64Data, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        requirement.AddImage(fileName, mimeType, base64Data);
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
+    }
+
+    /// <summary>Quita una imagen de un requerimiento.</summary>
+    public async Task<RequirementDetailDto> RemoveRequirementImageAsync(Guid analysisId, string requirementCode,
+        string imageName, CancellationToken cancellationToken = default)
+    {
+        (Analysis analysis, Requirement requirement) = await FindAsync(analysisId, requirementCode, cancellationToken);
+        if (!requirement.RemoveImage(imageName))
+        {
+            throw new KeyNotFoundException("Imagen no encontrada en el requerimiento.");
+        }
+        await _repository.SaveAsync(analysis, cancellationToken);
+        return AnalysisQueries.MapRequirement(requirement);
     }
 
     /// <summary>Adjunta un documento de referencia al requerimiento (reemplaza si el nombre ya existe).</summary>

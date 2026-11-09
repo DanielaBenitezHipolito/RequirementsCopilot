@@ -1,4 +1,4 @@
-import type { RequirementView, UserStory } from '../types';
+import type { RequirementView, StoredImageView, UserStory } from '../types';
 
 // Las librerías de export (docx, jspdf) se cargan con import() dinámico SOLO al descargar,
 // para no engordar el bundle inicial (la app abre más rápido; el chunk pesado va bajo demanda).
@@ -17,6 +17,48 @@ interface Seccion {
   flujos: { titulo: string; filas: [string, string, string][] }[];
   meta2: [string, string][];
   historias: UserStory[];
+  imagenes: StoredImageView[];
+}
+
+const toDataUrl = (i: StoredImageView) => `data:${i.mimeType};base64,${i.base64}`;
+
+function imageSize(dataUrl: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => reject(new Error('imagen ilegible'));
+    img.src = dataUrl;
+  });
+}
+
+/** Escala a un ancho máximo conservando proporción. */
+function fit(w: number, h: number, maxW: number): { w: number; h: number } {
+  const scale = Math.min(1, maxW / w);
+  return { w: Math.round(w * scale), h: Math.round(h * scale) };
+}
+
+interface PreparedImage {
+  nombre: string;
+  dataUrl: string;
+  mime: string;
+  w: number;
+  h: number;
+}
+
+/** Prepara imágenes para export (dimensiones reales); las ilegibles se omiten. */
+async function prepareImages(images: StoredImageView[], maxW: number): Promise<PreparedImage[]> {
+  const prepared: PreparedImage[] = [];
+  for (const image of images) {
+    try {
+      const dataUrl = toDataUrl(image);
+      const { w, h } = await imageSize(dataUrl);
+      const scaled = fit(w, h, maxW);
+      prepared.push({ nombre: image.nombre, dataUrl, mime: image.mimeType, w: scaled.w, h: scaled.h });
+    } catch {
+      // Imagen corrupta o formato no renderizable: se omite del export.
+    }
+  }
+  return prepared;
 }
 
 export const STORY_DISCLAIMER =
@@ -62,6 +104,7 @@ function toSections(requirements: RequirementView[]): Seccion[] {
             ['Requerimiento', r.texto],
           ] as [string, string][],
           flujos: [],
+          imagenes: r.imagenes ?? [],
           meta2: (r.referencias?.length
             ? [['Documentos de referencia', r.referencias.map((d) => `• ${d.nombre}`).join('\n')]]
             : []) as [string, string][],
@@ -97,6 +140,7 @@ function toSections(requirements: RequirementView[]): Seccion[] {
             : []),
         ] as [string, string][],
         historias: r.historias,
+        imagenes: r.imagenes ?? [],
       };
     });
 }
@@ -116,10 +160,44 @@ function triggerDownload(filename: string, blob: Blob): void {
 
 // ---------- Word (.docx nativo) ----------
 
-/** Descarga un .docx nativo con todos los casos de uso. */
-export async function downloadUseCasesDocx(requirements: RequirementView[], fileName: string): Promise<void> {
+/** Descarga un .docx nativo con todos los casos de uso (y las imágenes persistidas). */
+export async function downloadUseCasesDocx(
+  requirements: RequirementView[],
+  fileName: string,
+  anexos: StoredImageView[] = [],
+): Promise<void> {
   const D = await import('docx');
   const secciones = toSections(requirements);
+  // docx no soporta webp; el tipo se deriva del MIME y lo no soportado se omite.
+  const docxType = (mime: string) =>
+    mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : mime === 'image/gif' ? 'gif' : null;
+  const b64ToBytes = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const preparedPorSeccion = await Promise.all(secciones.map((s) => prepareImages(s.imagenes, 480)));
+  const preparedAnexos = await prepareImages(anexos, 480);
+  const imageBlock = (prepared: PreparedImage[], titulo: string) => {
+    const blocks: (InstanceType<typeof D.Paragraph> | InstanceType<typeof D.Table>)[] = [];
+    const visibles = prepared.filter((p) => docxType(p.mime) !== null);
+    if (!visibles.length) return blocks;
+    blocks.push(new D.Paragraph({
+      children: [new D.TextRun({ text: titulo, bold: true, color: NAVY })],
+      spacing: { before: 160, after: 60 },
+    }));
+    for (const image of visibles) {
+      blocks.push(new D.Paragraph({
+        children: [new D.ImageRun({
+          type: docxType(image.mime) as 'png' | 'jpg' | 'gif',
+          data: b64ToBytes(image.dataUrl.split(',')[1]),
+          transformation: { width: image.w, height: image.h },
+        })],
+        spacing: { before: 60 },
+      }));
+      blocks.push(new D.Paragraph({
+        children: [new D.TextRun({ text: image.nombre, italics: true, size: 16 })],
+        spacing: { after: 60 },
+      }));
+    }
+    return blocks;
+  };
   const border = { style: D.BorderStyle.SINGLE, size: 4, color: 'B8C0D0' };
   const allBorders = {
     top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border,
@@ -229,7 +307,17 @@ export async function downloadUseCasesDocx(requirements: RequirementView[], file
       }));
       children.push(storyTable(storyRows(s.historias)));
     }
+    children.push(...imageBlock(preparedPorSeccion[i], 'Imágenes del caso de uso'));
   });
+
+  if (preparedAnexos.length) {
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_1,
+      pageBreakBefore: true,
+      children: [new D.TextRun({ text: 'Anexo — Imágenes del documento original', color: NAVY })],
+    }));
+    children.push(...imageBlock(preparedAnexos, ''));
+  }
 
   const doc = new D.Document({ sections: [{ children }] });
   const blob = await D.Packer.toBlob(doc);
@@ -238,8 +326,12 @@ export async function downloadUseCasesDocx(requirements: RequirementView[], file
 
 // ---------- PDF ----------
 
-/** Descarga un PDF con todos los casos de uso (tablas auto-paginadas). */
-export async function downloadUseCasesPdf(requirements: RequirementView[], fileName: string): Promise<void> {
+/** Descarga un PDF con todos los casos de uso (tablas auto-paginadas y las imágenes persistidas). */
+export async function downloadUseCasesPdf(
+  requirements: RequirementView[],
+  fileName: string,
+  anexos: StoredImageView[] = [],
+): Promise<void> {
   const { jsPDF } = await import('jspdf');
   // Importar por efecto secundario: engancha el método autoTable al prototipo de jsPDF.
   await import('jspdf-autotable');
@@ -302,6 +394,30 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
     y = finalY() + 12;
   };
 
+  // jsPDF soporta PNG/JPEG/WEBP; GIF no (se omite).
+  const pdfFormat = (mime: string) =>
+    mime === 'image/png' ? 'PNG' : mime === 'image/jpeg' ? 'JPEG' : mime === 'image/webp' ? 'WEBP' : null;
+  const maxImgW = pageWidth - margin * 2;
+  const preparedPorSeccion = await Promise.all(secciones.map((s) => prepareImages(s.imagenes, maxImgW)));
+  const preparedAnexos = await prepareImages(anexos, maxImgW);
+  const drawImages = (prepared: PreparedImage[], titulo: string) => {
+    const visibles = prepared.filter((p) => pdfFormat(p.mime) !== null);
+    if (!visibles.length) return;
+    if (titulo) heading(titulo, 11);
+    for (const image of visibles) {
+      if (y + image.h > pageHeight - 60) {
+        doc.addPage();
+        y = 50;
+      }
+      doc.addImage(image.dataUrl, pdfFormat(image.mime)!, margin, y, image.w, image.h);
+      y += image.h + 4;
+      doc.setTextColor(120);
+      doc.setFontSize(8);
+      doc.text(image.nombre, margin, y + 8);
+      y += 20;
+    }
+  };
+
   secciones.forEach((s, i) => {
     if (i > 0) {
       doc.addPage();
@@ -334,7 +450,15 @@ export async function downloadUseCasesPdf(requirements: RequirementView[], fileN
       });
       y = finalY() + 12;
     }
+    drawImages(preparedPorSeccion[i], 'Imágenes del caso de uso');
   });
+
+  if (preparedAnexos.length) {
+    doc.addPage();
+    y = 50;
+    heading('Anexo — Imágenes del documento original', 14);
+    drawImages(preparedAnexos, '');
+  }
 
   doc.save(`${baseName(fileName)} - Casos de Uso.pdf`);
 }

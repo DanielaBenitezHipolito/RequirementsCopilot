@@ -3,6 +3,7 @@ namespace RequirementsCopilot.Domain.Analyses;
 public sealed class Analysis
 {
     private readonly List<Requirement> _requirements = new();
+    private readonly List<StoredImage> _images = new();
 
     public Guid Id { get; }
     public string FileName { get; }
@@ -14,6 +15,9 @@ public sealed class Analysis
     /// <summary>Proyecto existente al que pertenece (contexto para los agentes); null = proyecto nuevo.</summary>
     public string? ProjectName { get; private set; }
     public IReadOnlyList<Requirement> Requirements => _requirements;
+
+    /// <summary>Imágenes del documento analizado (para la app y los exports).</summary>
+    public IReadOnlyList<StoredImage> Images => _images;
 
     private Analysis(Guid id, string fileName, DateTime createdAt, AnalysisStatus status, string? error, string? summary,
         string? projectName)
@@ -44,6 +48,13 @@ public sealed class Analysis
 
     /// <summary>Reasigna el análisis a otro proyecto (o lo deja sin proyecto con vacío/null).</summary>
     public void AssignToProject(string? projectName) => ProjectName = NormalizeProject(projectName);
+
+    /// <summary>Reemplaza las imágenes persistidas del documento analizado.</summary>
+    public void SetImages(IReadOnlyList<StoredImage> images)
+    {
+        _images.Clear();
+        _images.AddRange(images);
+    }
 
     public void Complete() => Status = AnalysisStatus.Completed;
 

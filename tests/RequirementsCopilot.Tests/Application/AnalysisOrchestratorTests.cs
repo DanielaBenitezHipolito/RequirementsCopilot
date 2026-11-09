@@ -383,6 +383,44 @@ public class AnalysisOrchestratorTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_ImagenesDelDocumento_SePersistenParaElExport()
+    {
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var orchestrator = OrchestratorWith(new ImageContentExtractor { ImageCount = 2 }, chat, repository);
+
+        await Collect(orchestrator);
+
+        Assert.Equal(2, repository.Saved!.Images.Count);
+        Assert.Equal("imagen-1", repository.Saved.Images[0].Name);
+        Assert.Equal("IMG0", repository.Saved.Images[0].Base64Data);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_ImagenEnorme_NoSePersiste()
+    {
+        // Mongo limita el documento a 16 MB: imágenes gigantes no se guardan (sí van al LLM).
+        var chat = PipelineChat();
+        var repository = new StubRepository();
+        var bigImage = new ImageAttachment("image/png", new string('A', 2_000_000));
+        var extractor = new FixedImagesExtractor(new[] { bigImage, new ImageAttachment("image/png", "CHICA") });
+        var orchestrator = OrchestratorWith(extractor, chat, repository);
+
+        await Collect(orchestrator);
+
+        var stored = Assert.Single(repository.Saved!.Images);
+        Assert.Equal("CHICA", stored.Base64Data);
+    }
+
+    private sealed class FixedImagesExtractor : IDocumentTextExtractor
+    {
+        private readonly IReadOnlyList<ImageAttachment> _images;
+        public FixedImagesExtractor(IReadOnlyList<ImageAttachment> images) => _images = images;
+        public Task<DocumentContent> ExtractAsync(Stream content, string fileName, CancellationToken ct = default)
+            => Task.FromResult(new DocumentContent("texto del documento", _images));
+    }
+
+    [Fact]
     public async Task AnalyzeAsync_SinTextoNiImagenes_EmiteErrorSinLlamarAlLlm()
     {
         var chat = PipelineChat();

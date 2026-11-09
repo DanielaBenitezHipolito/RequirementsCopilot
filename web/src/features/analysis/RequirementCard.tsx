@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { CasoDeUso, RequirementView } from '../../shared/types';
+import { dataUrlToFile, resizeImageToDataUrl } from '../../shared/lib/images';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { UseCaseEditor } from './UseCaseEditor';
 
@@ -12,6 +13,8 @@ interface Props {
   onSetStage?: (etapa: string) => Promise<void>;
   onAddReference?: (file: File) => Promise<void>;
   onRemoveReference?: (nombre: string) => Promise<void>;
+  onAddImage?: (file: File) => Promise<void>;
+  onRemoveImage?: (nombre: string) => Promise<void>;
 }
 
 const STAGES: { value: string; label: string; classes: string }[] = [
@@ -78,7 +81,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase, onSetStage, onAddReference, onRemoveReference }: Props) {
+export function RequirementCard({ requirement, onReevaluate, onGenerateUserStories, onRegenerateUseCase, onEditUseCase, onSetStage, onAddReference, onRemoveReference, onAddImage, onRemoveImage }: Props) {
   const evaluacion = requirement.evaluacion;
   // El SSE arma requerimientos parciales: nunca asumir que historias viene definida.
   const historias = requirement.historias ?? [];
@@ -88,6 +91,7 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const refInputRef = useRef<HTMLInputElement>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
 
   const pending = requirement.aclaraciones.filter((a) => !a.respuesta);
   const answered = requirement.aclaraciones.filter((a) => a.respuesta);
@@ -247,6 +251,75 @@ export function RequirementCard({ requirement, onReevaluate, onGenerateUserStori
               <p className="mt-1 text-[11px] text-slate-400">
                 Material de ejemplo del entregable (PDF modelo, correo tipo): lo usan el evaluador y los
                 redactores del caso de uso e historias.
+              </p>
+            </div>
+          )}
+
+          {(onAddImage || (requirement.imagenes?.length ?? 0) > 0) && (
+            <div>
+              <p className="mb-1 text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                Imágenes del requerimiento
+              </p>
+              <div className="flex flex-wrap items-start gap-2">
+                {(requirement.imagenes ?? []).map((imagen) => (
+                  <span key={imagen.nombre} className="relative">
+                    <img
+                      src={`data:${imagen.mimeType};base64,${imagen.base64}`}
+                      alt={imagen.nombre}
+                      title={imagen.nombre}
+                      className="h-20 max-w-36 rounded-lg border border-slate-200 object-cover"
+                    />
+                    {onRemoveImage && (
+                      <button
+                        type="button"
+                        aria-label={`Quitar imagen ${imagen.nombre}`}
+                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] text-white hover:bg-rose-600"
+                        disabled={busy}
+                        onClick={() => {
+                          if (confirm(`¿Quitar la imagen «${imagen.nombre}»?`)) void run(() => onRemoveImage(imagen.nombre));
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {onAddImage && (
+                  <>
+                    <input
+                      ref={imgInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        if (files.length) {
+                          void run(async () => {
+                            for (const file of files) {
+                              // Reducida en el navegador antes de subir (igual que en el chat).
+                              const dataUrl = await resizeImageToDataUrl(file);
+                              await onAddImage(dataUrlToFile(dataUrl, file.name));
+                            }
+                          });
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="flex h-20 w-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-xs text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                      onClick={() => imgInputRef.current?.click()}
+                    >
+                      <span className="text-base">+</span>
+                      Imagen
+                    </button>
+                  </>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Pantallas o mockups de ESTE requerimiento: salen dentro de su caso de uso en el Word/PDF.
               </p>
             </div>
           )}

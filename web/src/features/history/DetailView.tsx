@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { addRequirementReference, assignAnalysisProject, deleteRequirementReference, generateStories, generateUserStories, getAnalysis, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
+import { addRequirementImage, addRequirementReference, assignAnalysisProject, deleteRequirementImage, deleteRequirementReference, generateStories, generateUserStories, getAnalysis, reevaluateRequirement, setRequirementStage, updateUseCase } from '../../shared/api/client';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { Loading } from '../../shared/components/Loading';
 import { mapRequirement, StoriesBanner } from '../../shared/components/StoriesBanner';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
 import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
-import type { RequirementView } from '../../shared/types';
+import type { RequirementView, StoredImageView } from '../../shared/types';
 import { RequirementCard } from '../analysis/RequirementCard';
 
 const BRAND = '#1e2a5a';
@@ -13,6 +13,7 @@ const BRAND = '#1e2a5a';
 export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const [fileName, setFileName] = useState('');
   const [proyecto, setProyecto] = useState<string>();
+  const [imagenes, setImagenes] = useState<StoredImageView[]>([]);
   const [resumen, setResumen] = useState<string>();
   const [requirements, setRequirements] = useState<RequirementView[]>([]);
   const [area, setArea] = useState<string>('Todas');
@@ -25,6 +26,7 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
       .then((detail) => {
         setFileName(detail.fileName);
         setProyecto(detail.proyecto ?? undefined);
+        setImagenes(detail.imagenes ?? []);
         setResumen(detail.resumen ?? undefined);
         setRequirements(detail.requerimientos.map(mapRequirement));
       })
@@ -72,15 +74,33 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
             </div>
             {generatedUseCaseCount(requirements) > 0 && (
               <div className="flex gap-2">
-                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesDocx(requirements, fileName)}>
+                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => void downloadUseCasesDocx(requirements, fileName, imagenes)}>
                   ↓ Word
                 </BrandButton>
-                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => { void downloadUseCasesPdf(requirements, fileName).catch((e) => alert('No se pudo generar el PDF: ' + (e?.message ?? e))); }}>
+                <BrandButton variant="secondary" className="!px-4 !py-2 !text-xs" onClick={() => { void downloadUseCasesPdf(requirements, fileName, imagenes).catch((e) => alert('No se pudo generar el PDF: ' + (e?.message ?? e))); }}>
                   ↓ PDF
                 </BrandButton>
               </div>
             )}
           </div>
+          {imagenes.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
+                Imágenes del documento ({imagenes.length}) — van como anexo en el Word/PDF
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {imagenes.map((imagen) => (
+                  <img
+                    key={imagen.nombre}
+                    src={`data:${imagen.mimeType};base64,${imagen.base64}`}
+                    alt={imagen.nombre}
+                    title={imagen.nombre}
+                    className="h-24 max-w-44 rounded-lg border border-slate-200 object-cover"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {resumen && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
@@ -122,6 +142,11 @@ export function DetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 onRemoveReference={async (nombre) => {
                   await deleteRequirementReference(id, r.codigo, nombre);
                   replace({ ...r, referencias: (r.referencias ?? []).filter((d) => d.nombre !== nombre) });
+                }}
+                onAddImage={async (file) => replace(await addRequirementImage(id, r.codigo, file))}
+                onRemoveImage={async (nombre) => {
+                  await deleteRequirementImage(id, r.codigo, nombre);
+                  replace({ ...r, imagenes: (r.imagenes ?? []).filter((d) => d.nombre !== nombre) });
                 }}
               />
             ))}

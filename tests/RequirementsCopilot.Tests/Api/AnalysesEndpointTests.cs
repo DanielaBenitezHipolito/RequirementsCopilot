@@ -366,6 +366,60 @@ public class AnalysesEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(1, payload.GetProperty("imagenes").GetInt32());
     }
 
+    private const string OnePixelPng =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    [Fact]
+    public async Task Post_ImagenSuelta_QuedaPersistidaEnElDetalle()
+    {
+        var client = _factory.CreateClient();
+        var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(Convert.FromBase64String(OnePixelPng)), "file", "mockup.png");
+        var response = await client.PostAsync("/api/analyses", form);
+        string analysisId = AnalysisIdFrom(await response.Content.ReadAsStringAsync());
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var imagen = Assert.Single(detail.GetProperty("imagenes").EnumerateArray().ToArray());
+        Assert.Equal("image/png", imagen.GetProperty("mimeType").GetString());
+        Assert.False(string.IsNullOrEmpty(imagen.GetProperty("base64").GetString()));
+    }
+
+    [Fact]
+    public async Task RequirementImages_AdjuntarYEliminar()
+    {
+        var client = _factory.CreateClient();
+        var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await post.Content.ReadAsStringAsync());
+
+        var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(Convert.FromBase64String(OnePixelPng)), "file", "pantalla.png");
+        var attach = await client.PostAsync($"/api/analyses/{analysisId}/requirements/REQ-001/images", form);
+        Assert.Equal(HttpStatusCode.OK, attach.StatusCode);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/analyses/{analysisId}");
+        var req = detail.GetProperty("requerimientos").EnumerateArray()
+            .First(r => r.GetProperty("codigo").GetString() == "REQ-001");
+        var imagen = Assert.Single(req.GetProperty("imagenes").EnumerateArray().ToArray());
+        Assert.Equal("pantalla.png", imagen.GetProperty("nombre").GetString());
+
+        var delete = await client.DeleteAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/images/pantalla.png");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/images/pantalla.png")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RequirementImages_FormatoNoImagen_Devuelve400()
+    {
+        var client = _factory.CreateClient();
+        var post = await client.PostAsync("/api/analyses", File("spec.txt", "doc"));
+        string analysisId = AnalysisIdFrom(await post.Content.ReadAsStringAsync());
+        var attach = await client.PostAsync(
+            $"/api/analyses/{analysisId}/requirements/REQ-001/images", File("doc.pdf", "pdf"));
+        Assert.Equal(HttpStatusCode.BadRequest, attach.StatusCode);
+    }
+
     [Fact]
     public async Task Post_ExtensionInvalida_Devuelve400ConMensaje()
     {

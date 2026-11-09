@@ -16,12 +16,14 @@ export interface UserStory {
   criteriosAceptacion: string[]; puntos: number; dependencias: string[];
 }
 export interface RequirementReferenceView { nombre: string; caracteres: number }
+export interface StoredImageView { nombre: string; mimeType: string; base64: string }
 export interface RequirementView {
   codigo: string; texto: string; area: string; evaluacion?: Evaluacion;
   aclaraciones: Aclaracion[]; listoParaHistorias?: boolean; caso?: CasoDeUso; historias: UserStory[];
   etapa?: string;
   solapamiento?: string;
   referencias?: RequirementReferenceView[];
+  imagenes?: StoredImageView[];
 }
 export interface AnalysisSummary {
   id: string; fileName: string; createdAt: string; status: string;

@@ -6,6 +6,7 @@ public sealed class Requirement
     private readonly List<Clarification> _clarifications = new();
     private readonly List<UserStory> _userStories = new();
     private readonly List<RequirementReference> _references = new();
+    private readonly List<StoredImage> _images = new();
 
     /// <summary>Código secuencial del requerimiento (ej. REQ-001).</summary>
     public string Code { get; }
@@ -36,6 +37,9 @@ public sealed class Requirement
 
     /// <summary>Documentos de referencia del entregable esperado (solo lectura).</summary>
     public IReadOnlyList<RequirementReference> References => _references;
+
+    /// <summary>Imágenes adjuntadas a mano a este requerimiento (pantallas, mockups) para el export.</summary>
+    public IReadOnlyList<StoredImage> Images => _images;
 
     /// <summary>Aprobado directo, o con todas sus preguntas de clarificación respondidas.</summary>
     public bool ReadyForStories => Evaluation is not null &&
@@ -89,6 +93,21 @@ public sealed class Requirement
     /// <summary>Quita un documento de referencia por nombre; false si no existe.</summary>
     public bool RemoveReference(string name)
         => _references.RemoveAll(r => string.Equals(r.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) > 0;
+
+    /// <summary>Adjunta (o reemplaza por nombre) una imagen del requerimiento.</summary>
+    public void AddImage(string name, string mimeType, string base64Data)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(base64Data))
+        {
+            throw new ArgumentException("La imagen requiere nombre y contenido.", nameof(name));
+        }
+        _images.RemoveAll(i => string.Equals(i.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+        _images.Add(new StoredImage(name.Trim(), mimeType, base64Data));
+    }
+
+    /// <summary>Quita una imagen por nombre; false si no existe.</summary>
+    public bool RemoveImage(string name)
+        => _images.RemoveAll(i => string.Equals(i.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) > 0;
 
     /// <summary>Asigna el caso de uso generado para este requerimiento.</summary>
     public void SetUseCase(UseCase useCase) => UseCase = useCase;

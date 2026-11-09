@@ -176,6 +176,60 @@ public sealed class AnalysesController : ControllerBase
         return await ExecuteAsync(() => _orchestrator.AddReferenceAsync(id, code, file.FileName, texto, cancellationToken));
     }
 
+    /// <summary>
+    /// Adjunta una imagen (pantalla/mockup) a un requerimiento: se muestra en la tarjeta y se
+    /// incrusta en el Word/PDF exportado dentro de su caso de uso.
+    /// </summary>
+    [HttpPost("{id:guid}/requirements/{code}/images")]
+    [RequestSizeLimit(4 * 1024 * 1024)]
+    public async Task<IActionResult> AddRequirementImage(Guid id, string code, IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { mensaje = "Debe adjuntar una imagen." });
+        }
+        string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        string? mimeType = extension switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => null,
+        };
+        if (mimeType is null)
+        {
+            return BadRequest(new { mensaje = $"Formato no soportado: {extension}. Use PNG, JPG, WEBP o GIF." });
+        }
+        if (file.Length > 2 * 1024 * 1024)
+        {
+            return BadRequest(new { mensaje = "La imagen supera el máximo de 2 MB (la app la reduce antes de subirla)." });
+        }
+
+        using var buffer = new MemoryStream();
+        await file.OpenReadStream().CopyToAsync(buffer, cancellationToken);
+        string base64 = Convert.ToBase64String(buffer.ToArray());
+        return await ExecuteAsync(() =>
+            _orchestrator.AddRequirementImageAsync(id, code, file.FileName, mimeType, base64, cancellationToken));
+    }
+
+    /// <summary>Quita una imagen adjunta de un requerimiento.</summary>
+    [HttpDelete("{id:guid}/requirements/{code}/images/{nombre}")]
+    public async Task<IActionResult> RemoveRequirementImage(Guid id, string code, string nombre,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _orchestrator.RemoveRequirementImageAsync(id, code, nombre, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { mensaje = ex.Message });
+        }
+    }
+
     /// <summary>Quita un documento de referencia del requerimiento.</summary>
     [HttpDelete("{id:guid}/requirements/{code}/references/{documento}")]
     public async Task<IActionResult> RemoveReference(Guid id, string code, string documento,
