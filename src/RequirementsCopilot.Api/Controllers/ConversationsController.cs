@@ -19,8 +19,14 @@ namespace RequirementsCopilot.Api.Controllers;
 [Route("api/conversations")]
 public sealed class ConversationsController : ControllerBase
 {
+    /// <summary>Documento adjunto al mensaje (texto ya extraído por /api/documents/extract).</summary>
+    public sealed record AttachedDocument(string? Nombre, string? Texto);
+
     public sealed record MessageRequest(string? Mensaje, string? PreviousResponseId, Guid? ConversationId,
-        string? Proyecto, List<string>? Imagenes = null);
+        string? Proyecto, List<string>? Imagenes = null, AttachedDocument? Documento = null);
+
+    /// <summary>Tope de caracteres del documento adjunto que viaja al entrevistador (control de costos).</summary>
+    private const int MaxDocumentChars = 60_000;
 
     /// <summary>Tope de imágenes por mensaje (control de costos y de tamaño del payload).</summary>
     private const int MaxImagesPerMessage = 10;
@@ -72,14 +78,37 @@ public sealed class ConversationsController : ControllerBase
             ? "(Analiza la imagen adjunta.)"
             : request.Mensaje!;
 
+        // Documento adjunto: su texto completo viaja al agente, pero el historial guarda solo el marcador.
+        string agentMessage = userMessage;
+        bool hasDocument = !string.IsNullOrWhiteSpace(request.Documento?.Texto);
+        if (hasDocument)
+        {
+            string texto = request.Documento!.Texto!;
+            if (texto.Length > MaxDocumentChars)
+            {
+                texto = texto[..MaxDocumentChars];
+            }
+            string nombre = string.IsNullOrWhiteSpace(request.Documento.Nombre) ? "documento" : request.Documento.Nombre!;
+            agentMessage =
+                $"DOCUMENTO ADJUNTO «{nombre}» (léelo COMPLETO como contexto de un solo requerimiento; " +
+                $"no lo fragmentes):\n{texto}\n\nMENSAJE DEL USUARIO:\n{userMessage}";
+        }
+
         ConversationRecord? conversation = request.ConversationId is Guid id
             ? await _conversations.GetByIdAsync(id, cancellationToken)
             : null;
         conversation ??= ConversationRecord.Create(request.Proyecto);
-        // El historial persiste solo texto; la imagen queda referenciada con un marcador.
-        conversation.Append("user", hasImages
-            ? $"{userMessage} [+{images!.Count} imagen(es)]"
-            : userMessage);
+        // El historial persiste solo texto; imagen y documento quedan referenciados con marcadores.
+        string historyMessage = userMessage;
+        if (hasDocument)
+        {
+            historyMessage += $" [documento: {request.Documento!.Nombre ?? "adjunto"}]";
+        }
+        if (hasImages)
+        {
+            historyMessage += $" [+{images!.Count} imagen(es)]";
+        }
+        conversation.Append("user", historyMessage);
 
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -90,7 +119,7 @@ public sealed class ConversationsController : ControllerBase
             string projectContext = request.PreviousResponseId is null
                 ? await _projectContext.LoadAsync(conversation.ProjectName, cancellationToken)
                 : string.Empty;
-            BuilderTurn turn = await _builder.ChatAsync(userMessage, request.PreviousResponseId, projectContext, images, cancellationToken);
+            BuilderTurn turn = await _builder.ChatAsync(agentMessage, request.PreviousResponseId, projectContext, images, cancellationToken);
 
             conversation.Append("agent", turn.Mensaje);
             conversation.SetLastResponseId(turn.ResponseId);

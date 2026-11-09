@@ -19,8 +19,10 @@ public sealed class RequirementExtractorAgent
         // El agente publicado en Foundry recibe el aviso de los adjuntos en el texto: sin él,
         // un documento escaneado (texto vacío) parecería no traer nada que extraer.
         string input = images is { Count: > 0 }
-            ? $"Documento:\n{documentText}\n\nSe adjuntan {images.Count} imagen(es) del documento " +
-              "(capturas, mockups o diagramas): extrae también los requerimientos que se desprendan de ellas."
+            ? $"Documento:\n{documentText}\n\nSe adjuntan {images.Count} imagen(es) que forman parte del MISMO " +
+              "documento (pantallas, mockups o diagramas que ilustran su contenido). Léelas como complemento del " +
+              "texto y respeta la REGLA CENTRAL de unidades completas: si el documento describe un único caso de " +
+              "uso, las imágenes son pasos o pantallas de ESE caso de uso — NUNCA crees un requerimiento por imagen."
             : $"Documento:\n{documentText}";
         string json = await _chat.CompleteJsonAsync(
             new ChatPrompt(AgentName, input, Images: images), cancellationToken)

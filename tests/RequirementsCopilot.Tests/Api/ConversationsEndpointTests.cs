@@ -91,6 +91,26 @@ public class ConversationsEndpointTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
+    public async Task SendMessage_ConDocumentoAdjunto_RespondeYMarcaElHistorial()
+    {
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/conversations/messages", new
+        {
+            mensaje = "Este es el caso de uso completo, léelo",
+            documento = new { nombre = "caso-completo.docx", texto = "OBJETIVO: registrar pagos. FLUJO: pasos." },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        string body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("event: token", body);
+        Guid conversationId = ConversationIdFrom(body);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/conversations/{conversationId}");
+        string primerMensaje = detail.GetProperty("messages")[0].GetProperty("text").GetString()!;
+        Assert.Contains("caso-completo.docx", primerMensaje);
+        Assert.DoesNotContain("OBJETIVO: registrar pagos", primerMensaje); // el texto completo no ensucia el historial
+    }
+
+    [Fact]
     public async Task SendMessage_ImagenInvalida_Devuelve400()
     {
         var client = _factory.CreateClient();

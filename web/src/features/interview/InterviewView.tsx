@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { completeConversation, getConversation, getConversations, sendConversationMessage } from '../../shared/api/client';
+import {
+  completeConversation,
+  extractDocumentText,
+  getConversation,
+  getConversations,
+  sendConversationMessage,
+  type AttachedDoc,
+} from '../../shared/api/client';
+import { resizeImageToDataUrl } from '../../shared/lib/images';
 import { parseSse } from '../../shared/api/sse';
 import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
@@ -49,20 +57,14 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 /** Tope combinado del mensaje: en base64 crece ~33% y el proveedor limita el tamaño del request. */
 const MAX_TOTAL_IMAGE_BYTES = 20 * 1024 * 1024;
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
-    reader.readAsDataURL(file);
-  });
-}
+const DOC_EXTENSIONS = /\.(pdf|docx|txt|md)$/i;
 
 export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string) => void }) {
   const { messages, draft, previousResponseId, conversationId, proyecto, status, error, setProyecto, addUserMessage, applyEvent, hydrate, reset } =
     useInterviewStore();
   const [text, setText] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [doc, setDoc] = useState<AttachedDoc>();
   const [imageError, setImageError] = useState<string>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [approving, setApproving] = useState(false);
@@ -89,22 +91,38 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   async function attachFiles(files: Iterable<File>) {
     setImageError(undefined);
     for (const file of files) {
+      // Documento (pdf/docx/txt/md): se extrae el texto y viaja como contexto completo del mensaje.
+      if (DOC_EXTENSIONS.test(file.name)) {
+        try {
+          const { texto } = await extractDocumentText(file);
+          if (!texto.trim()) {
+            setImageError('El documento no contiene texto legible.');
+            continue;
+          }
+          setDoc({ nombre: file.name, texto });
+        } catch (e) {
+          setImageError(e instanceof Error ? e.message : 'No se pudo leer el documento.');
+        }
+        continue;
+      }
       if (!file.type.startsWith('image/')) continue;
       if (images.length >= MAX_CHAT_IMAGES) {
         setImageError(`Máximo ${MAX_CHAT_IMAGES} imágenes por mensaje.`);
         return;
       }
-      if (file.size > MAX_IMAGE_BYTES) {
-        setImageError('Cada imagen debe pesar máximo 5 MB.');
-        return;
-      }
-      const totalBytes = images.reduce((sum, dataUrl) => sum + dataUrl.length * 0.75, 0);
-      if (totalBytes + file.size > MAX_TOTAL_IMAGE_BYTES) {
-        setImageError('Las imágenes del mensaje suman más de 20 MB: quite alguna o use archivos más livianos.');
-        return;
-      }
       try {
-        const dataUrl = await readAsDataUrl(file);
+        // Redimensionada en el navegador: menos tokens de visión por imagen, mismo contenido.
+        const dataUrl = await resizeImageToDataUrl(file);
+        const bytes = dataUrl.length * 0.75;
+        if (bytes > MAX_IMAGE_BYTES) {
+          setImageError('Cada imagen debe pesar máximo 5 MB (ya reducida).');
+          return;
+        }
+        const totalBytes = images.reduce((sum, d) => sum + d.length * 0.75, 0);
+        if (totalBytes + bytes > MAX_TOTAL_IMAGE_BYTES) {
+          setImageError('Las imágenes del mensaje suman más de 20 MB: quite alguna.');
+          return;
+        }
         setImages((prev) => (prev.length < MAX_CHAT_IMAGES ? [...prev, dataUrl] : prev));
       } catch (e) {
         setImageError(e instanceof Error ? e.message : 'No se pudo leer la imagen.');
@@ -115,13 +133,19 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
   async function send() {
     const mensaje = text.trim();
     const adjuntas = images;
-    if ((!mensaje && adjuntas.length === 0) || status === 'sending') return;
+    const adjuntoDoc = doc;
+    if ((!mensaje && adjuntas.length === 0 && !adjuntoDoc) || status === 'sending') return;
     setText('');
     setImages([]);
+    setDoc(undefined);
     setImageError(undefined);
-    addUserMessage(mensaje || '(imagen adjunta)', adjuntas.length > 0 ? adjuntas : undefined);
+    const shown = adjuntoDoc
+      ? `${mensaje || '(documento adjunto)'} [documento: ${adjuntoDoc.nombre}]`
+      : mensaje || '(imagen adjunta)';
+    addUserMessage(shown, adjuntas.length > 0 ? adjuntas : undefined);
     try {
-      const response = await sendConversationMessage(mensaje, previousResponseId, conversationId, proyecto, adjuntas);
+      const response = await sendConversationMessage(
+        mensaje || '(Lee el documento adjunto.)', previousResponseId, conversationId, proyecto, adjuntas, adjuntoDoc);
       for await (const evt of parseSse(response.body!)) applyEvent(evt);
       loadConversations();
     } catch (e) {
@@ -323,6 +347,22 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
 
         <div className="shrink-0 border-t border-slate-100 p-4">
           {imageError && <p className="mb-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{imageError}</p>}
+          {doc && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                📄 <span className="font-semibold">{doc.nombre}</span>
+                <span className="text-slate-400">· {doc.texto.length.toLocaleString('es-CO')} caracteres</span>
+                <button
+                  type="button"
+                  aria-label="Quitar documento"
+                  className="ml-0.5 text-slate-400 hover:text-rose-500"
+                  onClick={() => setDoc(undefined)}
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          )}
           {images.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
               {images.map((src, i) => (
@@ -344,7 +384,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif,.pdf,.docx,.txt,.md"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -355,7 +395,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             <button
               type="button"
               aria-label="Adjuntar imagen"
-              title="Adjuntar imagen (o pegue una captura con Ctrl+V)"
+              title="Adjuntar imágenes o un documento (PDF/Word) — o pegue una captura con Ctrl+V"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -379,7 +419,7 @@ export function InterviewView({ onAnalyzed }: { onAnalyzed?: (analysisId: string
             />
             <BrandButton
               className="!h-10 !w-10 !rounded-full !p-0"
-              disabled={!text.trim() && images.length === 0}
+              disabled={!text.trim() && images.length === 0 && !doc}
               loading={status === 'sending'}
               loadingText=""
               onClick={() => void send()}

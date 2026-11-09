@@ -8,7 +8,7 @@ con su condición de disparo).
 | Deuda | Disparo para pagarla |
 | --- | --- |
 | Las imágenes del chat **no se persisten** en el historial de conversaciones (solo el marcador `[+N imagen(es)]`): al reabrir una conversación no se ven las capturas. | Cuando reabrir conversaciones con contexto visual sea un caso de uso real (requiere almacenamiento de blobs, p. ej. GridFS/Blob Storage). |
-| **Sin redimensionado/recompresión** de imágenes antes de enviarlas al LLM: una foto de 5 MB viaja completa en base64. | Si los costos de visión o los límites de payload de Foundry se vuelven un problema. |
+| Redimensionado de imágenes implementado en el navegador (chat e imagen suelta, máx 1280px). Las imágenes **embebidas en docx/pdf** siguen viajando en tamaño original (reducirlas en backend requiere una librería de imagen — ImageSharp/SkiaSharp — y su ADR). | Si el costo de visión de documentos con capturas grandes se vuelve un problema. |
 | Imágenes en **headers/footers de DOCX** se ignoran (solo se extraen las del cuerpo principal). | Si llegan documentos reales con mockups en encabezados. |
 | En PDF, los códecs de imagen que no son PNG/JPEG (JBIG2, CCITT…) **se omiten en silencio**. | Si usuarios reportan imágenes faltantes en el análisis de un PDF. |
 | Sin **OCR de respaldo**: un PDF escaneado depende de que la visión del modelo lea el escaneo; no hay extracción de texto local. | Si la calidad de lectura de escaneos por visión resulta insuficiente. |

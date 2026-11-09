@@ -180,12 +180,15 @@ export async function reevaluateRequirement(id: string, codigo: string, respuest
   return readOrThrow(response);
 }
 
+export interface AttachedDoc { nombre: string; texto: string }
+
 export async function sendConversationMessage(
   mensaje: string,
   previousResponseId?: string,
   conversationId?: string,
   proyecto?: string,
   imagenes?: string[],
+  documento?: AttachedDoc,
 ): Promise<Response> {
   const response = await apiFetch(`${API_BASE}/api/conversations/messages`, {
     method: 'POST',
@@ -196,6 +199,7 @@ export async function sendConversationMessage(
       conversationId: conversationId ?? null,
       proyecto: proyecto ?? null,
       imagenes: imagenes && imagenes.length > 0 ? imagenes : null,
+      documento: documento ?? null,
     }),
   });
   if (!response.ok) {

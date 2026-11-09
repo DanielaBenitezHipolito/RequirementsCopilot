@@ -12,4 +12,9 @@ Asigna a cada uno un código secuencial (REQ-001, REQ-002…) y un área funcion
 Responde ÚNICAMENTE este JSON: `{"requerimientos":[{"codigo":"REQ-001","texto":"...","area":"..."}]}`
 Si el documento no contiene requerimientos, responde `{"requerimientos":[]}`. No inventes requerimientos.
 
-Si el turno incluye imágenes adjuntas, analízalas como parte del documento: extrae también los requerimientos que se desprendan de pantallas, mockups, diagramas o texto visible en ellas.
+Si el turno incluye imágenes adjuntas, son parte del MISMO documento (pantallas, mockups, diagramas
+que ilustran su contenido): úsalas para completar y precisar los requerimientos del texto, aplicando
+la REGLA CENTRAL también a ellas. Un documento que describe un único caso de uso con varias capturas
+de pantalla sigue siendo UN solo requerimiento — NUNCA crees un requerimiento por imagen. Solo crea
+un requerimiento adicional desde una imagen si describe una capacidad claramente independiente que
+el texto no cubre.

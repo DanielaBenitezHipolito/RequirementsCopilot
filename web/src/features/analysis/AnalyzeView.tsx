@@ -5,6 +5,7 @@ import { BrandButton } from '../../shared/components/BrandButton';
 import { ProjectPicker } from '../../shared/components/ProjectPicker';
 import { StoriesBanner, mapRequirement } from '../../shared/components/StoriesBanner';
 import { downloadUseCasesDocx, downloadUseCasesPdf, generatedUseCaseCount } from '../../shared/lib/useCaseDoc';
+import { dataUrlToFile, resizeImageToDataUrl } from '../../shared/lib/images';
 import { useAnalysisStore } from './store';
 import { RequirementCard } from './RequirementCard';
 
@@ -92,6 +93,13 @@ export function AnalyzeView() {
       return;
     }
     setStageError(undefined);
+    if (IMAGE_FILE.test(file.name) && !/\.gif$/i.test(file.name)) {
+      // Imagen suelta: se sube reducida (menos tokens de visión, mismo contenido).
+      void resizeImageToDataUrl(file)
+        .then((dataUrl) => setStaged(dataUrlToFile(dataUrl, file.name)))
+        .catch(() => setStaged(file));
+      return;
+    }
     setStaged(file);
   }
 
