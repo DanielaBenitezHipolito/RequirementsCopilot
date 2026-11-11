@@ -326,6 +326,48 @@ export async function downloadUseCasesDocx(
 
 // ---------- PDF ----------
 
+// Las fuentes estándar de jsPDF solo cubren WinAnsi: un carácter sin glifo (flechas, emojis)
+// descompone el interletrado y desborda las celdas. Se mapean los comunes y se limpia el resto.
+const PDF_CHAR_MAP: Record<string, string> = {
+  '→': '->', '←': '<-', '↔': '<->', '⇒': '=>', '⇐': '<=',
+  '≥': '>=', '≤': '<=', '≠': '!=', '✓': '[ok]', '✔': '[ok]',
+  '✗': '[x]', '✖': '[x]', '●': '•', '▪': '•', '‣': '•',
+  ' ': ' ',
+};
+// Fuera de Latin-1, WinAnsi solo mapea estos (comillas tipográficas, guiones, bullet, etc.).
+const PDF_EXTRA_OK = '€‘’“”•–—…‰‹›ˆ˜ŠšŽžŒœŸƒ†‡‚„™';
+
+function pdfSafe(text: string): string {
+  let out = text;
+  for (const [from, to] of Object.entries(PDF_CHAR_MAP)) {
+    out = out.split(from).join(to);
+  }
+  return out.replace(new RegExp(`[^\x00-\xFF${PDF_EXTRA_OK}]`, 'g'), '?');
+}
+
+/** Sanitiza una sección completa para el PDF (el .docx soporta Unicode y no lo necesita). */
+function pdfSafeSeccion(s: Seccion): Seccion {
+  return {
+    ...s,
+    titulo: pdfSafe(s.titulo),
+    meta1: s.meta1.map(([a, b]) => [pdfSafe(a), pdfSafe(b)] as [string, string]),
+    meta2: s.meta2.map(([a, b]) => [pdfSafe(a), pdfSafe(b)] as [string, string]),
+    flujos: s.flujos.map((f) => ({
+      titulo: pdfSafe(f.titulo),
+      filas: f.filas.map(([n, a, r]) => [pdfSafe(n), pdfSafe(a), pdfSafe(r)] as [string, string, string]),
+    })),
+    historias: s.historias.map((h) => ({
+      ...h,
+      titulo: pdfSafe(h.titulo),
+      como: pdfSafe(h.como),
+      quiero: pdfSafe(h.quiero),
+      para: pdfSafe(h.para),
+      criteriosAceptacion: h.criteriosAceptacion.map(pdfSafe),
+      dependencias: h.dependencias.map(pdfSafe),
+    })),
+  };
+}
+
 /** Descarga un PDF con todos los casos de uso (tablas auto-paginadas y las imágenes persistidas). */
 export async function downloadUseCasesPdf(
   requirements: RequirementView[],
@@ -335,7 +377,7 @@ export async function downloadUseCasesPdf(
   const { jsPDF } = await import('jspdf');
   // Importar por efecto secundario: engancha el método autoTable al prototipo de jsPDF.
   await import('jspdf-autotable');
-  const secciones = toSections(requirements);
+  const secciones = toSections(requirements).map(pdfSafeSeccion);
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const docAny = doc as unknown as { autoTable?: (o: Record<string, unknown>) => void; lastAutoTable: { finalY: number } };
   if (typeof docAny.autoTable !== 'function') {
@@ -354,7 +396,7 @@ export async function downloadUseCasesPdf(
   doc.setTextColor(90);
   doc.setFontSize(10);
   const origen = doc.splitTextToSize(
-    `Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`, pageWidth - 80);
+    pdfSafe(`Documento origen: ${fileName}  |  Casos de uso: ${secciones.length}`), pageWidth - 80);
   doc.text(origen, margin, 68);
 
   let y = 68 + origen.length * 12 + 10;
