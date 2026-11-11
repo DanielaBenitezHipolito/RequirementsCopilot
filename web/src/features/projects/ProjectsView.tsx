@@ -111,7 +111,8 @@ export function ProjectsView() {
   const [useCaseCount, setUseCaseCount] = useState(0);
   const [examples, setExamples] = useState<ProjectExample[]>([]);
   const [asExample, setAsExample] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<'preview' | 'edit' | 'cases'>('preview');
+  const [useCases, setUseCases] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -141,7 +142,11 @@ export function ProjectsView() {
       setUseCaseCount(detail.casosDeUso ?? 0);
       setExamples(detail.ejemplos ?? []);
       // Sin contenido no hay nada que previsualizar: se abre directo en edición.
-      setEditing(detail.contenido.trim() === '');
+      setMode(detail.contenido.trim() === '' ? 'edit' : 'preview');
+      // La memoria del proyecto, visible: los casos de uso aprobados que ya alimentan su contexto.
+      getProjectUseCases(nombre)
+        .then(setUseCases)
+        .catch(() => setUseCases([]));
       setError(undefined);
     } catch (e) {
       setError(message(e, 'No se pudo abrir el proyecto.'));
@@ -437,31 +442,36 @@ export function ProjectsView() {
                 </div>
               </div>
             )}
-            <div className="flex shrink-0 gap-1 border-b border-slate-100 px-4 py-2">
-              {([['preview', 'Vista previa'], ['edit', 'Editar']] as const).map(([mode, label]) => {
-                const active = (mode === 'edit') === editing;
+            <div className="flex shrink-0 flex-wrap gap-1 border-b border-slate-100 px-4 py-2">
+              {([
+                ['preview', 'Vista previa'],
+                ['edit', 'Editar'],
+                ['cases', `Casos de uso (${useCases.length})`],
+              ] as const).map(([target, label]) => {
+                const active = mode === target;
                 return (
                   <button
-                    key={mode}
+                    key={target}
                     type="button"
                     className={`rounded-full px-3 py-1 text-[11px] font-bold tracking-wide uppercase transition-colors ${
                       active ? 'text-white' : 'text-slate-500 hover:bg-slate-100'
                     }`}
                     style={active ? { backgroundColor: BRAND } : undefined}
-                    onClick={() => setEditing(mode === 'edit')}
+                    onClick={() => setMode(target)}
                   >
                     {label}
                   </button>
                 );
               })}
             </div>
-            {editing ? (
+            {mode === 'edit' && (
               <textarea
                 className="min-h-[24rem] flex-1 resize-none p-4 font-mono text-sm text-slate-700 focus:outline-none"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
               />
-            ) : (
+            )}
+            {mode === 'preview' && (
               <div className="min-h-[24rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-5 break-words">
                 {content.trim() === '' ? (
                   <p className="text-sm text-slate-400">
@@ -469,6 +479,51 @@ export function ProjectsView() {
                   </p>
                 ) : (
                   <MarkdownPreview text={content} />
+                )}
+              </div>
+            )}
+            {mode === 'cases' && (
+              <div className="min-h-[24rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-5">
+                {useCases.length === 0 ? (
+                  <p className="text-sm text-slate-400">
+                    Todavía no hay casos de uso en este proyecto. Cada caso de uso que genere en un análisis
+                    de este proyecto aparecerá aquí y se sumará automáticamente al contexto de los siguientes.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-400">
+                      Estos casos de uso ya alimentan el contexto del proyecto: los análisis nuevos los conocen
+                      (no duplicar, actores consistentes) y salen en el Word/PDF consolidado.
+                    </p>
+                    {useCases.map((r: any) => (
+                      <div
+                        key={`${r.codigo}-${r.caso?.nombre}`}
+                        className="rounded-xl border border-slate-200 p-4"
+                        style={{ borderLeft: `4px solid ${r.evaluacion?.pasa === false ? '#f43f5e' : '#10b981'}` }}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold tracking-wide"
+                            style={{ color: BRAND }}
+                          >
+                            {r.codigo}
+                          </span>
+                          <p className="text-sm font-black tracking-tight text-slate-900">{r.caso?.nombre}</p>
+                          {r.etapa && (
+                            <span className="ml-auto rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-600 uppercase">
+                              {r.etapa === 'Draft' ? 'Borrador' : r.etapa === 'Approved' ? 'Aprobado' : r.etapa === 'InDevelopment' ? 'En desarrollo' : 'Implementado'}
+                            </span>
+                          )}
+                        </div>
+                        {r.caso?.objetivo && <p className="mt-1.5 text-sm text-slate-600">{r.caso.objetivo}</p>}
+                        {(r.caso?.actores?.length ?? 0) > 0 && (
+                          <p className="mt-1 text-xs text-slate-400">
+                            Actores: {r.caso.actores.map((a: any) => a.nombre).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
